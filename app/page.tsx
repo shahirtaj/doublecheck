@@ -784,18 +784,19 @@ export default function GeneratePage() {
                 <select
                   id="lookback-override"
                   className="bg-slate-800 text-slate-200 border border-slate-600 rounded px-1.5 py-0.5 text-[11px] font-mono outline-none focus:border-slate-500"
-                  value={lookbackOverride ?? ""}
+                  value={Math.min(
+                    lookbackOverride ?? recommendedLookbackTotal,
+                    history.length,
+                  )}
                   onChange={(e) => {
-                    const v = e.target.value;
-                    const next = v === "" ? null : parseInt(v, 10);
+                    const next = parseInt(e.target.value, 10);
                     setLookbackOverride(next);
                     saveToStorage({ lookbackOverride: next });
                   }}
                 >
-                  <option value="">Recommended ({recommendedLookbackTotal})</option>
                   {Array.from({ length: history.length }, (_, i) => i + 1).map((n) => (
                     <option key={n} value={n}>
-                      {n}
+                      {n === recommendedLookbackTotal ? `${n} (recommended)` : n}
                     </option>
                   ))}
                 </select>
