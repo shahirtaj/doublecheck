@@ -68,106 +68,7 @@ type ImportPreview = {
 
 type ImportStatus = "" | "loading" | "ready" | "error";
 
-type ParseResult =
-  | {
-      success: true;
-      rawPairs: [string, string][];
-      uniqueNames: string[];
-      nameToIndex: Record<string, number>;
-      unmapped: string[];
-    }
-  | { success: false; error: string };
-
 type Step = "teams" | "doubles" | "schedule";
-
-// ── Schedule paste parser ─────────────────────────────────
-
-function parseScheduleText(text: string, teamNames: string[]): ParseResult {
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-  const rawPairs: [string, string][] = [];
-  const seps = [" vs. ", " vs ", " @ ", " at ", " - ", " v "];
-
-  for (const line of lines) {
-    if (/^(week|round|wk)\s*\d+/i.test(line)) continue;
-    if (/^-+$/.test(line)) continue;
-
-    let matched = false;
-    for (const sep of seps) {
-      const idx = line.toLowerCase().indexOf(sep.toLowerCase());
-      if (idx !== -1) {
-        let a = line.slice(0, idx).trim();
-        let b = line.slice(idx + sep.length).trim();
-        a = a
-          .replace(/\s+\d+(\.\d+)?$/, "")
-          .replace(/\s*\(.*?\)\s*$/, "")
-          .trim();
-        b = b
-          .replace(/^\d+(\.\d+)?\s+/, "")
-          .replace(/\s+\d+(\.\d+)?$/, "")
-          .replace(/\s*\(.*?\)\s*$/, "")
-          .trim();
-        if (a && b) {
-          rawPairs.push([a, b]);
-          matched = true;
-        }
-        break;
-      }
-    }
-
-    if (!matched && line.includes("\t")) {
-      const parts = line.split("\t").map((s) => s.trim()).filter(Boolean);
-      if (parts.length >= 2) {
-        rawPairs.push([
-          parts[0]!.replace(/\s+\d+(\.\d+)?$/, "").trim(),
-          parts[1]!.replace(/\s+\d+(\.\d+)?$/, "").trim(),
-        ]);
-      }
-    }
-  }
-
-  if (rawPairs.length === 0) {
-    return {
-      success: false,
-      error: "No matchups found. Use a format like 'Team A vs Team B', one per line.",
-    };
-  }
-
-  const uniqueNames = [...new Set(rawPairs.flat())];
-  const nameToIndex: Record<string, number> = {};
-  const unmapped: string[] = [];
-
-  for (const name of uniqueNames) {
-    let idx = teamNames.findIndex((t) => t.toLowerCase() === name.toLowerCase());
-    if (idx === -1) {
-      idx = teamNames.findIndex(
-        (t) =>
-          t.length >= 3 &&
-          (name.toLowerCase().includes(t.toLowerCase()) ||
-            t.toLowerCase().includes(name.toLowerCase())),
-      );
-    }
-    if (idx !== -1 && !Object.values(nameToIndex).includes(idx)) {
-      nameToIndex[name] = idx;
-    } else if (idx === -1) {
-      unmapped.push(name);
-    }
-  }
-
-  return { success: true, rawPairs, uniqueNames, nameToIndex, unmapped };
-}
-
-function detectDoublesFromPairs(indexedPairs: [number, number][]): Set<PairKey> {
-  const counts: Record<PairKey, number> = {};
-  indexedPairs.forEach(([a, b]) => {
-    const k = pairKey(a, b);
-    counts[k] = (counts[k] || 0) + 1;
-  });
-  return new Set(
-    Object.entries(counts)
-      .filter(([, v]) => v > 1)
-      .map(([k]) => k),
-  );
-}
 
 // ── Component ─────────────────────────────────────────────
 
@@ -195,9 +96,6 @@ export default function GeneratePage() {
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [saved, setSaved] = useState(false);
 
-  const [pasteText, setPasteText] = useState("");
-  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
-  const [nameMapping, setNameMapping] = useState<Record<string, number | undefined>>({});
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
@@ -355,83 +253,6 @@ export default function GeneratePage() {
     if (next.has(key)) next.delete(key);
     else next.add(key);
     setManualDoubles(next);
-  }
-
-  function handleParse() {
-    const result = parseScheduleText(pasteText, teams);
-    setParseResult(result);
-    if (result.success) setNameMapping(result.nameToIndex);
-  }
-
-  // Derive a format from a parsed paste: teamCount = unique team names,
-  // weekCount = total matchups divided by matches-per-week (teamCount / 2).
-  // Returns null if the result can't form a valid format.
-  function detectFormatFromPaste(
-    rawPairs: [string, string][],
-    uniqueNames: string[],
-  ): SelectedFormat | null {
-    const teamCount = uniqueNames.length;
-    if (teamCount < 2 || teamCount % 2 !== 0) return null;
-    const matchesPerWeek = teamCount / 2;
-    if (rawPairs.length % matchesPerWeek !== 0) return null;
-    const weekCount = rawPairs.length / matchesPerWeek;
-    if (weekCount < teamCount - 1 || weekCount > 2 * (teamCount - 1)) return null;
-    return { teamCount, weekCount };
-  }
-
-  function handleApplyParsed() {
-    if (!parseResult || !parseResult.success) return;
-
-    // Standalone paste: no format yet, derive everything from the parsed text.
-    if (!selectedFormat) {
-      const detected = detectFormatFromPaste(parseResult.rawPairs, parseResult.uniqueNames);
-      if (!detected) return;
-      const nameToIdx: Record<string, number> = {};
-      parseResult.uniqueNames.forEach((n, i) => {
-        nameToIdx[n] = i;
-      });
-      const indexedPairs: [number, number][] = [];
-      for (const [a, b] of parseResult.rawPairs) {
-        const ai = nameToIdx[a];
-        const bi = nameToIdx[b];
-        if (ai !== undefined && bi !== undefined && ai !== bi) indexedPairs.push([ai, bi]);
-      }
-      const doubles = detectDoublesFromPairs(indexedPairs);
-      const nextTeams = [...parseResult.uniqueNames];
-      const nextUserIds = Array(detected.teamCount).fill(null);
-      setSelectedFormat(detected);
-      setTeams(nextTeams);
-      setUserIds(nextUserIds);
-      setManualDoubles(doubles);
-      setLookbackOverride(null);
-      saveToStorage({
-        format: detected,
-        teams: nextTeams,
-        userIds: nextUserIds,
-        manualDoubles: [...doubles],
-        lookbackOverride: null,
-      });
-      setParseResult(null);
-      setPasteText("");
-      setNameMapping({});
-      return;
-    }
-
-    const indexedPairs: [number, number][] = [];
-    for (const [a, b] of parseResult.rawPairs) {
-      const ai = nameMapping[a];
-      const bi = nameMapping[b];
-      if (ai !== undefined && bi !== undefined && ai !== bi) indexedPairs.push([ai, bi]);
-    }
-    const doubles = detectDoublesFromPairs(indexedPairs);
-    setManualDoubles(doubles);
-    setParseResult(null);
-    setPasteText("");
-  }
-
-  function allParsedNamesMapped() {
-    if (!parseResult || !parseResult.success) return false;
-    return parseResult.uniqueNames.every((name) => nameMapping[name] !== undefined);
   }
 
   // ── Import handlers ──
@@ -650,8 +471,6 @@ export default function GeneratePage() {
     resetImportUi();
     setSleeperId("");
     setEspnId("");
-    setPasteText("");
-    setParseResult(null);
     setStep("teams");
     setConfirmReset(false);
     try {
@@ -683,10 +502,8 @@ export default function GeneratePage() {
     card: "bg-slate-800 border border-slate-700 rounded-xl p-5 max-w-[700px] mx-auto",
     cardTitle: "text-base font-bold text-emerald-50 mb-1.5",
     hint: "text-xs text-slate-400 leading-relaxed mb-3",
-    pasteSection: "bg-slate-900 border border-slate-700 rounded-lg p-3.5 mb-3",
+    subSection: "bg-slate-900 border border-slate-700 rounded-lg p-3.5 mb-3",
     sectionTitle: "text-[13px] font-bold text-slate-200 mb-1.5",
-    pasteBox:
-      "w-full bg-slate-800 text-slate-200 border border-slate-700 rounded-md p-2.5 text-[11px] font-mono resize-y mb-2 box-border outline-none focus:border-slate-500",
     teamInput:
       "flex-1 bg-transparent border-0 outline-none text-slate-200 text-[13px] font-mono py-1",
     error: "text-red-400 text-xs mt-3",
@@ -703,7 +520,7 @@ export default function GeneratePage() {
   const importSections = (
     <>
       {/* Sleeper */}
-      <div className={cls.pasteSection}>
+      <div className={cls.subSection}>
         <h3 className={cls.sectionTitle}>Import from Sleeper</h3>
         <p className={cls.hint}>
           Enter your current Sleeper league ID - the server walks the history chain to find
@@ -739,12 +556,11 @@ export default function GeneratePage() {
       </div>
 
       {/* ESPN */}
-      <div className={cls.pasteSection}>
+      <div className={cls.subSection}>
         <h3 className={cls.sectionTitle}>Import from ESPN</h3>
         <p className={cls.hint}>
           Public leagues only for now. Find your league ID in the URL:
-          fantasy.espn.com/football/league?leagueId=<strong>YOUR_ID</strong>. If it fails, use the
-          schedule paste below.
+          fantasy.espn.com/football/league?leagueId=<strong>YOUR_ID</strong>.
         </p>
         <div className="flex flex-wrap gap-2 items-stretch">
           <input
@@ -775,7 +591,7 @@ export default function GeneratePage() {
       </div>
 
       {/* Yahoo placeholder */}
-      <div className={`${cls.pasteSection} opacity-60`}>
+      <div className={`${cls.subSection} opacity-60`}>
         <h3 className={cls.sectionTitle}>
           Yahoo <span className="text-[10px] text-slate-500 font-normal">(coming soon)</span>
         </h3>
@@ -824,169 +640,6 @@ export default function GeneratePage() {
     </>
   );
 
-  const pasteFallback = (
-    <details className="mt-2">
-      <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
-        Paste Schedule Text (non-API platforms)
-      </summary>
-      <div className={`${cls.pasteSection} mt-2`}>
-        <p className={cls.hint}>
-          Paste from ESPN, Yahoo, etc. - &ldquo;Team A vs Team B&rdquo; per line. Scores and week
-          headers are stripped automatically. Detected doubles become hard-avoid for the upcoming
-          generation.
-        </p>
-        <textarea
-          className={cls.pasteBox}
-          value={pasteText}
-          onChange={(e) => {
-            setPasteText(e.target.value);
-            setParseResult(null);
-          }}
-          placeholder={
-            "Week 1\nTeam Alpha vs Team Beta\nTeam Gamma vs Team Delta\n...\n\nWeek 2\nTeam Alpha vs Team Gamma\n..."
-          }
-          rows={6}
-        />
-        <button
-          className={cls.secondaryBtn}
-          onClick={handleParse}
-          disabled={!pasteText.trim()}
-        >
-          Parse Schedule
-        </button>
-
-        {parseResult && !parseResult.success && (
-          <p className={cls.error}>{parseResult.error}</p>
-        )}
-
-        {parseResult && parseResult.success && (
-          <div className="mt-2.5 px-3 py-2.5 bg-slate-800 rounded-md border border-slate-700">
-            <p className="text-xs text-slate-200">
-              Found <strong>{parseResult.rawPairs.length}</strong> matchups across{" "}
-              <strong>{parseResult.uniqueNames.length}</strong> teams.
-            </p>
-
-            {!selectedFormat ? (
-              (() => {
-                const detected = detectFormatFromPaste(
-                  parseResult.rawPairs,
-                  parseResult.uniqueNames,
-                );
-                if (!detected) {
-                  return (
-                    <p className="text-[11px] text-amber-400 mt-1.5">
-                      Couldn&apos;t derive a valid format from this paste. Need an even team count
-                      (≥ 2) and matchups that divide evenly across weeks within the round-robin
-                      range.
-                    </p>
-                  );
-                }
-                const nameToIdx: Record<string, number> = {};
-                parseResult.uniqueNames.forEach((n, i) => {
-                  nameToIdx[n] = i;
-                });
-                const indexedPairs: [number, number][] = [];
-                for (const [a, b] of parseResult.rawPairs) {
-                  const ai = nameToIdx[a];
-                  const bi = nameToIdx[b];
-                  if (ai !== undefined && bi !== undefined && ai !== bi)
-                    indexedPairs.push([ai, bi]);
-                }
-                const doubles = detectDoublesFromPairs(indexedPairs);
-                return (
-                  <>
-                    <p className="text-[11px] text-slate-400 mt-1.5">
-                      Detected format:{" "}
-                      <strong className="text-slate-200">
-                        {detected.teamCount}-team / {detected.weekCount}-week
-                      </strong>
-                      . Applying will set the roster from these team names and seed{" "}
-                      <strong className="text-emerald-400">{doubles.size}</strong> doubled pair(s)
-                      as manual hard-avoid.
-                    </p>
-                    <button className={`${cls.primaryBtn} mt-2`} onClick={handleApplyParsed}>
-                      Apply
-                    </button>
-                  </>
-                );
-              })()
-            ) : (
-              <>
-                {parseResult.unmapped.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-[11px] text-amber-400 mb-1.5">
-                      {parseResult.unmapped.length} name(s) couldn&apos;t auto-match. Map them
-                      below:
-                    </p>
-                    {parseResult.unmapped.map((name) => (
-                      <div
-                        key={name}
-                        className="flex flex-wrap items-center gap-2 mb-1.5 py-1"
-                      >
-                        <span className="text-slate-200 text-xs min-w-[7.5rem]">
-                          &ldquo;{name}&rdquo;
-                        </span>
-                        <span className="text-slate-600 text-xs">→</span>
-                        <select
-                          className="bg-slate-900 text-slate-200 border border-slate-600 rounded px-1.5 py-0.5 text-xs font-mono"
-                          value={nameMapping[name] ?? ""}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setNameMapping((prev) => ({
-                              ...prev,
-                              [name]: val === "" ? undefined : parseInt(val, 10),
-                            }));
-                          }}
-                        >
-                          <option value="">- select -</option>
-                          {teams.map((t, idx) => {
-                            const taken = Object.entries(nameMapping).some(
-                              ([k, v]) => v === idx && k !== name,
-                            );
-                            return (
-                              <option key={idx} value={idx} disabled={taken}>
-                                {t}
-                                {taken ? " (taken)" : ""}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {allParsedNamesMapped() && (
-                  <div className="mt-2.5">
-                    {(() => {
-                      const indexedPairs: [number, number][] = [];
-                      for (const [a, b] of parseResult.rawPairs) {
-                        const ai = nameMapping[a];
-                        const bi = nameMapping[b];
-                        if (ai !== undefined && bi !== undefined && ai !== bi)
-                          indexedPairs.push([ai, bi]);
-                      }
-                      const doubles = detectDoublesFromPairs(indexedPairs);
-                      return (
-                        <p className="text-xs text-emerald-400">
-                          Detected <strong>{doubles.size}</strong> doubled pairs ready to apply as
-                          manual hard-avoid.
-                        </p>
-                      );
-                    })()}
-                    <button className={`${cls.primaryBtn} mt-2`} onClick={handleApplyParsed}>
-                      Apply to Matrix ↓
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </div>
-    </details>
-  );
-
   return (
     <div className="min-h-screen px-4 py-6 text-slate-200 font-mono">
       <div className="text-center mb-7">
@@ -1007,7 +660,6 @@ export default function GeneratePage() {
             review and schedule steps appear.
           </p>
           {importSections}
-          {pasteFallback}
         </div>
       ) : isEdgeCaseFormat ? (
         <div className={cls.card}>
@@ -1068,8 +720,6 @@ export default function GeneratePage() {
           <h2 className={cls.cardTitle}>Import Last Season(s)</h2>
 
           {importSections}
-
-          {pasteFallback}
 
           <div className="flex items-center my-4 gap-3">
             <span className="text-[11px] text-slate-600 uppercase tracking-widest whitespace-nowrap w-full text-center border-t border-slate-700 pt-3">
