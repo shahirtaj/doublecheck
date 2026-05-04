@@ -160,6 +160,23 @@ Target keywords: "fantasy football schedule fairness," "fantasy football repeat 
 
 ---
 
+### Phase 6.5: Yahoo Integration
+**Tool: Claude Code**
+
+Yahoo's official Fantasy Sports API requires a registered developer app and a full OAuth 2.0 user-consent flow — substantially more friction than Sleeper or ESPN. Worth doing because Yahoo still hosts 5–10M fantasy players, but it carries an external dependency: Yahoo's developer-app approval process can take days.
+
+Kick this off **after Phase 5 deploy** so the approval clock runs in parallel with Phase 6 SEO work.
+
+- Register Yahoo Developer app (request "Fantasy Sports Read" scope)
+- Implement `/api/auth/yahoo/start` and `/api/auth/yahoo/callback` redirect flow
+- Encrypt and store the access/refresh tokens (server-side; not in localStorage)
+- `/api/import/yahoo` route: list user's leagues, fetch matchups by league_key
+- Surface a "Connect Yahoo" button in the generate page in place of the current "coming soon" placeholder
+
+**Deliverable:** Yahoo league import with the same UX as Sleeper/ESPN.
+
+---
+
 ### Phase 7: Auth + Database
 **Tool: Claude Code**
 

@@ -29,38 +29,24 @@ const FORMAT = describeFormat(TEAM_COUNT, WEEK_COUNT);
 
 // ── Types ─────────────────────────────────────────────────
 
-type SleeperSeasonInfo = {
-  leagueId: string;
-  name: string;
-  season: string;
-  hasData: boolean;
-  settings?: { playoff_week_start?: number };
-  previousLeagueId?: string | null;
-};
-
-type SleeperSeasonData = {
-  teamNames: string[];
-  userIds: (string | null)[];
-  doubles: Set<PairKey>;
-  totalMatchups: number;
-  regWeeks: number;
-};
-
-type SleeperImportPayload = SleeperSeasonData & {
-  seasonName?: string;
-  seasonYear?: string;
-  // For multi-season JSON imports: each entry has its own teamNames/userIds/doubles.
-  allSeasons?: ImportedSeasonRecord[];
-};
-
 type ImportedSeasonRecord = {
   seasonYear?: string;
   seasonName?: string;
   teamNames: string[];
   userIds: (string | null)[];
   doubles: PairKey[];
+  totalMatchups?: number;
   regWeeks?: number;
 };
+
+type ImportPlatform = "sleeper" | "espn" | "json";
+
+type ImportPreview = {
+  platform: ImportPlatform;
+  seasons: ImportedSeasonRecord[];
+};
+
+type ImportStatus = "" | "loading" | "ready" | "error";
 
 type ParseResult =
   | {
@@ -73,15 +59,6 @@ type ParseResult =
   | { success: false; error: string };
 
 type Step = "teams" | "doubles" | "schedule";
-
-type SleeperStatus =
-  | ""
-  | "loading"
-  | "discovered"
-  | "importing"
-  | "imported"
-  | "backfilled"
-  | "error";
 
 // ── Schedule paste parser ─────────────────────────────────
 
@@ -172,101 +149,6 @@ function detectDoublesFromPairs(indexedPairs: [number, number][]): Set<PairKey> 
   );
 }
 
-// ── Sleeper live fetch (subject to CORS in browser) ───────
-
-async function discoverSleeperChain(
-  leagueId: string,
-  onStatus: (msg: string) => void,
-): Promise<SleeperSeasonInfo[]> {
-  const base = "https://api.sleeper.app/v1";
-  const seasons: SleeperSeasonInfo[] = [];
-  let currentId = leagueId;
-
-  for (let depth = 0; depth < 5; depth++) {
-    onStatus(`Discovering seasons… (${seasons.length} found)`);
-    const res = await fetch(`${base}/league/${currentId}`);
-    if (!res.ok) break;
-    const league = await res.json();
-    if (!league?.league_id) break;
-
-    const week1 = await fetch(`${base}/league/${currentId}/matchups/1`).then((r) => r.json());
-    const hasData =
-      Array.isArray(week1) && week1.some((m: any) => m.matchup_id != null && m.points > 0);
-
-    seasons.push({
-      leagueId: league.league_id,
-      name: league.name || leagueId,
-      season: league.season || "",
-      hasData,
-      settings: league.settings,
-      previousLeagueId: league.previous_league_id,
-    });
-
-    if (!league.previous_league_id) break;
-    currentId = league.previous_league_id;
-  }
-
-  return seasons;
-}
-
-async function fetchSleeperSeason(
-  leagueId: string,
-  settings: SleeperSeasonInfo["settings"],
-  onStatus: (msg: string) => void,
-): Promise<SleeperSeasonData> {
-  const base = "https://api.sleeper.app/v1";
-  onStatus("Fetching managers…");
-
-  const users = await fetch(`${base}/league/${leagueId}/users`).then((r) => r.json());
-  const rosters = await fetch(`${base}/league/${leagueId}/rosters`).then((r) => r.json());
-
-  if (!Array.isArray(rosters) || rosters.length !== TEAM_COUNT) {
-    throw new Error(`Expected ${TEAM_COUNT} teams but found ${rosters?.length || 0}.`);
-  }
-
-  const ownerInfo: Record<string, string> = {};
-  (users || []).forEach((u: any) => {
-    ownerInfo[u.user_id] = u.display_name || u.metadata?.team_name || u.user_id;
-  });
-
-  const sorted = [...rosters].sort((a: any, b: any) => a.roster_id - b.roster_id);
-  const rosterIdToIdx: Record<number, number> = {};
-  const teamNames: string[] = [];
-  const userIds: (string | null)[] = [];
-  sorted.forEach((r: any, idx: number) => {
-    rosterIdToIdx[r.roster_id] = idx;
-    teamNames.push(ownerInfo[r.owner_id] || `Roster ${r.roster_id}`);
-    userIds.push(r.owner_id || null);
-  });
-
-  const regWeeks = settings?.playoff_week_start ? settings.playoff_week_start - 1 : WEEK_COUNT;
-  onStatus(`Fetching ${regWeeks} weeks of matchups…`);
-
-  const allPairs: [number, number][] = [];
-  for (let week = 1; week <= regWeeks; week++) {
-    const matchups = await fetch(`${base}/league/${leagueId}/matchups/${week}`).then((r) =>
-      r.json(),
-    );
-    if (!Array.isArray(matchups)) continue;
-    const groups: Record<number, number[]> = {};
-    matchups.forEach((m: any) => {
-      if (m.matchup_id == null) return;
-      if (!groups[m.matchup_id]) groups[m.matchup_id] = [];
-      groups[m.matchup_id]!.push(m.roster_id);
-    });
-    Object.values(groups).forEach((pair) => {
-      if (pair.length === 2) {
-        const a = rosterIdToIdx[pair[0]!];
-        const b = rosterIdToIdx[pair[1]!];
-        if (a !== undefined && b !== undefined) allPairs.push([a, b]);
-      }
-    });
-  }
-
-  const doubles = detectDoublesFromPairs(allPairs);
-  return { teamNames, userIds, doubles, totalMatchups: allPairs.length, regWeeks };
-}
-
 // ── Component ─────────────────────────────────────────────
 
 export default function GeneratePage() {
@@ -291,12 +173,23 @@ export default function GeneratePage() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
+  // Sleeper import (server-side via /api/import/sleeper)
   const [sleeperId, setSleeperId] = useState("");
-  const [sleeperJson, setSleeperJson] = useState("");
-  const [sleeperStatus, setSleeperStatus] = useState<SleeperStatus>("");
+  const [sleeperStatus, setSleeperStatus] = useState<ImportStatus>("");
   const [sleeperMsg, setSleeperMsg] = useState("");
-  const [sleeperSeasons, setSleeperSeasons] = useState<SleeperSeasonInfo[]>([]);
-  const [sleeperData, setSleeperData] = useState<SleeperImportPayload | null>(null);
+
+  // ESPN import (server-side via /api/import/espn)
+  const [espnId, setEspnId] = useState("");
+  const [espnStatus, setEspnStatus] = useState<ImportStatus>("");
+  const [espnMsg, setEspnMsg] = useState("");
+
+  // JSON paste fallback
+  const [jsonPaste, setJsonPaste] = useState("");
+  const [jsonStatus, setJsonStatus] = useState<ImportStatus>("");
+  const [jsonMsg, setJsonMsg] = useState("");
+
+  // Shared preview — Sleeper / ESPN / JSON populate this; Apply commits it.
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
 
   // Hydrate from localStorage on mount.
   useEffect(() => {
@@ -434,155 +327,160 @@ export default function GeneratePage() {
     return parseResult.uniqueNames.every((name) => nameMapping[name] !== undefined);
   }
 
-  // ── Sleeper handlers ──
+  // ── Import handlers ──
 
-  function resetSleeper() {
+  function resetImportUi() {
+    setImportPreview(null);
     setSleeperStatus("");
     setSleeperMsg("");
-    setSleeperData(null);
-    setSleeperSeasons([]);
+    setEspnStatus("");
+    setEspnMsg("");
+    setJsonStatus("");
+    setJsonMsg("");
   }
 
   async function handleSleeperFetch() {
     if (!sleeperId.trim()) return;
     setSleeperStatus("loading");
-    setSleeperMsg("Discovering league history…");
-    setSleeperSeasons([]);
-    setSleeperData(null);
+    setSleeperMsg("Fetching from Sleeper…");
+    setImportPreview(null);
+    setEspnStatus("");
+    setEspnMsg("");
+    setJsonStatus("");
+    setJsonMsg("");
     try {
-      const seasons = await discoverSleeperChain(sleeperId.trim(), setSleeperMsg);
-      if (seasons.length === 0) throw new Error("League not found.");
-      const withData = seasons.filter((s) => s.hasData);
-      if (withData.length === 0) throw new Error("No completed seasons found in this league's history.");
-      setSleeperSeasons(seasons);
-      setSleeperStatus("discovered");
-      setSleeperMsg(
-        `Found ${withData.length} completed season${withData.length > 1 ? "s" : ""} in league history.`,
-      );
-    } catch (e) {
-      setSleeperStatus("error");
-      const msg = (e as Error).message || "Unknown error";
-      if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("CORS")) {
-        setSleeperMsg(
-          "Network error — Sleeper's API may block browser requests. Use the paste method below instead.",
-        );
-      } else {
-        setSleeperMsg(msg);
-      }
-    }
-  }
-
-  async function handleSleeperImportSeason(seasonInfo: SleeperSeasonInfo) {
-    setSleeperStatus("importing");
-    setSleeperMsg(`Importing ${seasonInfo.season} season…`);
-    try {
-      const data = await fetchSleeperSeason(seasonInfo.leagueId, seasonInfo.settings, setSleeperMsg);
-      setSleeperData({
-        ...data,
-        seasonName: seasonInfo.name,
-        seasonYear: seasonInfo.season,
+      const res = await fetch("/api/import/sleeper", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leagueId: sleeperId.trim() }),
       });
-      setSleeperStatus("imported");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      const seasons = data as ImportedSeasonRecord[];
+      if (!Array.isArray(seasons) || seasons.length === 0) {
+        throw new Error("No seasons returned.");
+      }
+      const valid = seasons.filter((s) => s.teamNames?.length === TEAM_COUNT);
+      if (valid.length === 0) {
+        throw new Error(`No seasons with ${TEAM_COUNT} teams found.`);
+      }
+      setImportPreview({ platform: "sleeper", seasons: valid });
+      setSleeperStatus("ready");
       setSleeperMsg(
-        `Imported ${seasonInfo.season}: ${data.totalMatchups} matchups, ${data.doubles.size} doubled pairs.`,
+        `Fetched ${valid.length} season${valid.length > 1 ? "s" : ""}: ${valid
+          .map((s) => s.seasonYear || "?")
+          .join(", ")}.`,
       );
     } catch (e) {
       setSleeperStatus("error");
-      setSleeperMsg((e as Error).message || "Import failed.");
+      setSleeperMsg((e as Error).message || "Fetch failed.");
     }
   }
 
-  async function handleSleeperBackfill() {
-    const withData = sleeperSeasons.filter((s) => s.hasData);
-    const toImport = withData.slice(0, 3).reverse();
-    setSleeperStatus("importing");
-
-    const mostRecent = withData[0];
-    let latestData: SleeperSeasonData | null = null;
-    const collected: SeasonHistory[] = [];
-
-    for (let i = 0; i < toImport.length; i++) {
-      const s = toImport[i]!;
-      setSleeperMsg(`Importing ${s.season} season… (${i + 1}/${toImport.length})`);
-      try {
-        const data = await fetchSleeperSeason(s.leagueId, s.settings, setSleeperMsg);
-        const doubles = [...data.doubles].map((key) => {
-          const [a, b] = unpackPairKey(key);
-          return [data.userIds[a], data.userIds[b]].sort().join(":");
-        });
-        collected.push({ season: s.season, doubles, format: "userid" });
-        if (s === mostRecent) latestData = data;
-      } catch (e) {
-        setSleeperMsg(`Failed on ${s.season}: ${(e as Error).message}. Earlier seasons were saved.`);
-        setSleeperStatus("error");
-        if (collected.length) {
-          const merged = [...history, ...collected];
-          setHistory(merged);
-          saveToStorage({ history: merged, manualDoubles: [] });
-        }
-        return;
+  async function handleEspnFetch() {
+    if (!espnId.trim()) return;
+    setEspnStatus("loading");
+    setEspnMsg("Fetching from ESPN…");
+    setImportPreview(null);
+    setSleeperStatus("");
+    setSleeperMsg("");
+    setJsonStatus("");
+    setJsonMsg("");
+    try {
+      const res = await fetch("/api/import/espn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leagueId: espnId.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      const seasons = data as ImportedSeasonRecord[];
+      if (!Array.isArray(seasons) || seasons.length === 0) {
+        throw new Error("No seasons returned.");
       }
+      const valid = seasons.filter((s) => s.teamNames?.length === TEAM_COUNT);
+      if (valid.length === 0) {
+        throw new Error(`No seasons with ${TEAM_COUNT} teams found.`);
+      }
+      setImportPreview({ platform: "espn", seasons: valid });
+      setEspnStatus("ready");
+      setEspnMsg(
+        `Fetched ${valid.length} season${valid.length > 1 ? "s" : ""}: ${valid
+          .map((s) => s.seasonYear || "?")
+          .join(", ")}.`,
+      );
+    } catch (e) {
+      setEspnStatus("error");
+      setEspnMsg((e as Error).message || "Fetch failed.");
     }
-
-    const newHistory = [...history, ...collected];
-    setHistory(newHistory);
-    if (latestData) {
-      setTeams(latestData.teamNames);
-      setUserIds(latestData.userIds);
-    }
-    saveToStorage({
-      history: newHistory,
-      manualDoubles: [],
-      ...(latestData ? { teams: latestData.teamNames, userIds: latestData.userIds } : {}),
-    });
-
-    setSleeperStatus("backfilled");
-    setSleeperMsg(`Backfilled ${toImport.length} seasons into history. Ready to generate.`);
   }
 
-  function handleSleeperApply() {
-    if (!sleeperData) return;
+  function handleJsonImport() {
+    setImportPreview(null);
+    setSleeperStatus("");
+    setSleeperMsg("");
+    setEspnStatus("");
+    setEspnMsg("");
+    try {
+      const raw = JSON.parse(jsonPaste);
+      const seasons: ImportedSeasonRecord[] = Array.isArray(raw) ? raw : [raw];
+      if (seasons.length === 0) throw new Error("No season data found.");
+      for (const s of seasons) {
+        if (!s.teamNames || !s.userIds || !s.doubles) {
+          throw new Error("Missing required fields (teamNames, userIds, doubles).");
+        }
+        if (s.teamNames.length !== TEAM_COUNT) {
+          throw new Error(`Expected ${TEAM_COUNT} teams but found ${s.teamNames.length}.`);
+        }
+      }
+      setImportPreview({ platform: "json", seasons });
+      setJsonStatus("ready");
+      setJsonMsg(
+        seasons.length > 1
+          ? `Loaded ${seasons.length} seasons (${seasons
+              .map((s) => s.seasonYear || "?")
+              .join(", ")}).`
+          : `Loaded ${seasons[0]!.doubles.length} doubled pairs from JSON.`,
+      );
+      setJsonPaste("");
+    } catch (e) {
+      setJsonStatus("error");
+      setJsonMsg(`JSON parse error: ${(e as Error).message}`);
+    }
+  }
+
+  function handleApplyImport() {
+    if (!importPreview || importPreview.seasons.length === 0) return;
+    const mostRecent = importPreview.seasons[0]!;
     const hasCustomNames = teams.some((t, i) => t !== `Team ${i + 1}`);
     let nextTeams = teams;
     if (!hasCustomNames) {
-      nextTeams = sleeperData.teamNames;
+      nextTeams = mostRecent.teamNames;
       setTeams(nextTeams);
     }
-    const nextUserIds = sleeperData.userIds;
+    const nextUserIds = mostRecent.userIds;
     setUserIds(nextUserIds);
 
-    // Multi-season JSON import passes allSeasons (most recent first → reverse to oldest first).
-    const seasonsToImport: ImportedSeasonRecord[] = sleeperData.allSeasons
-      ? [...sleeperData.allSeasons].reverse()
-      : [
-          {
-            seasonYear: sleeperData.seasonYear,
-            teamNames: sleeperData.teamNames,
-            userIds: sleeperData.userIds,
-            doubles: [...sleeperData.doubles],
-            regWeeks: sleeperData.regWeeks,
-          },
-        ];
-
+    // Server returns most-recent-first; history stores oldest-first.
+    const seasonsOldestFirst = [...importPreview.seasons].reverse();
     const newHistory = [...history];
-    for (const season of seasonsToImport) {
+    for (const season of seasonsOldestFirst) {
       const sUserIds = season.userIds;
       const hasUids = sUserIds.some((id) => id != null);
-      const sDoubles = season.doubles;
       let importDoubles: PairKey[];
       if (hasUids) {
-        importDoubles = sDoubles.map((key) => {
+        importDoubles = season.doubles.map((key) => {
           const [a, b] = unpackPairKey(key);
           return [sUserIds[a], sUserIds[b]].sort().join(":");
         });
       } else {
-        importDoubles = sDoubles;
+        importDoubles = season.doubles;
       }
 
       const lastEntry = newHistory[newHistory.length - 1];
-      const lastDoubles = lastEntry ? [...lastEntry.doubles].sort().join(",") : "";
-      const newDoubles = [...importDoubles].sort().join(",");
-      if (lastDoubles !== newDoubles) {
+      const lastDoublesStr = lastEntry ? [...lastEntry.doubles].sort().join(",") : "";
+      const newDoublesStr = [...importDoubles].sort().join(",");
+      if (lastDoublesStr !== newDoublesStr) {
         newHistory.push({
           season: season.seasonYear || String(new Date().getFullYear() - 1),
           doubles: importDoubles,
@@ -595,49 +493,15 @@ export default function GeneratePage() {
     saveToStorage({ history: newHistory, teams: nextTeams, userIds: nextUserIds });
 
     setManualDoubles(new Set());
+    setImportPreview(null);
+    setSleeperId("");
+    setEspnId("");
     setSleeperStatus("");
     setSleeperMsg("");
-    setSleeperData(null);
-    setSleeperSeasons([]);
-    setSleeperId("");
-  }
-
-  function handleJsonImport() {
-    try {
-      const raw = JSON.parse(sleeperJson);
-      const seasons: ImportedSeasonRecord[] = Array.isArray(raw) ? raw : [raw];
-      if (seasons.length === 0) throw new Error("No season data found.");
-      for (const s of seasons) {
-        if (!s.teamNames || !s.userIds || !s.doubles) {
-          throw new Error("Missing required fields (teamNames, userIds, doubles).");
-        }
-        if (s.teamNames.length !== TEAM_COUNT) {
-          throw new Error(`Expected ${TEAM_COUNT} teams but found ${s.teamNames.length}.`);
-        }
-      }
-
-      const primary = seasons[0]!;
-      const doublesSet = new Set<PairKey>(primary.doubles);
-      setSleeperData({
-        teamNames: primary.teamNames,
-        userIds: primary.userIds,
-        doubles: doublesSet,
-        regWeeks: primary.regWeeks || WEEK_COUNT,
-        totalMatchups: 0,
-        seasonYear: primary.seasonYear || "",
-        allSeasons: seasons,
-      });
-      setSleeperStatus("imported");
-      const label =
-        seasons.length > 1
-          ? `Imported ${seasons.length} seasons from JSON (${seasons.map((s) => s.seasonYear).join(", ")}).`
-          : `Imported from JSON: ${primary.doubles.length} doubled pairs (${primary.seasonYear || "unknown season"}).`;
-      setSleeperMsg(label);
-      setSleeperJson("");
-    } catch (e) {
-      setSleeperStatus("error");
-      setSleeperMsg(`JSON parse error: ${(e as Error).message}`);
-    }
+    setEspnStatus("");
+    setEspnMsg("");
+    setJsonStatus("");
+    setJsonMsg("");
   }
 
   // ── Derived helpers ──
@@ -672,7 +536,10 @@ export default function GeneratePage() {
     setManualDoubles(new Set());
     setSchedule(null);
     setSaved(false);
-    resetSleeper();
+    resetImportUi();
+    setSleeperId("");
+    setEspnId("");
+    setJsonPaste("");
     setPasteText("");
     setParseResult(null);
     setStep("teams");
@@ -693,6 +560,8 @@ export default function GeneratePage() {
   }
 
   const avoidInfo = getAvoidDisplay();
+  const importBusy =
+    sleeperStatus === "loading" || espnStatus === "loading";
 
   // ── Tailwind class atoms (mirrors the prototype's S object) ──
 
@@ -711,7 +580,15 @@ export default function GeneratePage() {
     teamInput:
       "flex-1 bg-transparent border-0 outline-none text-slate-200 text-[13px] font-mono py-1",
     error: "text-red-400 text-xs mt-3",
+    leagueInput:
+      "flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500",
   };
+
+  function statusToneClass(status: ImportStatus): string {
+    if (status === "error") return "text-red-400";
+    if (status === "ready") return "text-emerald-400";
+    return "text-slate-400";
+  }
 
   return (
     <div className="min-h-screen px-4 py-6 text-slate-200 font-mono">
@@ -749,125 +626,131 @@ export default function GeneratePage() {
       {/* ═══ STEP 1: IMPORT ═══ */}
       {step === "teams" && (
         <div className={cls.card}>
-          <h2 className={cls.cardTitle}>Import Last Season</h2>
+          <h2 className={cls.cardTitle}>Import Last Season(s)</h2>
 
-          {/* Sleeper live fetch */}
+          {/* Sleeper */}
           <div className={cls.pasteSection}>
             <h3 className={cls.sectionTitle}>Import from Sleeper</h3>
             <p className={cls.hint}>
-              Enter your current Sleeper league ID — the tool walks the history chain to find
+              Enter your current Sleeper league ID — the server walks the history chain to find
               completed seasons. Find it in your league URL: sleeper.com/leagues/
               <strong>YOUR_ID</strong>
             </p>
             <div className="flex flex-wrap gap-2 items-stretch">
               <input
-                className="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                className={cls.leagueInput}
                 value={sleeperId}
                 onChange={(e) => {
                   setSleeperId(e.target.value);
-                  resetSleeper();
+                  if (importPreview?.platform === "sleeper") setImportPreview(null);
+                  if (sleeperStatus) {
+                    setSleeperStatus("");
+                    setSleeperMsg("");
+                  }
                 }}
                 placeholder="e.g. 924039458279227392"
               />
               <button
                 className={cls.primaryBtn}
                 onClick={handleSleeperFetch}
-                disabled={
-                  !sleeperId.trim() ||
-                  sleeperStatus === "loading" ||
-                  sleeperStatus === "importing"
-                }
+                disabled={!sleeperId.trim() || importBusy}
               >
-                {sleeperStatus === "loading" ? "Searching…" : "Fetch"}
+                {sleeperStatus === "loading" ? "Fetching…" : "Fetch"}
               </button>
             </div>
 
             {sleeperMsg && (
-              <p
-                className={`text-[11px] mt-2 ${
-                  sleeperStatus === "error"
-                    ? "text-red-400"
-                    : sleeperStatus === "backfilled" || sleeperStatus === "imported"
-                      ? "text-emerald-400"
-                      : "text-slate-400"
-                }`}
-              >
-                {sleeperMsg}
-              </p>
-            )}
-
-            {/* Discovered seasons */}
-            {sleeperStatus === "discovered" && sleeperSeasons.length > 0 && (
-              <div className="mt-2.5 px-3 py-2.5 bg-slate-800 rounded-md border border-slate-700">
-                <p className="text-xs text-slate-200 mb-2">Seasons found:</p>
-                {sleeperSeasons.map((s, i) => (
-                  <div
-                    key={i}
-                    className={`flex items-center gap-2.5 py-1 ${
-                      i < sleeperSeasons.length - 1 ? "border-b border-slate-700" : ""
-                    }`}
-                  >
-                    <span
-                      className={`text-xs flex-1 ${s.hasData ? "text-slate-200" : "text-slate-600"}`}
-                    >
-                      {s.season} — {s.name}
-                      {!s.hasData && (
-                        <span className="text-slate-600 ml-1.5">(no data)</span>
-                      )}
-                    </span>
-                    {s.hasData && (
-                      <button
-                        className="bg-transparent text-slate-400 border border-slate-600 rounded-md px-2.5 py-1 text-[11px] hover:border-slate-500 hover:text-slate-300"
-                        onClick={() => handleSleeperImportSeason(s)}
-                      >
-                        Import
-                      </button>
-                    )}
-                  </div>
-                ))}
-                {sleeperSeasons.filter((s) => s.hasData).length >= 2 && (
-                  <div className="mt-2.5">
-                    <button className={cls.primaryBtn} onClick={handleSleeperBackfill}>
-                      Backfill All ({sleeperSeasons.filter((s) => s.hasData).length} seasons →
-                      history)
-                    </button>
-                    <p className="text-[10px] text-slate-500 mt-1.5">
-                      Imports all completed seasons into history at once. Sets manager names from
-                      the most recent season.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Single import preview */}
-            {sleeperData && sleeperStatus === "imported" && (
-              <div className="mt-2.5 px-3 py-2.5 bg-slate-800 rounded-md border border-slate-700">
-                <p className="text-xs text-slate-200 mb-1">
-                  Managers: {sleeperData.teamNames.join(", ")}
-                </p>
-                <p className="text-xs text-emerald-400 mb-2.5">
-                  {sleeperData.doubles.size} doubled pairs detected across{" "}
-                  {sleeperData.regWeeks} weeks ({sleeperData.seasonYear}).
-                </p>
-                <div className="flex gap-2 flex-wrap items-center">
-                  <button className={cls.primaryBtn} onClick={handleSleeperApply}>
-                    Apply
-                  </button>
-                  <span className="text-[10px] text-slate-500">
-                    {teams.some((t, i) => t !== `Team ${i + 1}`)
-                      ? "Keeps your custom names"
-                      : "Imports Sleeper usernames"}
-                  </span>
-                </div>
-              </div>
+              <p className={`text-[11px] mt-2 ${statusToneClass(sleeperStatus)}`}>{sleeperMsg}</p>
             )}
           </div>
+
+          {/* ESPN */}
+          <div className={cls.pasteSection}>
+            <h3 className={cls.sectionTitle}>Import from ESPN</h3>
+            <p className={cls.hint}>
+              Public leagues only for now. Find your league ID in the URL:
+              fantasy.espn.com/football/league?leagueId=<strong>YOUR_ID</strong>. ESPN&apos;s API is
+              undocumented; if it fails, use the schedule paste below.
+            </p>
+            <div className="flex flex-wrap gap-2 items-stretch">
+              <input
+                className={cls.leagueInput}
+                value={espnId}
+                onChange={(e) => {
+                  setEspnId(e.target.value);
+                  if (importPreview?.platform === "espn") setImportPreview(null);
+                  if (espnStatus) {
+                    setEspnStatus("");
+                    setEspnMsg("");
+                  }
+                }}
+                placeholder="e.g. 123456789"
+              />
+              <button
+                className={cls.primaryBtn}
+                onClick={handleEspnFetch}
+                disabled={!espnId.trim() || importBusy}
+              >
+                {espnStatus === "loading" ? "Fetching…" : "Fetch"}
+              </button>
+            </div>
+
+            {espnMsg && (
+              <p className={`text-[11px] mt-2 ${statusToneClass(espnStatus)}`}>{espnMsg}</p>
+            )}
+          </div>
+
+          {/* Yahoo placeholder */}
+          <div className={`${cls.pasteSection} opacity-60`}>
+            <h3 className={cls.sectionTitle}>
+              Yahoo <span className="text-[10px] text-slate-500 font-normal">(coming soon)</span>
+            </h3>
+            <p className={cls.hint}>
+              Yahoo requires OAuth 2.0 with a registered developer app — landing in a follow-up
+              phase. Use the schedule paste below in the meantime.
+            </p>
+          </div>
+
+          {/* Shared import preview */}
+          {importPreview && (
+            <div className="mt-2.5 mb-3 px-3 py-2.5 bg-slate-800 rounded-md border border-emerald-700">
+              <p className="text-xs text-slate-200 mb-1">
+                Ready to apply: {importPreview.seasons.length} season
+                {importPreview.seasons.length > 1 ? "s" : ""} from{" "}
+                <strong className="text-emerald-400">{importPreview.platform.toUpperCase()}</strong>
+                .
+              </p>
+              <p className="text-[11px] text-slate-400 mb-2">
+                Most recent: {importPreview.seasons[0]!.seasonYear || "unknown"} —{" "}
+                {importPreview.seasons[0]!.doubles.length} doubled pairs across{" "}
+                {importPreview.seasons[0]!.regWeeks ?? WEEK_COUNT} weeks.
+              </p>
+              <p className="text-[11px] text-slate-500 mb-2">
+                Managers: {importPreview.seasons[0]!.teamNames.join(", ")}
+              </p>
+              <div className="flex gap-2 flex-wrap items-center">
+                <button className={cls.primaryBtn} onClick={handleApplyImport}>
+                  Apply
+                </button>
+                <button
+                  className={cls.secondaryBtn}
+                  onClick={() => setImportPreview(null)}
+                >
+                  Cancel
+                </button>
+                <span className="text-[10px] text-slate-500">
+                  {teams.some((t, i) => t !== `Team ${i + 1}`)
+                    ? "Keeps your custom names"
+                    : "Imports manager names"}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* JSON paste fallback */}
           <details className="mt-2">
             <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
-              Paste Sleeper JSON (if live fetch is blocked)
+              Paste Sleeper JSON (offline / debugging)
             </summary>
             <div className={`${cls.pasteSection} mt-2`}>
               <p className={cls.hint}>
@@ -879,101 +762,34 @@ export default function GeneratePage() {
               </p>
               <textarea
                 className={cls.pasteBox}
-                value={sleeperJson}
-                onChange={(e) => setSleeperJson(e.target.value)}
+                value={jsonPaste}
+                onChange={(e) => setJsonPaste(e.target.value)}
                 placeholder="Paste JSON output from fetch-sleeper.js..."
                 rows={4}
               />
               <button
                 className={cls.secondaryBtn}
                 onClick={handleJsonImport}
-                disabled={!sleeperJson.trim()}
+                disabled={!jsonPaste.trim()}
               >
                 Import JSON
               </button>
+              {jsonMsg && (
+                <p className={`text-[11px] mt-2 ${statusToneClass(jsonStatus)}`}>{jsonMsg}</p>
+              )}
             </div>
           </details>
 
-          <div className="flex items-center my-4 gap-3">
-            <span className="text-[11px] text-slate-600 uppercase tracking-widest whitespace-nowrap w-full text-center border-t border-slate-700 pt-3">
-              manager names
-            </span>
-          </div>
-
-          <p className={cls.hint}>
-            Auto-filled by Sleeper import, or enter manually. Overwrite with real names if you
-            prefer those over usernames.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {teams.map((t, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 bg-slate-900 rounded-md px-2 py-1 border border-slate-700"
-              >
-                <span className="text-[11px] text-slate-600 min-w-[1rem] text-right">
-                  {i + 1}
-                </span>
-                <input
-                  className={cls.teamInput}
-                  value={t}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                    const next = [...teams];
-                    next[i] = e.target.value;
-                    setTeams(next);
-                  }}
-                  placeholder={`Team ${i + 1}`}
-                  maxLength={24}
-                />
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-3 mt-6 flex-wrap">
-            <button
-              className={cls.primaryBtn}
-              onClick={() => {
-                saveToStorage();
-                setStep("doubles");
-              }}
-            >
-              Next →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ STEP 2: AVOID ═══ */}
-      {step === "doubles" && (
-        <div className={cls.card}>
-          <h2 className={cls.cardTitle}>Review Avoidance</h2>
-
-          {history.length > 0 && (
-            <div className="bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 mb-4">
-              <strong className="text-slate-200">Lookback Active</strong>
-              <p className="mt-1 text-[11px] text-slate-400">
-                {history.length} season{history.length > 1 ? "s" : ""} in history.{" "}
-                <span className="text-red-400">■</span> Last {FORMAT.lookback.hard} season
-                {FORMAT.lookback.hard > 1 ? "s" : ""} = hard avoid{" "}
-                {history.length > FORMAT.lookback.hard && FORMAT.lookback.soft > 0 && (
-                  <>
-                    <span className="text-amber-400">■</span> Older = soft avoid
-                  </>
-                )}
-                {" · "}Older seasons rotate out.
-              </p>
-              <p className="mt-1 text-[11px] text-slate-500">
-                {avoidInfo.hard} hard · {avoidInfo.soft} soft · {avoidInfo.total} total
-              </p>
-            </div>
-          )}
-
+          {/* Schedule text paste fallback */}
           <details className="mt-2">
             <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
-              Paste schedule text (non-Sleeper leagues)
+              Paste Schedule Text (non-API platforms)
             </summary>
             <div className={`${cls.pasteSection} mt-2`}>
               <p className={cls.hint}>
                 Paste from ESPN, Yahoo, etc. — &ldquo;Team A vs Team B&rdquo; per line. Scores and
-                week headers are stripped automatically.
+                week headers are stripped automatically. Detected doubles become hard-avoid for the
+                upcoming generation.
               </p>
               <textarea
                 className={cls.pasteBox}
@@ -1060,8 +876,8 @@ export default function GeneratePage() {
                         const doubles = detectDoublesFromPairs(indexedPairs);
                         return (
                           <p className="text-xs text-emerald-400">
-                            Detected <strong>{doubles.size}</strong> doubled pairs ready to
-                            apply.
+                            Detected <strong>{doubles.size}</strong> doubled pairs ready to apply
+                            as manual hard-avoid.
                           </p>
                         );
                       })()}
@@ -1077,6 +893,78 @@ export default function GeneratePage() {
               )}
             </div>
           </details>
+
+          <div className="flex items-center my-4 gap-3">
+            <span className="text-[11px] text-slate-600 uppercase tracking-widest whitespace-nowrap w-full text-center border-t border-slate-700 pt-3">
+              manager names
+            </span>
+          </div>
+
+          <p className={cls.hint}>
+            Auto-filled by Sleeper or ESPN imports, or enter manually. Overwrite with real names if
+            you prefer those over usernames.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {teams.map((t, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-2 bg-slate-900 rounded-md px-2 py-1 border border-slate-700"
+              >
+                <span className="text-[11px] text-slate-600 min-w-[1rem] text-right">
+                  {i + 1}
+                </span>
+                <input
+                  className={cls.teamInput}
+                  value={t}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                    const next = [...teams];
+                    next[i] = e.target.value;
+                    setTeams(next);
+                  }}
+                  placeholder={`Team ${i + 1}`}
+                  maxLength={24}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-3 mt-6 flex-wrap">
+            <button
+              className={cls.primaryBtn}
+              onClick={() => {
+                saveToStorage();
+                setStep("doubles");
+              }}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ STEP 2: AVOID ═══ */}
+      {step === "doubles" && (
+        <div className={cls.card}>
+          <h2 className={cls.cardTitle}>Review Avoidance</h2>
+
+          {history.length > 0 && (
+            <div className="bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 mb-4">
+              <strong className="text-slate-200">Lookback Active</strong>
+              <p className="mt-1 text-[11px] text-slate-400">
+                {history.length} season{history.length > 1 ? "s" : ""} in history.{" "}
+                <span className="text-red-400">■</span> Last {FORMAT.lookback.hard} season
+                {FORMAT.lookback.hard > 1 ? "s" : ""} = hard avoid{" "}
+                {history.length > FORMAT.lookback.hard && FORMAT.lookback.soft > 0 && (
+                  <>
+                    <span className="text-amber-400">■</span> Older = soft avoid
+                  </>
+                )}
+                {" · "}Older seasons rotate out.
+              </p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                {avoidInfo.hard} hard · {avoidInfo.soft} soft · {avoidInfo.total} total
+              </p>
+            </div>
+          )}
 
           {/* Matrix grid (horizontal scroll on mobile) */}
           <div className="overflow-x-auto -mx-2 px-2 mt-2">
