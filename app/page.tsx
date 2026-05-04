@@ -523,8 +523,7 @@ export default function GeneratePage() {
       <div className={cls.subSection}>
         <h3 className={cls.sectionTitle}>Import from Sleeper</h3>
         <p className={cls.hint}>
-          Enter your current Sleeper league ID - the server walks the history chain to find
-          completed seasons. Find it in your league URL: sleeper.com/leagues/
+          Enter your league ID. Find it in your league URL: sleeper.com/leagues/
           <strong>YOUR_ID</strong>
         </p>
         <div className="flex flex-wrap gap-2 items-stretch">
@@ -559,8 +558,8 @@ export default function GeneratePage() {
       <div className={cls.subSection}>
         <h3 className={cls.sectionTitle}>Import from ESPN</h3>
         <p className={cls.hint}>
-          Public leagues only for now. Find your league ID in the URL:
-          fantasy.espn.com/football/league?leagueId=<strong>YOUR_ID</strong>.
+          Public leagues only. Find your league ID in the URL:
+          fantasy.espn.com/football/league?leagueId=<strong>YOUR_ID</strong>
         </p>
         <div className="flex flex-wrap gap-2 items-stretch">
           <input
