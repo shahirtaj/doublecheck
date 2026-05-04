@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type ChangeEvent,
   type MouseEvent,
@@ -13,6 +14,7 @@ import {
   describeFormat,
   pairKey,
   unpackPairKey,
+  type LookbackWindow,
   type Matching,
   type PairKey,
   type SeasonHistory,
@@ -20,12 +22,48 @@ import {
 } from "@/lib/algorithm";
 
 // ── Format constants ──────────────────────────────────────
-// The prototype runs the 12-team / 14-week format. Phase 2 ports the prototype
-// as-is; Phase 3+ will surface the format picker for other supported sizes.
-const TEAM_COUNT = 12;
-const WEEK_COUNT = 14;
 const STORAGE_KEY = "ff-rotational-scheduler";
-const FORMAT = describeFormat(TEAM_COUNT, WEEK_COUNT);
+
+type SelectedFormat = { teamCount: number; weekCount: number };
+
+const DEFAULT_FORMAT: SelectedFormat = { teamCount: 12, weekCount: 14 };
+
+// Curated list of formats users can pick from. Includes the seven supported
+// (standard/inverted) formats from the blueprint plus the most common edge
+// cases (pure round-robin and complete double round-robin) so users on those
+// shapes get an explanatory message instead of a broken UI.
+const SUPPORTED_FORMATS: SelectedFormat[] = [
+  { teamCount: 8, weekCount: 13 },
+  { teamCount: 8, weekCount: 14 },
+  { teamCount: 10, weekCount: 9 },
+  { teamCount: 10, weekCount: 13 },
+  { teamCount: 10, weekCount: 14 },
+  { teamCount: 12, weekCount: 11 },
+  { teamCount: 12, weekCount: 13 },
+  { teamCount: 12, weekCount: 14 },
+  { teamCount: 14, weekCount: 13 },
+  { teamCount: 14, weekCount: 14 },
+  { teamCount: 14, weekCount: 15 },
+];
+
+function formatKey(f: SelectedFormat): string {
+  return `${f.teamCount}-${f.weekCount}`;
+}
+
+function parseFormatKey(key: string): SelectedFormat | null {
+  const match = SUPPORTED_FORMATS.find((f) => formatKey(f) === key);
+  return match ? { ...match } : null;
+}
+
+// Map a single-number lookback override (the total of hard + soft) back into
+// the LookbackWindow shape buildAvoidMap expects. We preserve the format's
+// hard count when possible, with any extra falling into soft.
+function deriveLookback(override: number, formatLookback: LookbackWindow): LookbackWindow {
+  const total = Math.max(0, Math.floor(override));
+  const hard = Math.min(total, formatLookback.hard);
+  const soft = Math.max(0, total - hard);
+  return { hard, soft };
+}
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -153,15 +191,25 @@ function detectDoublesFromPairs(indexedPairs: [number, number][]): Set<PairKey> 
 
 export default function GeneratePage() {
   const [step, setStep] = useState<Step>("teams");
+  const [selectedFormat, setSelectedFormat] = useState<SelectedFormat>(DEFAULT_FORMAT);
+  const { teamCount, weekCount } = selectedFormat;
+  const format = useMemo(
+    () => describeFormat(teamCount, weekCount),
+    [teamCount, weekCount],
+  );
+  const isEdgeCaseFormat =
+    format.variant === "pure-round-robin" || format.variant === "complete-double-round-robin";
+
   const [teams, setTeams] = useState<string[]>(() =>
-    Array(TEAM_COUNT).fill("").map((_, i) => `Team ${i + 1}`),
+    Array(DEFAULT_FORMAT.teamCount).fill("").map((_, i) => `Team ${i + 1}`),
   );
   const [userIds, setUserIds] = useState<(string | null)[]>(() =>
-    Array(TEAM_COUNT).fill(null),
+    Array(DEFAULT_FORMAT.teamCount).fill(null),
   );
   const [manualDoubles, setManualDoubles] = useState<Set<PairKey>>(() => new Set());
   const [schedule, setSchedule] = useState<ScheduleSuccess | null>(null);
   const [history, setHistory] = useState<SeasonHistory[]>([]);
+  const [lookbackOverride, setLookbackOverride] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [genError, setGenError] = useState("");
   const [selectedWeek, setSelectedWeek] = useState(0);
@@ -192,10 +240,23 @@ export default function GeneratePage() {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const d = JSON.parse(raw);
-        if (Array.isArray(d.teams) && d.teams.length === TEAM_COUNT) setTeams(d.teams);
-        if (Array.isArray(d.userIds) && d.userIds.length === TEAM_COUNT) setUserIds(d.userIds);
+        let nextTeamCount = DEFAULT_FORMAT.teamCount;
+        if (
+          d.format &&
+          typeof d.format.teamCount === "number" &&
+          typeof d.format.weekCount === "number"
+        ) {
+          const parsed = parseFormatKey(formatKey(d.format));
+          if (parsed) {
+            setSelectedFormat(parsed);
+            nextTeamCount = parsed.teamCount;
+          }
+        }
+        if (Array.isArray(d.teams) && d.teams.length === nextTeamCount) setTeams(d.teams);
+        if (Array.isArray(d.userIds) && d.userIds.length === nextTeamCount) setUserIds(d.userIds);
         if (Array.isArray(d.history)) setHistory(d.history);
         if (Array.isArray(d.manualDoubles)) setManualDoubles(new Set(d.manualDoubles));
+        if (typeof d.lookbackOverride === "number") setLookbackOverride(d.lookbackOverride);
       }
     } catch {
       // Ignore corrupt storage; fall back to defaults.
@@ -204,13 +265,24 @@ export default function GeneratePage() {
   }, []);
 
   const saveToStorage = useCallback(
-    (extra: Partial<{ teams: string[]; userIds: (string | null)[]; history: SeasonHistory[]; manualDoubles: PairKey[] }> = {}) => {
+    (
+      extra: Partial<{
+        teams: string[];
+        userIds: (string | null)[];
+        history: SeasonHistory[];
+        manualDoubles: PairKey[];
+        format: SelectedFormat;
+        lookbackOverride: number | null;
+      }> = {},
+    ) => {
       try {
         const payload = {
           teams,
           userIds,
           history,
           manualDoubles: [...manualDoubles],
+          format: selectedFormat,
+          lookbackOverride,
           ...extra,
         };
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -218,11 +290,18 @@ export default function GeneratePage() {
         // Storage may be full or unavailable; ignore.
       }
     },
-    [teams, userIds, history, manualDoubles],
+    [teams, userIds, history, manualDoubles, selectedFormat, lookbackOverride],
+  );
+
+  const recommendedLookbackTotal = format.lookback.hard + format.lookback.soft;
+  const effectiveLookbackTotal = lookbackOverride ?? recommendedLookbackTotal;
+  const effectiveLookback = useMemo(
+    () => deriveLookback(effectiveLookbackTotal, format.lookback),
+    [effectiveLookbackTotal, format.lookback],
   );
 
   function getAvoidSets() {
-    const { hard, soft } = buildAvoidMap(history, userIds, FORMAT.lookback);
+    const { hard, soft } = buildAvoidMap(history, userIds, effectiveLookback);
     manualDoubles.forEach((key) => {
       hard.add(key);
       soft.delete(key);
@@ -240,8 +319,8 @@ export default function GeneratePage() {
     setSaved(false);
     const { hard, soft } = getAvoidSets();
     const result = buildSchedule({
-      teamCount: TEAM_COUNT,
-      weekCount: WEEK_COUNT,
+      teamCount,
+      weekCount,
       hardAvoid: hard,
       softAvoid: soft,
     });
@@ -351,9 +430,9 @@ export default function GeneratePage() {
       if (!Array.isArray(seasons) || seasons.length === 0) {
         throw new Error("No seasons returned.");
       }
-      const valid = seasons.filter((s) => s.teamNames?.length === TEAM_COUNT);
+      const valid = seasons.filter((s) => s.teamNames?.length === teamCount);
       if (valid.length === 0) {
-        throw new Error(`No seasons with ${TEAM_COUNT} teams found.`);
+        throw new Error(`No seasons with ${teamCount} teams found.`);
       }
       setImportPreview({ platform: "sleeper", seasons: valid });
       setSleeperStatus("ready");
@@ -387,9 +466,9 @@ export default function GeneratePage() {
       if (!Array.isArray(seasons) || seasons.length === 0) {
         throw new Error("No seasons returned.");
       }
-      const valid = seasons.filter((s) => s.teamNames?.length === TEAM_COUNT);
+      const valid = seasons.filter((s) => s.teamNames?.length === teamCount);
       if (valid.length === 0) {
-        throw new Error(`No seasons with ${TEAM_COUNT} teams found.`);
+        throw new Error(`No seasons with ${teamCount} teams found.`);
       }
       setImportPreview({ platform: "espn", seasons: valid });
       setEspnStatus("ready");
@@ -460,7 +539,7 @@ export default function GeneratePage() {
   // ── Derived helpers ──
 
   function doublesPerTeam() {
-    const counts = Array(TEAM_COUNT).fill(0);
+    const counts = Array(teamCount).fill(0);
     manualDoubles.forEach((key) => {
       const [a, b] = unpackPairKey(key);
       counts[a]++;
@@ -476,19 +555,54 @@ export default function GeneratePage() {
   function cellAvoidType(i: number, j: number): "manual" | "hard" | "soft" | "none" {
     const key = pairKey(i, j);
     if (manualDoubles.has(key)) return "manual";
-    const { hard, soft } = buildAvoidMap(history, userIds, FORMAT.lookback);
+    const { hard, soft } = buildAvoidMap(history, userIds, effectiveLookback);
     if (hard.has(key)) return "hard";
     if (soft.has(key)) return "soft";
     return "none";
   }
 
+  function handleFormatChange(next: SelectedFormat) {
+    if (next.teamCount === teamCount && next.weekCount === weekCount) return;
+    const sizeChanged = next.teamCount !== teamCount;
+    setSelectedFormat(next);
+    setSchedule(null);
+    setSaved(false);
+    setManualDoubles(new Set());
+    setLookbackOverride(null);
+    let nextTeams = teams;
+    let nextUserIds = userIds;
+    if (sizeChanged) {
+      nextTeams = Array(next.teamCount).fill("").map((_, i) => `Team ${i + 1}`);
+      nextUserIds = Array(next.teamCount).fill(null);
+      setTeams(nextTeams);
+      setUserIds(nextUserIds);
+      setHistory([]);
+      saveToStorage({
+        format: next,
+        teams: nextTeams,
+        userIds: nextUserIds,
+        history: [],
+        manualDoubles: [],
+        lookbackOverride: null,
+      });
+      setStep("teams");
+    } else {
+      saveToStorage({
+        format: next,
+        manualDoubles: [],
+        lookbackOverride: null,
+      });
+    }
+  }
+
   function handleResetEverything() {
-    setTeams(Array(TEAM_COUNT).fill("").map((_, i) => `Team ${i + 1}`));
-    setUserIds(Array(TEAM_COUNT).fill(null));
+    setTeams(Array(teamCount).fill("").map((_, i) => `Team ${i + 1}`));
+    setUserIds(Array(teamCount).fill(null));
     setHistory([]);
     setManualDoubles(new Set());
     setSchedule(null);
     setSaved(false);
+    setLookbackOverride(null);
     resetImportUi();
     setSleeperId("");
     setEspnId("");
@@ -549,9 +663,66 @@ export default function GeneratePage() {
           DoubleCheck
         </h1>
         <p className="text-[11px] text-slate-500 mt-1 tracking-wider">
-          {WEEK_COUNT}-week rotational scheduling · {TEAM_COUNT}-team leagues
+          Fair rotational schedules for fantasy football leagues
         </p>
       </div>
+
+      <div className="max-w-[700px] mx-auto mb-5 flex flex-wrap items-center justify-center gap-2">
+        <label className="text-[11px] text-slate-500 uppercase tracking-widest">League format</label>
+        <select
+          className="bg-slate-900 text-slate-200 border border-slate-700 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-slate-500"
+          value={formatKey(selectedFormat)}
+          onChange={(e) => {
+            const next = parseFormatKey(e.target.value);
+            if (next) handleFormatChange(next);
+          }}
+        >
+          {SUPPORTED_FORMATS.map((f) => {
+            const desc = describeFormat(f.teamCount, f.weekCount);
+            const variantSuffix =
+              desc.variant === "pure-round-robin"
+                ? " · pure round-robin"
+                : desc.variant === "complete-double-round-robin"
+                  ? " · complete double round-robin"
+                  : desc.variant === "inverted"
+                    ? " · inverted"
+                    : "";
+            return (
+              <option key={formatKey(f)} value={formatKey(f)}>
+                {f.teamCount} teams / {f.weekCount} weeks{variantSuffix}
+              </option>
+            );
+          })}
+        </select>
+      </div>
+
+      {isEdgeCaseFormat ? (
+        <div className={cls.card}>
+          <h2 className={cls.cardTitle}>No schedule needed</h2>
+          {format.variant === "pure-round-robin" ? (
+            <p className={cls.hint}>
+              <strong className="text-slate-200">
+                {teamCount}-team / {weekCount}-week
+              </strong>{" "}
+              is a pure round-robin: every team plays every opponent exactly once. There are no
+              doubled matchups, so there&apos;s no fairness problem to solve and no rotational
+              schedule needed. Pick a different format above if your league plays more (or fewer)
+              regular-season weeks.
+            </p>
+          ) : (
+            <p className={cls.hint}>
+              <strong className="text-slate-200">
+                {teamCount}-team / {weekCount}-week
+              </strong>{" "}
+              is a complete double round-robin: every team plays every opponent exactly twice. The
+              schedule is fully determined — every pair is doubled — so there&apos;s no rotational
+              fairness problem to solve. Pick a different format above if your league plays a
+              different number of regular-season weeks.
+            </p>
+          )}
+        </div>
+      ) : (
+        <>
 
       <div className="flex justify-center gap-1 mb-5 flex-wrap">
         {(
@@ -675,7 +846,7 @@ export default function GeneratePage() {
               <p className="text-[11px] text-slate-400 mb-2">
                 Most recent: {importPreview.seasons[0]!.seasonYear || "unknown"} —{" "}
                 {importPreview.seasons[0]!.doubles.length} doubled pairs across{" "}
-                {importPreview.seasons[0]!.regWeeks ?? WEEK_COUNT} weeks.
+                {importPreview.seasons[0]!.regWeeks ?? weekCount} weeks.
               </p>
               <p className="text-[11px] text-slate-500 mb-2">
                 Managers: {importPreview.seasons[0]!.teamNames.join(", ")}
@@ -867,20 +1038,49 @@ export default function GeneratePage() {
 
           {history.length > 0 && (
             <div className="bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 mb-4">
-              <strong className="text-slate-200">Lookback Active</strong>
+              <strong className="text-slate-200">Lookback Window</strong>
               <p className="mt-1 text-[11px] text-slate-400">
-                {history.length} season{history.length > 1 ? "s" : ""} in history.{" "}
-                <span className="text-red-400">■</span> Last {FORMAT.lookback.hard} season
-                {FORMAT.lookback.hard > 1 ? "s" : ""} = hard avoid{" "}
-                {history.length > FORMAT.lookback.hard && FORMAT.lookback.soft > 0 && (
-                  <>
-                    <span className="text-amber-400">■</span> Older = soft avoid
-                  </>
-                )}
-                {" · "}Older seasons rotate out.
+                Using last{" "}
+                <strong className="text-slate-200">{effectiveLookbackTotal}</strong>{" "}
+                season{effectiveLookbackTotal !== 1 ? "s" : ""} (recommended for {teamCount}-team /{" "}
+                {weekCount}-week is {recommendedLookbackTotal}).
               </p>
-              <p className="mt-1 text-[11px] text-slate-500">
-                {avoidInfo.hard} hard · {avoidInfo.soft} soft · {avoidInfo.total} total
+              <div className="mt-2 flex flex-wrap gap-2 items-center text-[11px]">
+                <label htmlFor="lookback-override" className="text-slate-500">
+                  Override:
+                </label>
+                <select
+                  id="lookback-override"
+                  className="bg-slate-800 text-slate-200 border border-slate-600 rounded px-1.5 py-0.5 text-[11px] font-mono outline-none focus:border-slate-500"
+                  value={lookbackOverride ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const next = v === "" ? null : parseInt(v, 10);
+                    setLookbackOverride(next);
+                    saveToStorage({ lookbackOverride: next });
+                  }}
+                >
+                  <option value="">Recommended ({recommendedLookbackTotal})</option>
+                  {Array.from({ length: history.length }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-slate-500">
+                  ={" "}
+                  <span className="text-red-400">{effectiveLookback.hard} hard</span>
+                  {effectiveLookback.soft > 0 && (
+                    <>
+                      {" + "}
+                      <span className="text-amber-400">{effectiveLookback.soft} soft</span>
+                    </>
+                  )}
+                </span>
+              </div>
+              <p className="mt-1.5 text-[11px] text-slate-500">
+                {history.length} season{history.length > 1 ? "s" : ""} in history ·{" "}
+                {avoidInfo.hard} hard · {avoidInfo.soft} soft · {avoidInfo.total} total avoid pairs
               </p>
             </div>
           )}
@@ -948,9 +1148,9 @@ export default function GeneratePage() {
                   <div
                     key={i}
                     className={`w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-[8px] font-semibold border border-slate-800 box-border ${
-                      c === FORMAT.doublesPerTeam
+                      c === format.doublesPerTeam
                         ? "text-emerald-400"
-                        : c > FORMAT.doublesPerTeam
+                        : c > format.doublesPerTeam
                           ? "text-red-400"
                           : c === 0
                             ? "text-slate-600"
@@ -966,8 +1166,8 @@ export default function GeneratePage() {
 
           <p className="text-[10px] text-slate-500 mt-2">
             <span className="text-emerald-400">✕</span> manual{"  "}
-            <span className="text-red-400">H</span> hard avoid (last {FORMAT.lookback.hard}{" "}
-            season{FORMAT.lookback.hard > 1 ? "s" : ""}){"  "}
+            <span className="text-red-400">H</span> hard avoid (last {effectiveLookback.hard}{" "}
+            season{effectiveLookback.hard !== 1 ? "s" : ""}){"  "}
             <span className="text-amber-400">S</span> soft avoid (older)
           </p>
 
@@ -979,7 +1179,7 @@ export default function GeneratePage() {
             <div className="mt-2 flex flex-col gap-1">
               {teams.map((t, i) => {
                 const partners: { name: string; tone: string }[] = [];
-                for (let j = 0; j < TEAM_COUNT; j++) {
+                for (let j = 0; j < teamCount; j++) {
                   if (j === i) continue;
                   const at = cellAvoidType(i, j);
                   const isManual = manualDoubles.has(pairKey(i, j));
@@ -1168,15 +1368,15 @@ export default function GeneratePage() {
           {history.map((h, si) => {
             const age = history.length - si;
             const tone =
-              age <= FORMAT.lookback.hard
+              age <= effectiveLookback.hard
                 ? "text-red-400"
-                : age <= FORMAT.lookback.hard + FORMAT.lookback.soft
+                : age <= effectiveLookback.hard + effectiveLookback.soft
                   ? "text-amber-400"
                   : "text-slate-600";
             const label =
-              age <= FORMAT.lookback.hard
+              age <= effectiveLookback.hard
                 ? "HARD AVOID"
-                : age <= FORMAT.lookback.hard + FORMAT.lookback.soft
+                : age <= effectiveLookback.hard + effectiveLookback.soft
                   ? "SOFT AVOID"
                   : "ROTATED OUT";
             return (
@@ -1223,6 +1423,8 @@ export default function GeneratePage() {
             </div>
           )}
         </details>
+      )}
+        </>
       )}
 
       <div className="max-w-[700px] mx-auto mt-6 text-center">
