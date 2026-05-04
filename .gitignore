@@ -4,3 +4,9 @@ node_modules
 dist
 coverage
 .claude/
+.next
+out
+next-env.d.ts
+.vercel
+*.tsbuildinfo
+
