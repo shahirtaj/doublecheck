@@ -173,7 +173,13 @@ export default function GeneratePage() {
   );
 
   const recommendedLookbackTotal = format ? format.lookback.hard + format.lookback.soft : 0;
-  const effectiveLookbackTotal = lookbackOverride ?? recommendedLookbackTotal;
+  // Override may only dial the lookback down. Anything higher than the per-format
+  // recommendation gets clamped so an over-constrained avoid set can't sneak in
+  // from stale localStorage either.
+  const effectiveLookbackTotal = Math.min(
+    lookbackOverride ?? recommendedLookbackTotal,
+    recommendedLookbackTotal,
+  );
   const effectiveLookback = useMemo<LookbackWindow>(
     () => (format ? deriveLookback(effectiveLookbackTotal, format.lookback) : { hard: 0, soft: 0 }),
     [effectiveLookbackTotal, format],
@@ -784,17 +790,17 @@ export default function GeneratePage() {
                 <select
                   id="lookback-override"
                   className="bg-slate-800 text-slate-200 border border-slate-600 rounded px-1.5 py-0.5 text-[11px] font-mono outline-none focus:border-slate-500"
-                  value={Math.min(
-                    lookbackOverride ?? recommendedLookbackTotal,
-                    history.length,
-                  )}
+                  value={effectiveLookbackTotal}
                   onChange={(e) => {
                     const next = parseInt(e.target.value, 10);
                     setLookbackOverride(next);
                     saveToStorage({ lookbackOverride: next });
                   }}
                 >
-                  {Array.from({ length: history.length }, (_, i) => i + 1).map((n) => (
+                  {Array.from(
+                    { length: Math.min(recommendedLookbackTotal, history.length) },
+                    (_, i) => i + 1,
+                  ).map((n) => (
                     <option key={n} value={n}>
                       {n === recommendedLookbackTotal ? `${n} (recommended)` : n}
                     </option>
