@@ -104,7 +104,7 @@ Next.js 14 App Router with Tailwind CSS. Tool is the homepage (`app/page.tsx`). 
 ### Phase 3: Platform Integrations ✅
 **Tool: Claude Code**
 
-Server-side API routes at `/api/import/sleeper` and `/api/import/espn`. Walk the season-history chain, fetch all completed seasons (up to 5), normalize doubled pairs into `ImportedSeasonRecord` shape. IP-based rate limiting via `lib/api/rate-limit.ts`. Schedule text paste fallback for non-API platforms.
+Server-side API routes at `/api/import/sleeper` and `/api/import/espn`. Walk the season-history chain, fetch all completed seasons (up to 5), normalize doubled pairs into `ImportedSeasonRecord` shape. IP-based rate limiting via `lib/api/rate-limit.ts`.
 
 **Deliverable:** Unified import UI - enter league ID, fetch, apply.
 
@@ -215,7 +215,7 @@ Phases 1–6 are complete. The tool is live at [doublecheckff.com](https://doubl
 
 - **Phase 1 - Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 92 Vitest tests prove constraints hold across every format.
 - **Phase 2 - Next.js 14 App Router.** Tool is the homepage with Tailwind CSS and responsive UI. localStorage persistence.
-- **Phase 3 - Server-side platform integrations.** `/api/import/sleeper` and `/api/import/espn` walk the season-history chain, fetch all completed seasons, and apply IP-based rate limiting. Schedule text paste fallback for non-API platforms.
+- **Phase 3 - Server-side platform integrations.** `/api/import/sleeper` and `/api/import/espn` walk the season-history chain, fetch all completed seasons, and apply IP-based rate limiting.
 - **Phase 4 - GitHub.** Public repo with README, MIT license, and GitHub Actions CI (92/92 tests passing).
 - **Phase 5 - Deployed.** Live on Vercel at doublecheckff.com with auto-deploy from main.
 - **Phase 6 - SEO + polish.** Favicon (double checkmark SVG), OG/Twitter meta tags, auto-detected league format from import data, lookback window override control, edge-case format detection. No manual format selector - format is derived from imported seasons.
@@ -225,9 +225,7 @@ Phases 1–6 are complete. The tool is live at [doublecheckff.com](https://doubl
 - `prototype.jsx` - replaced by `app/page.tsx`
 - Sleeper JSON paste fallback - removed, server-side route eliminates the need
 - Manual format selector - removed, replaced by auto-detection from import data
+- Schedule text paste - removed - impractical for multi-season history data
 
 ### Investigated and deferred
 - **Platform write APIs for schedule input:** No write APIs exist on Sleeper, ESPN, or Yahoo. Headless browser automation (Puppeteer/Playwright) would require storing credentials, break on UI changes, and create unsustainable support burden - all to save ~10 minutes of annual manual entry. Not worth building.
-
-### Post-Phase 6 follow-ups
-- Standalone paste flow improvements - refine team name detection, handle ambiguous formats, improve error messages for edge cases.

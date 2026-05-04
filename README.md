@@ -44,9 +44,8 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 ## Supported platforms
 
 - **Sleeper** - fully public API, paste your league ID and you're done.
-- **ESPN** - public leagues by league ID. Private league support and a paste fallback follow ESPN's undocumented API quirks.
+- **ESPN** - public leagues by league ID. Private league support follows ESPN's undocumented API quirks.
 - **Yahoo** - coming soon (OAuth 2.0 flow, requires registered Yahoo developer app).
-- **NFL.com / CBS / Fantrax / others** - paste-and-parse fallback ("Team A vs Team B" per line).
 
 ## Quick start
 
