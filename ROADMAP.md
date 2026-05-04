@@ -54,8 +54,8 @@ Odd-number leagues and 16+ team leagues are out of scope.
 | Sleeper | Fastest growing | Fully public, free | None | ✅ Integrated |
 | ESPN | ~13M | Undocumented, fragile | Cookies for private leagues | ✅ Integrated (public leagues) |
 | Yahoo | ~5-10M | Official, OAuth 2.0 | Developer app registration | 🔜 Phase 6.5 |
-| NFL.com | Small | None | N/A | Paste-and-parse fallback |
-| CBS | Small | None | N/A | Paste-and-parse fallback |
+| NFL.com | Small | None | N/A | Not supported |
+| CBS | Small | None | N/A | Not supported |
 
 No write APIs exist on any platform for schedule input. Commissioners enter the generated schedule manually through their platform's commissioner tools. This is a one-time annual task (~10 minutes).
 
@@ -136,7 +136,7 @@ Deployed on Vercel with auto-deploy from `main`. Custom domain `doublecheckff.co
 - Open Graph + Twitter meta tags for social sharing
 - SEO title: "DoubleCheck - Fair Fantasy Football Schedule Generator"
 - League format auto-detected from imported data (teamCount from roster size, weekCount from regWeeks) - no manual format selector
-- Before import: "Import a league to get started" prompt with Sleeper/ESPN/paste options
+- Before import: "Import a league to get started" prompt with Sleeper/ESPN options
 - Edge-case detection: pure round-robin and complete double round-robin show explanatory messages
 - Lookback window override in Step 2 (Review): "Using last N seasons (recommended for X-team / Y-week)" with dropdown to override (1 through history length), defaults to format-recommended value
 - All `TEAM_COUNT`/`WEEK_COUNT` constants replaced with dynamic state derived from import

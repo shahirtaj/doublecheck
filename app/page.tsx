@@ -595,10 +595,6 @@ export default function GeneratePage() {
         <h3 className={cls.sectionTitle}>
           Yahoo <span className="text-[10px] text-slate-500 font-normal">(coming soon)</span>
         </h3>
-        <p className={cls.hint}>
-          Yahoo requires OAuth 2.0 with a registered developer app - landing in a follow-up
-          phase.
-        </p>
       </div>
 
       {/* Shared import preview */}

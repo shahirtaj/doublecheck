@@ -50,7 +50,7 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 ## Quick start
 
 1. Visit [DoubleCheck](https://doublecheckff.com).
-2. Pick your platform and enter your league ID - or paste your previous schedules.
+2. Pick your platform and enter your league ID.
 3. Review the avoidance matrix and generate this year's schedule.
 4. Save the season - its doubles automatically feed next year's lookback.
 
