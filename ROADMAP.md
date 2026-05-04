@@ -228,3 +228,6 @@ Phases 1–6 are complete. The tool is live at [doublecheckff.com](https://doubl
 
 ### Investigated and deferred
 - **Platform write APIs for schedule input:** No write APIs exist on Sleeper, ESPN, or Yahoo. Headless browser automation (Puppeteer/Playwright) would require storing credentials, break on UI changes, and create unsustainable support burden - all to save ~10 minutes of annual manual entry. Not worth building.
+
+### Post-Phase 6 follow-ups
+- Standalone paste flow improvements - refine team name detection, handle ambiguous formats, improve error messages for edge cases.

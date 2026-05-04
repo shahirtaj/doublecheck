@@ -363,8 +363,60 @@ export default function GeneratePage() {
     if (result.success) setNameMapping(result.nameToIndex);
   }
 
+  // Derive a format from a parsed paste: teamCount = unique team names,
+  // weekCount = total matchups divided by matches-per-week (teamCount / 2).
+  // Returns null if the result can't form a valid format.
+  function detectFormatFromPaste(
+    rawPairs: [string, string][],
+    uniqueNames: string[],
+  ): SelectedFormat | null {
+    const teamCount = uniqueNames.length;
+    if (teamCount < 2 || teamCount % 2 !== 0) return null;
+    const matchesPerWeek = teamCount / 2;
+    if (rawPairs.length % matchesPerWeek !== 0) return null;
+    const weekCount = rawPairs.length / matchesPerWeek;
+    if (weekCount < teamCount - 1 || weekCount > 2 * (teamCount - 1)) return null;
+    return { teamCount, weekCount };
+  }
+
   function handleApplyParsed() {
     if (!parseResult || !parseResult.success) return;
+
+    // Standalone paste: no format yet, derive everything from the parsed text.
+    if (!selectedFormat) {
+      const detected = detectFormatFromPaste(parseResult.rawPairs, parseResult.uniqueNames);
+      if (!detected) return;
+      const nameToIdx: Record<string, number> = {};
+      parseResult.uniqueNames.forEach((n, i) => {
+        nameToIdx[n] = i;
+      });
+      const indexedPairs: [number, number][] = [];
+      for (const [a, b] of parseResult.rawPairs) {
+        const ai = nameToIdx[a];
+        const bi = nameToIdx[b];
+        if (ai !== undefined && bi !== undefined && ai !== bi) indexedPairs.push([ai, bi]);
+      }
+      const doubles = detectDoublesFromPairs(indexedPairs);
+      const nextTeams = [...parseResult.uniqueNames];
+      const nextUserIds = Array(detected.teamCount).fill(null);
+      setSelectedFormat(detected);
+      setTeams(nextTeams);
+      setUserIds(nextUserIds);
+      setManualDoubles(doubles);
+      setLookbackOverride(null);
+      saveToStorage({
+        format: detected,
+        teams: nextTeams,
+        userIds: nextUserIds,
+        manualDoubles: [...doubles],
+        lookbackOverride: null,
+      });
+      setParseResult(null);
+      setPasteText("");
+      setNameMapping({});
+      return;
+    }
+
     const indexedPairs: [number, number][] = [];
     for (const [a, b] of parseResult.rawPairs) {
       const ai = nameMapping[a];
@@ -782,15 +834,6 @@ export default function GeneratePage() {
           Paste from ESPN, Yahoo, etc. - &ldquo;Team A vs Team B&rdquo; per line. Scores and week
           headers are stripped automatically. Detected doubles become hard-avoid for the upcoming
           generation.
-          {!selectedFormat && (
-            <>
-              {" "}
-              <span className="text-amber-400">
-                Import a Sleeper or ESPN league above first so DoubleCheck knows your roster - then
-                you can paste a different platform&apos;s schedule to populate avoidance.
-              </span>
-            </>
-          )}
         </p>
         <textarea
           className={cls.pasteBox}
@@ -807,7 +850,7 @@ export default function GeneratePage() {
         <button
           className={cls.secondaryBtn}
           onClick={handleParse}
-          disabled={!pasteText.trim() || !selectedFormat}
+          disabled={!pasteText.trim()}
         >
           Parse Schedule
         </button>
@@ -823,68 +866,120 @@ export default function GeneratePage() {
               <strong>{parseResult.uniqueNames.length}</strong> teams.
             </p>
 
-            {parseResult.unmapped.length > 0 && (
-              <div className="mt-2">
-                <p className="text-[11px] text-amber-400 mb-1.5">
-                  {parseResult.unmapped.length} name(s) couldn&apos;t auto-match. Map them below:
-                </p>
-                {parseResult.unmapped.map((name) => (
-                  <div key={name} className="flex flex-wrap items-center gap-2 mb-1.5 py-1">
-                    <span className="text-slate-200 text-xs min-w-[7.5rem]">
-                      &ldquo;{name}&rdquo;
-                    </span>
-                    <span className="text-slate-600 text-xs">→</span>
-                    <select
-                      className="bg-slate-900 text-slate-200 border border-slate-600 rounded px-1.5 py-0.5 text-xs font-mono"
-                      value={nameMapping[name] ?? ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setNameMapping((prev) => ({
-                          ...prev,
-                          [name]: val === "" ? undefined : parseInt(val, 10),
-                        }));
-                      }}
-                    >
-                      <option value="">- select -</option>
-                      {teams.map((t, idx) => {
-                        const taken = Object.entries(nameMapping).some(
-                          ([k, v]) => v === idx && k !== name,
-                        );
-                        return (
-                          <option key={idx} value={idx} disabled={taken}>
-                            {t}
-                            {taken ? " (taken)" : ""}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {allParsedNamesMapped() && (
-              <div className="mt-2.5">
-                {(() => {
-                  const indexedPairs: [number, number][] = [];
-                  for (const [a, b] of parseResult.rawPairs) {
-                    const ai = nameMapping[a];
-                    const bi = nameMapping[b];
-                    if (ai !== undefined && bi !== undefined && ai !== bi)
-                      indexedPairs.push([ai, bi]);
-                  }
-                  const doubles = detectDoublesFromPairs(indexedPairs);
+            {!selectedFormat ? (
+              (() => {
+                const detected = detectFormatFromPaste(
+                  parseResult.rawPairs,
+                  parseResult.uniqueNames,
+                );
+                if (!detected) {
                   return (
-                    <p className="text-xs text-emerald-400">
-                      Detected <strong>{doubles.size}</strong> doubled pairs ready to apply as
-                      manual hard-avoid.
+                    <p className="text-[11px] text-amber-400 mt-1.5">
+                      Couldn&apos;t derive a valid format from this paste. Need an even team count
+                      (≥ 2) and matchups that divide evenly across weeks within the round-robin
+                      range.
                     </p>
                   );
-                })()}
-                <button className={`${cls.primaryBtn} mt-2`} onClick={handleApplyParsed}>
-                  Apply to Matrix ↓
-                </button>
-              </div>
+                }
+                const nameToIdx: Record<string, number> = {};
+                parseResult.uniqueNames.forEach((n, i) => {
+                  nameToIdx[n] = i;
+                });
+                const indexedPairs: [number, number][] = [];
+                for (const [a, b] of parseResult.rawPairs) {
+                  const ai = nameToIdx[a];
+                  const bi = nameToIdx[b];
+                  if (ai !== undefined && bi !== undefined && ai !== bi)
+                    indexedPairs.push([ai, bi]);
+                }
+                const doubles = detectDoublesFromPairs(indexedPairs);
+                return (
+                  <>
+                    <p className="text-[11px] text-slate-400 mt-1.5">
+                      Detected format:{" "}
+                      <strong className="text-slate-200">
+                        {detected.teamCount}-team / {detected.weekCount}-week
+                      </strong>
+                      . Applying will set the roster from these team names and seed{" "}
+                      <strong className="text-emerald-400">{doubles.size}</strong> doubled pair(s)
+                      as manual hard-avoid.
+                    </p>
+                    <button className={`${cls.primaryBtn} mt-2`} onClick={handleApplyParsed}>
+                      Apply
+                    </button>
+                  </>
+                );
+              })()
+            ) : (
+              <>
+                {parseResult.unmapped.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-[11px] text-amber-400 mb-1.5">
+                      {parseResult.unmapped.length} name(s) couldn&apos;t auto-match. Map them
+                      below:
+                    </p>
+                    {parseResult.unmapped.map((name) => (
+                      <div
+                        key={name}
+                        className="flex flex-wrap items-center gap-2 mb-1.5 py-1"
+                      >
+                        <span className="text-slate-200 text-xs min-w-[7.5rem]">
+                          &ldquo;{name}&rdquo;
+                        </span>
+                        <span className="text-slate-600 text-xs">→</span>
+                        <select
+                          className="bg-slate-900 text-slate-200 border border-slate-600 rounded px-1.5 py-0.5 text-xs font-mono"
+                          value={nameMapping[name] ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setNameMapping((prev) => ({
+                              ...prev,
+                              [name]: val === "" ? undefined : parseInt(val, 10),
+                            }));
+                          }}
+                        >
+                          <option value="">- select -</option>
+                          {teams.map((t, idx) => {
+                            const taken = Object.entries(nameMapping).some(
+                              ([k, v]) => v === idx && k !== name,
+                            );
+                            return (
+                              <option key={idx} value={idx} disabled={taken}>
+                                {t}
+                                {taken ? " (taken)" : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {allParsedNamesMapped() && (
+                  <div className="mt-2.5">
+                    {(() => {
+                      const indexedPairs: [number, number][] = [];
+                      for (const [a, b] of parseResult.rawPairs) {
+                        const ai = nameMapping[a];
+                        const bi = nameMapping[b];
+                        if (ai !== undefined && bi !== undefined && ai !== bi)
+                          indexedPairs.push([ai, bi]);
+                      }
+                      const doubles = detectDoublesFromPairs(indexedPairs);
+                      return (
+                        <p className="text-xs text-emerald-400">
+                          Detected <strong>{doubles.size}</strong> doubled pairs ready to apply as
+                          manual hard-avoid.
+                        </p>
+                      );
+                    })()}
+                    <button className={`${cls.primaryBtn} mt-2`} onClick={handleApplyParsed}>
+                      Apply to Matrix ↓
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
