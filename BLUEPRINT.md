@@ -4,6 +4,9 @@
 
 A web tool that generates fair rotational schedules for fantasy football leagues. It ensures no team is doubled against the same opponent in consecutive seasons, with mathematically optimal spacing between rematches.
 
+**Live at:** [doublecheckff.com](https://doublecheckff.com)
+**Repo:** [github.com/shahirtaj/doublecheck](https://github.com/shahirtaj/doublecheck)
+
 ---
 
 ## The Problem
@@ -14,12 +17,12 @@ In a 12-team, 14-week fantasy football league, each team plays 3 opponents twice
 
 ## The Algorithm
 
-- Weeks 1–3: doubled opponents (first game)
-- Weeks 4–(N-3): single opponents (shuffled)
-- Weeks (N-2)–N: doubled opponents (rematch, same order as weeks 1–3)
-- Every doubled pair gets maximum separation (11 weeks for 14-week seasons)
-- 3-year lookback: hard-avoid last 2 seasons, soft-avoid 3rd season (~6 forced repeats from oldest)
-- Full rotation cycle: ~4 years for 12-team/14-week (every opponent doubled exactly once)
+- Weeks 1–N: doubled opponents (first game)
+- Weeks N+1 through W-N: single opponents (shuffled)
+- Weeks W-N+1 through W: doubled opponents (rematch, same order)
+- Every doubled pair gets maximum separation (e.g., 11 weeks for 14-week / 3-double format)
+- Lookback window derived per format: hard-avoid recent seasons, soft-avoid the next oldest (~6 forced repeats from oldest avoided season)
+- Full rotation cycle varies by format (~4 years for 12-team/14-week)
 - Identity tracking via Sleeper user IDs (survives name changes, team name changes, roster position changes)
 
 ---
@@ -32,13 +35,13 @@ In a 12-team, 14-week fantasy football league, each team plays 3 opponents twice
 | 10 / 13 | 4 | 5 | ~3 years | |
 | 10 / 14 | 5 | 4 | ~2 years | |
 | 12 / 13 | 2 | 9 | ~6 years | |
-| 12 / 14 | 3 | 8 | ~4 years | Current working version |
+| 12 / 14 | 3 | 8 | ~4 years | Most common league shape |
 | 14 / 14 | 1 | 12 | ~13 years | Minimal impact, tool should be transparent |
 | 14 / 15 | 2 | 11 | ~7 years | |
 
-Formats with zero doubles (e.g., 14-team / 13-week) are pure round-robins — the tool should detect these and tell the user no schedule is needed.
+Formats with zero doubles (e.g., 14-team / 13-week) are pure round-robins — the tool detects these and tells the user no schedule is needed.
 
-Formats with complete double round-robins (e.g., 8-team / 14-week) also have no fairness problem — the tool should detect and communicate this.
+Formats with complete double round-robins (e.g., 8-team / 14-week) also have no fairness problem — the tool detects and communicates this.
 
 Odd-number leagues and 16+ team leagues are out of scope.
 
@@ -46,14 +49,13 @@ Odd-number leagues and 16+ team leagues are out of scope.
 
 ## Platform Landscape
 
-| Platform | Users | API | Auth | Notes |
-|----------|-------|-----|------|-------|
-| ESPN | ~13M | Undocumented, fragile | Cookies (espn_s2 + SWID) for private leagues | Endpoints change without notice |
-| Yahoo | ~5-10M | Official, OAuth 2.0 | Developer app registration required | Most friction, cleanest long-term |
-| Sleeper | Fastest growing | Fully public, free | None | Best integration story |
-| NFL.com | Small | None | N/A | Paste-and-parse only |
-| CBS | Small | None | N/A | Paste-and-parse only |
-| Fantrax | Niche | Unknown | Unknown | Research needed |
+| Platform | Users | API | Auth | Status |
+|----------|-------|-----|------|--------|
+| Sleeper | Fastest growing | Fully public, free | None | ✅ Integrated |
+| ESPN | ~13M | Undocumented, fragile | Cookies for private leagues | ✅ Integrated (public leagues) |
+| Yahoo | ~5-10M | Official, OAuth 2.0 | Developer app registration | 🔜 Phase 6.5 |
+| NFL.com | Small | None | N/A | Paste-and-parse fallback |
+| CBS | Small | None | N/A | Paste-and-parse fallback |
 
 ---
 
@@ -65,10 +67,12 @@ Odd-number leagues and 16+ team leagues are out of scope.
 | Language | TypeScript | Type safety for the algorithm and API integrations |
 | Styling | Tailwind CSS | Standard for Next.js, rapid responsive development |
 | Deployment | Vercel | Native Next.js support, serverless functions, free tier |
+| Domain | doublecheckff.com | Purchased via Vercel |
 | Database (v2) | Supabase (Postgres) | Auth + DB in one, free tier covers launch |
 | Auth (v2) | Supabase Auth (Google sign-in) | Most fantasy players have Google accounts |
 | Analytics | Plausible or Umami | Privacy-friendly, free self-hosted |
 | Testing | Vitest | Fast, TypeScript-native |
+| CI | GitHub Actions | Typecheck + test + build on push/PR to main |
 | License | MIT | Maximizes credibility, community signal |
 
 v1 launches with localStorage. Supabase added when shareable links justify the complexity.
@@ -77,101 +81,75 @@ v1 launches with localStorage. Supabase added when shareable links justify the c
 
 ## Phases
 
-### Phase 1: Generalize the Algorithm
+### Phase 1: Generalize the Algorithm ✅
 **Tool: Claude Code**
 
-Parameterize the core algorithm by `(teamCount, weekCount)`. For each supported format: derive double counts, compute rotation cycle length, determine optimal lookback window, calculate spacing constraints, prove decomposition is solvable. Handle edge cases (zero-double formats, complete round-robins, inverted problems like 8/13).
+Parameterized the core algorithm by `(teamCount, weekCount)`. Covers all 7 supported formats with derived double counts, rotation cycles, lookback windows, spacing constraints, and decomposition proofs.
 
-**Deliverable:** TypeScript algorithm module (`lib/algorithm/`) with Vitest tests proving constraints hold for all 7 supported formats.
+**Deliverable:** `lib/algorithm/` module with 92 Vitest tests.
 
 ---
 
-### Phase 2: Next.js Project
+### Phase 2: Next.js Project ✅
 **Tool: Claude Code**
 
-Initialize Next.js 14 App Router project. Codebase structure:
+Next.js 14 App Router with Tailwind CSS. Tool is the homepage (`app/page.tsx`). Responsive UI — matrix grid scrolls horizontally on mobile, week navigator wraps. localStorage for persistence.
 
-```
-lib/
-  algorithm/     — pure math, no dependencies
-  platforms/     — Sleeper/ESPN/Yahoo fetchers
-app/
-  page.tsx       — landing page (Phase 6)
-  generate/      — the tool UI
-  api/
-    import/      — platform proxy routes
-```
-
-Port current React artifact into this structure. Responsive from day one — matrix grid and week navigator need mobile layouts. No database yet — localStorage for persistence.
-
-**Deliverable:** Local dev environment running the full app with generalized algorithm.
+**Deliverable:** Full app running locally and deployed.
 
 ---
 
-### Phase 3: Platform Integrations
+### Phase 3: Platform Integrations ✅
 **Tool: Claude Code**
 
-Server-side API routes that eliminate CORS, the Terminal script, and JSON pasting.
+Server-side API routes at `/api/import/sleeper` and `/api/import/espn`. Walk the season-history chain, fetch all completed seasons (up to 5), normalize doubled pairs into `ImportedSeasonRecord` shape. IP-based rate limiting via `lib/api/rate-limit.ts`. Schedule text paste fallback for non-API platforms.
 
-- **Sleeper** (`/api/import/sleeper`): Direct port of current fetch logic. User enters league ID, done.
-- **ESPN** (`/api/import/espn`): Public leagues by league ID. Private leagues require user-provided espn_s2 and SWID cookies (with clear instructions). Build with graceful fallback to paste-and-parse since ESPN's API is undocumented and fragile.
-- **Yahoo** (`/api/import/yahoo`): OAuth 2.0 flow. Register Yahoo Developer app, implement auth redirect. User clicks "Connect Yahoo," authorizes, app pulls their leagues.
-- **NFL.com / CBS / Others**: Paste-and-parse with per-platform format hints.
-
-**Deliverable:** Unified import UI — pick your platform, authenticate if needed, select your league.
+**Deliverable:** Unified import UI — enter league ID, fetch, apply.
 
 ---
 
-### Phase 4: GitHub
+### Phase 4: GitHub ✅
 **Tool: Claude Code**
 
-Initialize repo. Write README that explains the fairness problem, the math, the rotation proof, and supported formats (doubles as SEO content for Phase 6). Add Vitest tests, GitHub Actions CI.
+Public repo at `github.com/shahirtaj/doublecheck`. README explains the fairness problem, math, supported formats, and algorithm. MIT license. GitHub Actions CI (typecheck + test + build on push/PR).
 
-License: MIT.
-
-**Deliverable:** Public repo with passing CI and a README that markets the tool.
+**Deliverable:** Public repo with passing CI.
 
 ---
 
-### Phase 5: Deploy
+### Phase 5: Deploy ✅
 **Tool: Vercel**
 
-Next.js deploys natively on Vercel with zero config. API routes become serverless functions automatically. Set environment variables for Yahoo OAuth credentials. Free tier covers launch traffic.
+Deployed on Vercel with auto-deploy from `main`. Custom domain `doublecheckff.com` configured. Framework preset: Next.js.
 
-**Action item:** Buy the domain for DoubleCheck before this phase. Do it early — before the Reddit post makes the name public.
-
-**Deliverable:** Live URL.
+**Deliverable:** Live at doublecheckff.com.
 
 ---
 
-### Phase 6: Landing Page + SEO
+### Phase 6: Landing Page + SEO + Polish
 **Tool: Claude Code**
 
-Root page (`/`) is a marketing/explainer page:
-- The fairness problem in plain English
-- Visual example of how doubles cluster under random scheduling
-- The math behind the rotation
-- Which formats benefit (and which don't need the tool)
-- CTA to use the tool at `/generate`
+The tool is currently the homepage. This phase adds marketing/explainer content and polish:
 
-Target keywords: "fantasy football schedule fairness," "fantasy football repeat matchups," "rotational scheduling fantasy football," "fantasy football schedule generator."
+- Landing page content above or alongside the tool: the fairness problem in plain English, visual example of double clustering, the math, which formats benefit
+- Favicon and Open Graph meta tags for social sharing
+- Target keywords: "fantasy football schedule fairness," "fantasy football repeat matchups," "rotational scheduling fantasy football," "fantasy football schedule generator"
+- Lookback window override control in Step 2 (Review) — display "Using last N seasons (recommended for X-team / Y-week)" with a dropdown to override, defaulting to the format's lookback (hard + soft from `describeFormat`)
 
-**Deliverable:** SEO-optimized landing page.
+**Deliverable:** SEO-optimized site with polished UX.
 
 ---
 
 ### Phase 6.5: Yahoo Integration
 **Tool: Claude Code**
 
-Yahoo's official Fantasy Sports API requires a registered developer app and a full OAuth 2.0 user-consent flow — substantially more friction than Sleeper or ESPN. Worth doing because Yahoo still hosts 5–10M fantasy players, but it carries an external dependency: Yahoo's developer-app approval process can take days.
-
-Kick this off **after Phase 5 deploy** so the approval clock runs in parallel with Phase 6 SEO work.
+Yahoo's official Fantasy Sports API requires a registered developer app and a full OAuth 2.0 user-consent flow. Kick this off after deploy so the approval clock runs in parallel.
 
 - Register Yahoo Developer app (request "Fantasy Sports Read" scope)
 - Implement `/api/auth/yahoo/start` and `/api/auth/yahoo/callback` redirect flow
 - Encrypt and store the access/refresh tokens (server-side; not in localStorage)
 - `/api/import/yahoo` route: list user's leagues, fetch matchups by league_key
-- Surface a "Connect Yahoo" button in the generate page in place of the current "coming soon" placeholder
+- Replace "Yahoo coming soon" placeholder with a "Connect Yahoo" button
 
 **Deliverable:** Yahoo league import with the same UX as Sleeper/ESPN.
 
@@ -208,8 +186,8 @@ Two posts, different audiences:
 ### Phase 9: Analytics + Rate Limiting
 **Tool: Claude Code**
 
-- Plausible or Umami from day one (add during Phase 5, listed here for clarity)
-- IP-based rate limiting on `/api/import/*` routes
+- Plausible or Umami for privacy-friendly analytics
+- Rate limiting already implemented in Phase 3 (`lib/api/rate-limit.ts`)
 - Track: which platforms people use, which formats are most common, Reddit referral traffic
 
 Data shapes what to prioritize post-launch.
@@ -218,22 +196,25 @@ Data shapes what to prioritize post-launch.
 
 ## Priority Order
 
-Phases 1–2 are the foundation. Phase 3 is the biggest UX win. Phases 4–5 get it live. Phase 6 makes it findable. Phases 7–8 make it grow. Phase 9 is infrastructure hygiene.
+Phases 1–5 are done. Phase 6 polishes for launch. Phases 6.5–7 add platform coverage and persistence. Phase 8 drives traffic. Phase 9 measures it.
 
 ## Estimated Effort
 
-2–3 weekends with Claude Code doing the heavy lifting.
+Phases 1–5 completed in one day. Remaining phases: 1–2 weekends.
 
 ---
 
 ## Current State
 
-Phases 1–3 are complete:
+Phases 1–5 are complete. The tool is live at [doublecheckff.com](https://doublecheckff.com).
 
-- **Phase 1 — Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 92 Vitest tests prove constraints (decomposability, separation, lookback feasibility, identity preservation) hold across every format.
-- **Phase 2 — Next.js 14 App Router.** Prototype ported into `app/` with Tailwind CSS and a responsive UI (matrix grid scrolls horizontally on mobile, week navigator wraps). localStorage persistence; no database yet.
-- **Phase 3 — Server-side platform integrations.** `app/api/import/sleeper` and `app/api/import/espn` walk the season-history chain, normalize doubled pairs into the shared `ImportedSeasonRecord` shape, and apply IP-based rate limiting via `lib/api/rate-limit.ts`. The generate page consumes both routes plus a JSON paste fallback.
+- **Phase 1 — Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 92 Vitest tests prove constraints hold across every format.
+- **Phase 2 — Next.js 14 App Router.** Tool is the homepage with Tailwind CSS and responsive UI. localStorage persistence.
+- **Phase 3 — Server-side platform integrations.** `/api/import/sleeper` and `/api/import/espn` walk the season-history chain, fetch all completed seasons, and apply IP-based rate limiting. Schedule text paste fallback for non-API platforms.
+- **Phase 4 — GitHub.** Public repo with README, MIT license, and GitHub Actions CI (92/92 tests passing).
+- **Phase 5 — Deployed.** Live on Vercel at doublecheckff.com with auto-deploy from main.
 
-### Post-Phase 3 follow-up
-
-Add a lookback window override control in Step 2 (Review). After import, display "Using last N seasons (recommended for X-team / Y-week)" with a dropdown to override. Defaults to the format's lookback (hard + soft from `describeFormat`).
+### Superseded files removed
+- `fetch-sleeper.js` — replaced by `/api/import/sleeper` server-side route
+- `prototype.jsx` — replaced by `app/page.tsx`
+- Sleeper JSON paste fallback — removed, server-side route eliminates the need
