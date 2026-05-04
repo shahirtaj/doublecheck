@@ -39,7 +39,7 @@ type ImportedSeasonRecord = {
   regWeeks?: number;
 };
 
-type ImportPlatform = "sleeper" | "espn" | "json";
+type ImportPlatform = "sleeper" | "espn";
 
 type ImportPreview = {
   platform: ImportPlatform;
@@ -183,12 +183,7 @@ export default function GeneratePage() {
   const [espnStatus, setEspnStatus] = useState<ImportStatus>("");
   const [espnMsg, setEspnMsg] = useState("");
 
-  // JSON paste fallback
-  const [jsonPaste, setJsonPaste] = useState("");
-  const [jsonStatus, setJsonStatus] = useState<ImportStatus>("");
-  const [jsonMsg, setJsonMsg] = useState("");
-
-  // Shared preview — Sleeper / ESPN / JSON populate this; Apply commits it.
+  // Shared preview — Sleeper / ESPN populate this; Apply commits it.
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
 
   // Hydrate from localStorage on mount.
@@ -335,8 +330,6 @@ export default function GeneratePage() {
     setSleeperMsg("");
     setEspnStatus("");
     setEspnMsg("");
-    setJsonStatus("");
-    setJsonMsg("");
   }
 
   async function handleSleeperFetch() {
@@ -346,8 +339,6 @@ export default function GeneratePage() {
     setImportPreview(null);
     setEspnStatus("");
     setEspnMsg("");
-    setJsonStatus("");
-    setJsonMsg("");
     try {
       const res = await fetch("/api/import/sleeper", {
         method: "POST",
@@ -384,8 +375,6 @@ export default function GeneratePage() {
     setImportPreview(null);
     setSleeperStatus("");
     setSleeperMsg("");
-    setJsonStatus("");
-    setJsonMsg("");
     try {
       const res = await fetch("/api/import/espn", {
         method: "POST",
@@ -412,40 +401,6 @@ export default function GeneratePage() {
     } catch (e) {
       setEspnStatus("error");
       setEspnMsg((e as Error).message || "Fetch failed.");
-    }
-  }
-
-  function handleJsonImport() {
-    setImportPreview(null);
-    setSleeperStatus("");
-    setSleeperMsg("");
-    setEspnStatus("");
-    setEspnMsg("");
-    try {
-      const raw = JSON.parse(jsonPaste);
-      const seasons: ImportedSeasonRecord[] = Array.isArray(raw) ? raw : [raw];
-      if (seasons.length === 0) throw new Error("No season data found.");
-      for (const s of seasons) {
-        if (!s.teamNames || !s.userIds || !s.doubles) {
-          throw new Error("Missing required fields (teamNames, userIds, doubles).");
-        }
-        if (s.teamNames.length !== TEAM_COUNT) {
-          throw new Error(`Expected ${TEAM_COUNT} teams but found ${s.teamNames.length}.`);
-        }
-      }
-      setImportPreview({ platform: "json", seasons });
-      setJsonStatus("ready");
-      setJsonMsg(
-        seasons.length > 1
-          ? `Loaded ${seasons.length} seasons (${seasons
-              .map((s) => s.seasonYear || "?")
-              .join(", ")}).`
-          : `Loaded ${seasons[0]!.doubles.length} doubled pairs from JSON.`,
-      );
-      setJsonPaste("");
-    } catch (e) {
-      setJsonStatus("error");
-      setJsonMsg(`JSON parse error: ${(e as Error).message}`);
     }
   }
 
@@ -500,8 +455,6 @@ export default function GeneratePage() {
     setSleeperMsg("");
     setEspnStatus("");
     setEspnMsg("");
-    setJsonStatus("");
-    setJsonMsg("");
   }
 
   // ── Derived helpers ──
@@ -539,7 +492,6 @@ export default function GeneratePage() {
     resetImportUi();
     setSleeperId("");
     setEspnId("");
-    setJsonPaste("");
     setPasteText("");
     setParseResult(null);
     setStep("teams");
@@ -746,39 +698,6 @@ export default function GeneratePage() {
               </div>
             </div>
           )}
-
-          {/* JSON paste fallback */}
-          <details className="mt-2">
-            <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
-              Paste Sleeper JSON (offline / debugging)
-            </summary>
-            <div className={`${cls.pasteSection} mt-2`}>
-              <p className={cls.hint}>
-                Run{" "}
-                <code className="text-slate-200 bg-slate-900 px-1.5 py-px rounded">
-                  node fetch-sleeper.js YOUR_LEAGUE_ID
-                </code>{" "}
-                and paste the output here.
-              </p>
-              <textarea
-                className={cls.pasteBox}
-                value={jsonPaste}
-                onChange={(e) => setJsonPaste(e.target.value)}
-                placeholder="Paste JSON output from fetch-sleeper.js..."
-                rows={4}
-              />
-              <button
-                className={cls.secondaryBtn}
-                onClick={handleJsonImport}
-                disabled={!jsonPaste.trim()}
-              >
-                Import JSON
-              </button>
-              {jsonMsg && (
-                <p className={`text-[11px] mt-2 ${statusToneClass(jsonStatus)}`}>{jsonMsg}</p>
-              )}
-            </div>
-          </details>
 
           {/* Schedule text paste fallback */}
           <details className="mt-2">
