@@ -26,35 +26,6 @@ const STORAGE_KEY = "ff-rotational-scheduler";
 
 type SelectedFormat = { teamCount: number; weekCount: number };
 
-const DEFAULT_FORMAT: SelectedFormat = { teamCount: 12, weekCount: 14 };
-
-// Curated list of formats users can pick from. Includes the seven supported
-// (standard/inverted) formats from the blueprint plus the most common edge
-// cases (pure round-robin and complete double round-robin) so users on those
-// shapes get an explanatory message instead of a broken UI.
-const SUPPORTED_FORMATS: SelectedFormat[] = [
-  { teamCount: 8, weekCount: 13 },
-  { teamCount: 8, weekCount: 14 },
-  { teamCount: 10, weekCount: 9 },
-  { teamCount: 10, weekCount: 13 },
-  { teamCount: 10, weekCount: 14 },
-  { teamCount: 12, weekCount: 11 },
-  { teamCount: 12, weekCount: 13 },
-  { teamCount: 12, weekCount: 14 },
-  { teamCount: 14, weekCount: 13 },
-  { teamCount: 14, weekCount: 14 },
-  { teamCount: 14, weekCount: 15 },
-];
-
-function formatKey(f: SelectedFormat): string {
-  return `${f.teamCount}-${f.weekCount}`;
-}
-
-function parseFormatKey(key: string): SelectedFormat | null {
-  const match = SUPPORTED_FORMATS.find((f) => formatKey(f) === key);
-  return match ? { ...match } : null;
-}
-
 // Map a single-number lookback override (the total of hard + soft) back into
 // the LookbackWindow shape buildAvoidMap expects. We preserve the format's
 // hard count when possible, with any extra falling into soft.
@@ -63,6 +34,17 @@ function deriveLookback(override: number, formatLookback: LookbackWindow): Lookb
   const hard = Math.min(total, formatLookback.hard);
   const soft = Math.max(0, total - hard);
   return { hard, soft };
+}
+
+// Derive a format from an imported season record. Returns null if the season
+// doesn't carry enough information (missing regWeeks, odd team count, or week
+// count outside the round-robin range) for us to set the format from it.
+function detectFormatFromImport(season: ImportedSeasonRecord): SelectedFormat | null {
+  const teamCount = season.teamNames?.length ?? 0;
+  const weekCount = season.regWeeks ?? 0;
+  if (teamCount < 2 || teamCount % 2 !== 0) return null;
+  if (weekCount < teamCount - 1 || weekCount > 2 * (teamCount - 1)) return null;
+  return { teamCount, weekCount };
 }
 
 // ── Types ─────────────────────────────────────────────────
@@ -191,21 +173,19 @@ function detectDoublesFromPairs(indexedPairs: [number, number][]): Set<PairKey> 
 
 export default function GeneratePage() {
   const [step, setStep] = useState<Step>("teams");
-  const [selectedFormat, setSelectedFormat] = useState<SelectedFormat>(DEFAULT_FORMAT);
-  const { teamCount, weekCount } = selectedFormat;
+  const [selectedFormat, setSelectedFormat] = useState<SelectedFormat | null>(null);
+  const teamCount = selectedFormat?.teamCount ?? 0;
+  const weekCount = selectedFormat?.weekCount ?? 0;
   const format = useMemo(
-    () => describeFormat(teamCount, weekCount),
-    [teamCount, weekCount],
+    () => (selectedFormat ? describeFormat(teamCount, weekCount) : null),
+    [selectedFormat, teamCount, weekCount],
   );
   const isEdgeCaseFormat =
-    format.variant === "pure-round-robin" || format.variant === "complete-double-round-robin";
+    !!format &&
+    (format.variant === "pure-round-robin" || format.variant === "complete-double-round-robin");
 
-  const [teams, setTeams] = useState<string[]>(() =>
-    Array(DEFAULT_FORMAT.teamCount).fill("").map((_, i) => `Team ${i + 1}`),
-  );
-  const [userIds, setUserIds] = useState<(string | null)[]>(() =>
-    Array(DEFAULT_FORMAT.teamCount).fill(null),
-  );
+  const [teams, setTeams] = useState<string[]>(() => []);
+  const [userIds, setUserIds] = useState<(string | null)[]>(() => []);
   const [manualDoubles, setManualDoubles] = useState<Set<PairKey>>(() => new Set());
   const [schedule, setSchedule] = useState<ScheduleSuccess | null>(null);
   const [history, setHistory] = useState<SeasonHistory[]>([]);
@@ -240,26 +220,27 @@ export default function GeneratePage() {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const d = JSON.parse(raw);
-        let nextTeamCount = DEFAULT_FORMAT.teamCount;
+        let storedTeamCount = 0;
         if (
           d.format &&
           typeof d.format.teamCount === "number" &&
-          typeof d.format.weekCount === "number"
+          typeof d.format.weekCount === "number" &&
+          d.format.teamCount >= 2 &&
+          d.format.teamCount % 2 === 0
         ) {
-          const parsed = parseFormatKey(formatKey(d.format));
-          if (parsed) {
-            setSelectedFormat(parsed);
-            nextTeamCount = parsed.teamCount;
-          }
+          setSelectedFormat({ teamCount: d.format.teamCount, weekCount: d.format.weekCount });
+          storedTeamCount = d.format.teamCount;
         }
-        if (Array.isArray(d.teams) && d.teams.length === nextTeamCount) setTeams(d.teams);
-        if (Array.isArray(d.userIds) && d.userIds.length === nextTeamCount) setUserIds(d.userIds);
-        if (Array.isArray(d.history)) setHistory(d.history);
-        if (Array.isArray(d.manualDoubles)) setManualDoubles(new Set(d.manualDoubles));
-        if (typeof d.lookbackOverride === "number") setLookbackOverride(d.lookbackOverride);
+        if (storedTeamCount > 0) {
+          if (Array.isArray(d.teams) && d.teams.length === storedTeamCount) setTeams(d.teams);
+          if (Array.isArray(d.userIds) && d.userIds.length === storedTeamCount) setUserIds(d.userIds);
+          if (Array.isArray(d.history)) setHistory(d.history);
+          if (Array.isArray(d.manualDoubles)) setManualDoubles(new Set(d.manualDoubles));
+          if (typeof d.lookbackOverride === "number") setLookbackOverride(d.lookbackOverride);
+        }
       }
     } catch {
-      // Ignore corrupt storage; fall back to defaults.
+      // Ignore corrupt storage; fall back to empty state.
     }
     setLoading(false);
   }, []);
@@ -271,7 +252,7 @@ export default function GeneratePage() {
         userIds: (string | null)[];
         history: SeasonHistory[];
         manualDoubles: PairKey[];
-        format: SelectedFormat;
+        format: SelectedFormat | null;
         lookbackOverride: number | null;
       }> = {},
     ) => {
@@ -293,11 +274,11 @@ export default function GeneratePage() {
     [teams, userIds, history, manualDoubles, selectedFormat, lookbackOverride],
   );
 
-  const recommendedLookbackTotal = format.lookback.hard + format.lookback.soft;
+  const recommendedLookbackTotal = format ? format.lookback.hard + format.lookback.soft : 0;
   const effectiveLookbackTotal = lookbackOverride ?? recommendedLookbackTotal;
-  const effectiveLookback = useMemo(
-    () => deriveLookback(effectiveLookbackTotal, format.lookback),
-    [effectiveLookbackTotal, format.lookback],
+  const effectiveLookback = useMemo<LookbackWindow>(
+    () => (format ? deriveLookback(effectiveLookbackTotal, format.lookback) : { hard: 0, soft: 0 }),
+    [effectiveLookbackTotal, format],
   );
 
   function getAvoidSets() {
@@ -411,6 +392,21 @@ export default function GeneratePage() {
     setEspnMsg("");
   }
 
+  // Filter imported seasons down to the format detected from the most recent
+  // season. Older seasons with a different roster size are dropped because
+  // their team-index space wouldn't line up with the detected format.
+  function filterToDetectedFormat(seasons: ImportedSeasonRecord[]): {
+    detected: SelectedFormat;
+    seasons: ImportedSeasonRecord[];
+  } | null {
+    const detected = detectFormatFromImport(seasons[0]!);
+    if (!detected) return null;
+    const filtered = seasons.filter(
+      (s) => s.teamNames?.length === detected.teamCount && s.regWeeks === detected.weekCount,
+    );
+    return { detected, seasons: filtered };
+  }
+
   async function handleSleeperFetch() {
     if (!sleeperId.trim()) return;
     setSleeperStatus("loading");
@@ -430,14 +426,16 @@ export default function GeneratePage() {
       if (!Array.isArray(seasons) || seasons.length === 0) {
         throw new Error("No seasons returned.");
       }
-      const valid = seasons.filter((s) => s.teamNames?.length === teamCount);
-      if (valid.length === 0) {
-        throw new Error(`No seasons with ${teamCount} teams found.`);
+      const detected = filterToDetectedFormat(seasons);
+      if (!detected) {
+        throw new Error(
+          "Could not detect a valid league format from the most recent season (need an even team count and a regular-season week count).",
+        );
       }
-      setImportPreview({ platform: "sleeper", seasons: valid });
+      setImportPreview({ platform: "sleeper", seasons: detected.seasons });
       setSleeperStatus("ready");
       setSleeperMsg(
-        `Fetched ${valid.length} season${valid.length > 1 ? "s" : ""}: ${valid
+        `Fetched ${detected.seasons.length} season${detected.seasons.length > 1 ? "s" : ""} of ${detected.detected.teamCount}-team / ${detected.detected.weekCount}-week play: ${detected.seasons
           .map((s) => s.seasonYear || "?")
           .join(", ")}.`,
       );
@@ -466,14 +464,16 @@ export default function GeneratePage() {
       if (!Array.isArray(seasons) || seasons.length === 0) {
         throw new Error("No seasons returned.");
       }
-      const valid = seasons.filter((s) => s.teamNames?.length === teamCount);
-      if (valid.length === 0) {
-        throw new Error(`No seasons with ${teamCount} teams found.`);
+      const detected = filterToDetectedFormat(seasons);
+      if (!detected) {
+        throw new Error(
+          "Could not detect a valid league format from the most recent season (need an even team count and a regular-season week count).",
+        );
       }
-      setImportPreview({ platform: "espn", seasons: valid });
+      setImportPreview({ platform: "espn", seasons: detected.seasons });
       setEspnStatus("ready");
       setEspnMsg(
-        `Fetched ${valid.length} season${valid.length > 1 ? "s" : ""}: ${valid
+        `Fetched ${detected.seasons.length} season${detected.seasons.length > 1 ? "s" : ""} of ${detected.detected.teamCount}-team / ${detected.detected.weekCount}-week play: ${detected.seasons
           .map((s) => s.seasonYear || "?")
           .join(", ")}.`,
       );
@@ -486,18 +486,37 @@ export default function GeneratePage() {
   function handleApplyImport() {
     if (!importPreview || importPreview.seasons.length === 0) return;
     const mostRecent = importPreview.seasons[0]!;
-    const hasCustomNames = teams.some((t, i) => t !== `Team ${i + 1}`);
+    const detected = detectFormatFromImport(mostRecent);
+    if (!detected) return;
+
+    // Format-changing imports replace roster + history outright. Same-format
+    // imports preserve any custom names the user has already set.
+    const formatChanged =
+      !selectedFormat ||
+      selectedFormat.teamCount !== detected.teamCount ||
+      selectedFormat.weekCount !== detected.weekCount;
+
     let nextTeams = teams;
-    if (!hasCustomNames) {
+    if (formatChanged) {
       nextTeams = mostRecent.teamNames;
       setTeams(nextTeams);
+      setSelectedFormat(detected);
+      setLookbackOverride(null);
+    } else {
+      const hasCustomNames = teams.some((t, i) => t !== `Team ${i + 1}`);
+      if (!hasCustomNames) {
+        nextTeams = mostRecent.teamNames;
+        setTeams(nextTeams);
+      }
     }
     const nextUserIds = mostRecent.userIds;
     setUserIds(nextUserIds);
 
-    // Server returns most-recent-first; history stores oldest-first.
+    // Server returns most-recent-first; history stores oldest-first. When the
+    // format changes we drop existing history because its team indices belong
+    // to a different roster size.
     const seasonsOldestFirst = [...importPreview.seasons].reverse();
-    const newHistory = [...history];
+    const newHistory: SeasonHistory[] = formatChanged ? [] : [...history];
     for (const season of seasonsOldestFirst) {
       const sUserIds = season.userIds;
       const hasUids = sUserIds.some((id) => id != null);
@@ -524,7 +543,13 @@ export default function GeneratePage() {
     }
 
     setHistory(newHistory);
-    saveToStorage({ history: newHistory, teams: nextTeams, userIds: nextUserIds });
+    saveToStorage({
+      history: newHistory,
+      teams: nextTeams,
+      userIds: nextUserIds,
+      format: detected,
+      ...(formatChanged ? { lookbackOverride: null } : {}),
+    });
 
     setManualDoubles(new Set());
     setImportPreview(null);
@@ -561,43 +586,10 @@ export default function GeneratePage() {
     return "none";
   }
 
-  function handleFormatChange(next: SelectedFormat) {
-    if (next.teamCount === teamCount && next.weekCount === weekCount) return;
-    const sizeChanged = next.teamCount !== teamCount;
-    setSelectedFormat(next);
-    setSchedule(null);
-    setSaved(false);
-    setManualDoubles(new Set());
-    setLookbackOverride(null);
-    let nextTeams = teams;
-    let nextUserIds = userIds;
-    if (sizeChanged) {
-      nextTeams = Array(next.teamCount).fill("").map((_, i) => `Team ${i + 1}`);
-      nextUserIds = Array(next.teamCount).fill(null);
-      setTeams(nextTeams);
-      setUserIds(nextUserIds);
-      setHistory([]);
-      saveToStorage({
-        format: next,
-        teams: nextTeams,
-        userIds: nextUserIds,
-        history: [],
-        manualDoubles: [],
-        lookbackOverride: null,
-      });
-      setStep("teams");
-    } else {
-      saveToStorage({
-        format: next,
-        manualDoubles: [],
-        lookbackOverride: null,
-      });
-    }
-  }
-
   function handleResetEverything() {
-    setTeams(Array(teamCount).fill("").map((_, i) => `Team ${i + 1}`));
-    setUserIds(Array(teamCount).fill(null));
+    setSelectedFormat(null);
+    setTeams([]);
+    setUserIds([]);
     setHistory([]);
     setManualDoubles(new Set());
     setSchedule(null);
@@ -656,6 +648,130 @@ export default function GeneratePage() {
     return "text-slate-400";
   }
 
+  const importSections = (
+    <>
+      {/* Sleeper */}
+      <div className={cls.pasteSection}>
+        <h3 className={cls.sectionTitle}>Import from Sleeper</h3>
+        <p className={cls.hint}>
+          Enter your current Sleeper league ID — the server walks the history chain to find
+          completed seasons. Find it in your league URL: sleeper.com/leagues/
+          <strong>YOUR_ID</strong>
+        </p>
+        <div className="flex flex-wrap gap-2 items-stretch">
+          <input
+            className={cls.leagueInput}
+            value={sleeperId}
+            onChange={(e) => {
+              setSleeperId(e.target.value);
+              if (importPreview?.platform === "sleeper") setImportPreview(null);
+              if (sleeperStatus) {
+                setSleeperStatus("");
+                setSleeperMsg("");
+              }
+            }}
+            placeholder="e.g. 924039458279227392"
+          />
+          <button
+            className={cls.primaryBtn}
+            onClick={handleSleeperFetch}
+            disabled={!sleeperId.trim() || importBusy}
+          >
+            {sleeperStatus === "loading" ? "Fetching…" : "Fetch"}
+          </button>
+        </div>
+
+        {sleeperMsg && (
+          <p className={`text-[11px] mt-2 ${statusToneClass(sleeperStatus)}`}>{sleeperMsg}</p>
+        )}
+      </div>
+
+      {/* ESPN */}
+      <div className={cls.pasteSection}>
+        <h3 className={cls.sectionTitle}>Import from ESPN</h3>
+        <p className={cls.hint}>
+          Public leagues only for now. Find your league ID in the URL:
+          fantasy.espn.com/football/league?leagueId=<strong>YOUR_ID</strong>. ESPN&apos;s API is
+          undocumented; if it fails, use the schedule paste below.
+        </p>
+        <div className="flex flex-wrap gap-2 items-stretch">
+          <input
+            className={cls.leagueInput}
+            value={espnId}
+            onChange={(e) => {
+              setEspnId(e.target.value);
+              if (importPreview?.platform === "espn") setImportPreview(null);
+              if (espnStatus) {
+                setEspnStatus("");
+                setEspnMsg("");
+              }
+            }}
+            placeholder="e.g. 123456789"
+          />
+          <button
+            className={cls.primaryBtn}
+            onClick={handleEspnFetch}
+            disabled={!espnId.trim() || importBusy}
+          >
+            {espnStatus === "loading" ? "Fetching…" : "Fetch"}
+          </button>
+        </div>
+
+        {espnMsg && (
+          <p className={`text-[11px] mt-2 ${statusToneClass(espnStatus)}`}>{espnMsg}</p>
+        )}
+      </div>
+
+      {/* Yahoo placeholder */}
+      <div className={`${cls.pasteSection} opacity-60`}>
+        <h3 className={cls.sectionTitle}>
+          Yahoo <span className="text-[10px] text-slate-500 font-normal">(coming soon)</span>
+        </h3>
+        <p className={cls.hint}>
+          Yahoo requires OAuth 2.0 with a registered developer app — landing in a follow-up
+          phase.
+        </p>
+      </div>
+
+      {/* Shared import preview */}
+      {importPreview && (
+        <div className="mt-2.5 mb-3 px-3 py-2.5 bg-slate-800 rounded-md border border-emerald-700">
+          <p className="text-xs text-slate-200 mb-1">
+            Ready to apply: {importPreview.seasons.length} season
+            {importPreview.seasons.length > 1 ? "s" : ""} from{" "}
+            <strong className="text-emerald-400">{importPreview.platform.toUpperCase()}</strong>
+            .
+          </p>
+          <p className="text-[11px] text-slate-400 mb-2">
+            Most recent: {importPreview.seasons[0]!.seasonYear || "unknown"} —{" "}
+            {importPreview.seasons[0]!.doubles.length} doubled pairs across{" "}
+            {importPreview.seasons[0]!.regWeeks ?? "?"} weeks ·{" "}
+            {importPreview.seasons[0]!.teamNames.length}-team format.
+          </p>
+          <p className="text-[11px] text-slate-500 mb-2">
+            Managers: {importPreview.seasons[0]!.teamNames.join(", ")}
+          </p>
+          <div className="flex gap-2 flex-wrap items-center">
+            <button className={cls.primaryBtn} onClick={handleApplyImport}>
+              Apply
+            </button>
+            <button
+              className={cls.secondaryBtn}
+              onClick={() => setImportPreview(null)}
+            >
+              Cancel
+            </button>
+            <span className="text-[10px] text-slate-500">
+              {selectedFormat && teams.some((t, i) => t !== `Team ${i + 1}`)
+                ? "Keeps your custom names"
+                : "Imports manager names"}
+            </span>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="min-h-screen px-4 py-6 text-slate-200 font-mono">
       <div className="text-center mb-7">
@@ -667,59 +783,43 @@ export default function GeneratePage() {
         </p>
       </div>
 
-      <div className="max-w-[700px] mx-auto mb-5 flex flex-wrap items-center justify-center gap-2">
-        <label className="text-[11px] text-slate-500 uppercase tracking-widest">League format</label>
-        <select
-          className="bg-slate-900 text-slate-200 border border-slate-700 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-slate-500"
-          value={formatKey(selectedFormat)}
-          onChange={(e) => {
-            const next = parseFormatKey(e.target.value);
-            if (next) handleFormatChange(next);
-          }}
-        >
-          {SUPPORTED_FORMATS.map((f) => {
-            const desc = describeFormat(f.teamCount, f.weekCount);
-            const variantSuffix =
-              desc.variant === "pure-round-robin"
-                ? " · pure round-robin"
-                : desc.variant === "complete-double-round-robin"
-                  ? " · complete double round-robin"
-                  : desc.variant === "inverted"
-                    ? " · inverted"
-                    : "";
-            return (
-              <option key={formatKey(f)} value={formatKey(f)}>
-                {f.teamCount} teams / {f.weekCount} weeks{variantSuffix}
-              </option>
-            );
-          })}
-        </select>
-      </div>
-
-      {isEdgeCaseFormat ? (
+      {!format ? (
+        <div className={cls.card}>
+          <h2 className={cls.cardTitle}>Import a league to get started</h2>
+          <p className={cls.hint}>
+            DoubleCheck detects your league&apos;s format (team count and week count) from the
+            seasons it imports. Connect Sleeper or ESPN below to begin — once import succeeds, the
+            review and schedule steps appear.
+          </p>
+          {importSections}
+        </div>
+      ) : isEdgeCaseFormat ? (
         <div className={cls.card}>
           <h2 className={cls.cardTitle}>No schedule needed</h2>
           {format.variant === "pure-round-robin" ? (
             <p className={cls.hint}>
+              Detected{" "}
               <strong className="text-slate-200">
                 {teamCount}-team / {weekCount}-week
-              </strong>{" "}
-              is a pure round-robin: every team plays every opponent exactly once. There are no
+              </strong>
+              : a pure round-robin where every team plays every opponent exactly once. There are no
               doubled matchups, so there&apos;s no fairness problem to solve and no rotational
-              schedule needed. Pick a different format above if your league plays more (or fewer)
-              regular-season weeks.
+              schedule needed.
             </p>
           ) : (
             <p className={cls.hint}>
+              Detected{" "}
               <strong className="text-slate-200">
                 {teamCount}-team / {weekCount}-week
-              </strong>{" "}
-              is a complete double round-robin: every team plays every opponent exactly twice. The
-              schedule is fully determined — every pair is doubled — so there&apos;s no rotational
-              fairness problem to solve. Pick a different format above if your league plays a
-              different number of regular-season weeks.
+              </strong>
+              : a complete double round-robin where every team plays every opponent exactly twice.
+              The schedule is fully determined — every pair is doubled — so there&apos;s no
+              rotational fairness problem to solve.
             </p>
           )}
+          <p className="text-[11px] text-slate-500 mt-3">
+            Use Reset Everything below to clear and re-import a different league.
+          </p>
         </div>
       ) : (
         <>
@@ -751,124 +851,7 @@ export default function GeneratePage() {
         <div className={cls.card}>
           <h2 className={cls.cardTitle}>Import Last Season(s)</h2>
 
-          {/* Sleeper */}
-          <div className={cls.pasteSection}>
-            <h3 className={cls.sectionTitle}>Import from Sleeper</h3>
-            <p className={cls.hint}>
-              Enter your current Sleeper league ID — the server walks the history chain to find
-              completed seasons. Find it in your league URL: sleeper.com/leagues/
-              <strong>YOUR_ID</strong>
-            </p>
-            <div className="flex flex-wrap gap-2 items-stretch">
-              <input
-                className={cls.leagueInput}
-                value={sleeperId}
-                onChange={(e) => {
-                  setSleeperId(e.target.value);
-                  if (importPreview?.platform === "sleeper") setImportPreview(null);
-                  if (sleeperStatus) {
-                    setSleeperStatus("");
-                    setSleeperMsg("");
-                  }
-                }}
-                placeholder="e.g. 924039458279227392"
-              />
-              <button
-                className={cls.primaryBtn}
-                onClick={handleSleeperFetch}
-                disabled={!sleeperId.trim() || importBusy}
-              >
-                {sleeperStatus === "loading" ? "Fetching…" : "Fetch"}
-              </button>
-            </div>
-
-            {sleeperMsg && (
-              <p className={`text-[11px] mt-2 ${statusToneClass(sleeperStatus)}`}>{sleeperMsg}</p>
-            )}
-          </div>
-
-          {/* ESPN */}
-          <div className={cls.pasteSection}>
-            <h3 className={cls.sectionTitle}>Import from ESPN</h3>
-            <p className={cls.hint}>
-              Public leagues only for now. Find your league ID in the URL:
-              fantasy.espn.com/football/league?leagueId=<strong>YOUR_ID</strong>. ESPN&apos;s API is
-              undocumented; if it fails, use the schedule paste below.
-            </p>
-            <div className="flex flex-wrap gap-2 items-stretch">
-              <input
-                className={cls.leagueInput}
-                value={espnId}
-                onChange={(e) => {
-                  setEspnId(e.target.value);
-                  if (importPreview?.platform === "espn") setImportPreview(null);
-                  if (espnStatus) {
-                    setEspnStatus("");
-                    setEspnMsg("");
-                  }
-                }}
-                placeholder="e.g. 123456789"
-              />
-              <button
-                className={cls.primaryBtn}
-                onClick={handleEspnFetch}
-                disabled={!espnId.trim() || importBusy}
-              >
-                {espnStatus === "loading" ? "Fetching…" : "Fetch"}
-              </button>
-            </div>
-
-            {espnMsg && (
-              <p className={`text-[11px] mt-2 ${statusToneClass(espnStatus)}`}>{espnMsg}</p>
-            )}
-          </div>
-
-          {/* Yahoo placeholder */}
-          <div className={`${cls.pasteSection} opacity-60`}>
-            <h3 className={cls.sectionTitle}>
-              Yahoo <span className="text-[10px] text-slate-500 font-normal">(coming soon)</span>
-            </h3>
-            <p className={cls.hint}>
-              Yahoo requires OAuth 2.0 with a registered developer app — landing in a follow-up
-              phase. Use the schedule paste below in the meantime.
-            </p>
-          </div>
-
-          {/* Shared import preview */}
-          {importPreview && (
-            <div className="mt-2.5 mb-3 px-3 py-2.5 bg-slate-800 rounded-md border border-emerald-700">
-              <p className="text-xs text-slate-200 mb-1">
-                Ready to apply: {importPreview.seasons.length} season
-                {importPreview.seasons.length > 1 ? "s" : ""} from{" "}
-                <strong className="text-emerald-400">{importPreview.platform.toUpperCase()}</strong>
-                .
-              </p>
-              <p className="text-[11px] text-slate-400 mb-2">
-                Most recent: {importPreview.seasons[0]!.seasonYear || "unknown"} —{" "}
-                {importPreview.seasons[0]!.doubles.length} doubled pairs across{" "}
-                {importPreview.seasons[0]!.regWeeks ?? weekCount} weeks.
-              </p>
-              <p className="text-[11px] text-slate-500 mb-2">
-                Managers: {importPreview.seasons[0]!.teamNames.join(", ")}
-              </p>
-              <div className="flex gap-2 flex-wrap items-center">
-                <button className={cls.primaryBtn} onClick={handleApplyImport}>
-                  Apply
-                </button>
-                <button
-                  className={cls.secondaryBtn}
-                  onClick={() => setImportPreview(null)}
-                >
-                  Cancel
-                </button>
-                <span className="text-[10px] text-slate-500">
-                  {teams.some((t, i) => t !== `Team ${i + 1}`)
-                    ? "Keeps your custom names"
-                    : "Imports manager names"}
-                </span>
-              </div>
-            </div>
-          )}
+          {importSections}
 
           {/* Schedule text paste fallback */}
           <details className="mt-2">
