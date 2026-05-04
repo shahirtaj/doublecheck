@@ -592,7 +592,8 @@ export default function GeneratePage() {
       {/* Yahoo placeholder */}
       <div className={`${cls.subSection} opacity-60`}>
         <h3 className={cls.sectionTitle}>
-          Yahoo <span className="text-[10px] text-slate-500 font-normal">(coming soon)</span>
+          Import from Yahoo{" "}
+          <span className="text-[10px] text-slate-500 font-normal">(coming soon)</span>
         </h3>
       </div>
 
