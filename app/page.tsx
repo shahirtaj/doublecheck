@@ -772,6 +772,126 @@ export default function GeneratePage() {
     </>
   );
 
+  const pasteFallback = (
+    <details className="mt-2">
+      <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
+        Paste Schedule Text (non-API platforms)
+      </summary>
+      <div className={`${cls.pasteSection} mt-2`}>
+        <p className={cls.hint}>
+          Paste from ESPN, Yahoo, etc. - &ldquo;Team A vs Team B&rdquo; per line. Scores and week
+          headers are stripped automatically. Detected doubles become hard-avoid for the upcoming
+          generation.
+          {!selectedFormat && (
+            <>
+              {" "}
+              <span className="text-amber-400">
+                Import a Sleeper or ESPN league above first so DoubleCheck knows your roster - then
+                you can paste a different platform&apos;s schedule to populate avoidance.
+              </span>
+            </>
+          )}
+        </p>
+        <textarea
+          className={cls.pasteBox}
+          value={pasteText}
+          onChange={(e) => {
+            setPasteText(e.target.value);
+            setParseResult(null);
+          }}
+          placeholder={
+            "Week 1\nTeam Alpha vs Team Beta\nTeam Gamma vs Team Delta\n...\n\nWeek 2\nTeam Alpha vs Team Gamma\n..."
+          }
+          rows={6}
+        />
+        <button
+          className={cls.secondaryBtn}
+          onClick={handleParse}
+          disabled={!pasteText.trim() || !selectedFormat}
+        >
+          Parse Schedule
+        </button>
+
+        {parseResult && !parseResult.success && (
+          <p className={cls.error}>{parseResult.error}</p>
+        )}
+
+        {parseResult && parseResult.success && (
+          <div className="mt-2.5 px-3 py-2.5 bg-slate-800 rounded-md border border-slate-700">
+            <p className="text-xs text-slate-200">
+              Found <strong>{parseResult.rawPairs.length}</strong> matchups across{" "}
+              <strong>{parseResult.uniqueNames.length}</strong> teams.
+            </p>
+
+            {parseResult.unmapped.length > 0 && (
+              <div className="mt-2">
+                <p className="text-[11px] text-amber-400 mb-1.5">
+                  {parseResult.unmapped.length} name(s) couldn&apos;t auto-match. Map them below:
+                </p>
+                {parseResult.unmapped.map((name) => (
+                  <div key={name} className="flex flex-wrap items-center gap-2 mb-1.5 py-1">
+                    <span className="text-slate-200 text-xs min-w-[7.5rem]">
+                      &ldquo;{name}&rdquo;
+                    </span>
+                    <span className="text-slate-600 text-xs">→</span>
+                    <select
+                      className="bg-slate-900 text-slate-200 border border-slate-600 rounded px-1.5 py-0.5 text-xs font-mono"
+                      value={nameMapping[name] ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNameMapping((prev) => ({
+                          ...prev,
+                          [name]: val === "" ? undefined : parseInt(val, 10),
+                        }));
+                      }}
+                    >
+                      <option value="">- select -</option>
+                      {teams.map((t, idx) => {
+                        const taken = Object.entries(nameMapping).some(
+                          ([k, v]) => v === idx && k !== name,
+                        );
+                        return (
+                          <option key={idx} value={idx} disabled={taken}>
+                            {t}
+                            {taken ? " (taken)" : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {allParsedNamesMapped() && (
+              <div className="mt-2.5">
+                {(() => {
+                  const indexedPairs: [number, number][] = [];
+                  for (const [a, b] of parseResult.rawPairs) {
+                    const ai = nameMapping[a];
+                    const bi = nameMapping[b];
+                    if (ai !== undefined && bi !== undefined && ai !== bi)
+                      indexedPairs.push([ai, bi]);
+                  }
+                  const doubles = detectDoublesFromPairs(indexedPairs);
+                  return (
+                    <p className="text-xs text-emerald-400">
+                      Detected <strong>{doubles.size}</strong> doubled pairs ready to apply as
+                      manual hard-avoid.
+                    </p>
+                  );
+                })()}
+                <button className={`${cls.primaryBtn} mt-2`} onClick={handleApplyParsed}>
+                  Apply to Matrix ↓
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </details>
+  );
+
   return (
     <div className="min-h-screen px-4 py-6 text-slate-200 font-mono">
       <div className="text-center mb-7">
@@ -792,6 +912,7 @@ export default function GeneratePage() {
             review and schedule steps appear.
           </p>
           {importSections}
+          {pasteFallback}
         </div>
       ) : isEdgeCaseFormat ? (
         <div className={cls.card}>
@@ -853,119 +974,7 @@ export default function GeneratePage() {
 
           {importSections}
 
-          {/* Schedule text paste fallback */}
-          <details className="mt-2">
-            <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
-              Paste Schedule Text (non-API platforms)
-            </summary>
-            <div className={`${cls.pasteSection} mt-2`}>
-              <p className={cls.hint}>
-                Paste from ESPN, Yahoo, etc. - &ldquo;Team A vs Team B&rdquo; per line. Scores and
-                week headers are stripped automatically. Detected doubles become hard-avoid for the
-                upcoming generation.
-              </p>
-              <textarea
-                className={cls.pasteBox}
-                value={pasteText}
-                onChange={(e) => {
-                  setPasteText(e.target.value);
-                  setParseResult(null);
-                }}
-                placeholder={
-                  "Week 1\nTeam Alpha vs Team Beta\nTeam Gamma vs Team Delta\n...\n\nWeek 2\nTeam Alpha vs Team Gamma\n..."
-                }
-                rows={6}
-              />
-              <button
-                className={cls.secondaryBtn}
-                onClick={handleParse}
-                disabled={!pasteText.trim()}
-              >
-                Parse Schedule
-              </button>
-
-              {parseResult && !parseResult.success && (
-                <p className={cls.error}>{parseResult.error}</p>
-              )}
-
-              {parseResult && parseResult.success && (
-                <div className="mt-2.5 px-3 py-2.5 bg-slate-800 rounded-md border border-slate-700">
-                  <p className="text-xs text-slate-200">
-                    Found <strong>{parseResult.rawPairs.length}</strong> matchups across{" "}
-                    <strong>{parseResult.uniqueNames.length}</strong> teams.
-                  </p>
-
-                  {parseResult.unmapped.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-[11px] text-amber-400 mb-1.5">
-                        {parseResult.unmapped.length} name(s) couldn&apos;t auto-match. Map them
-                        below:
-                      </p>
-                      {parseResult.unmapped.map((name) => (
-                        <div key={name} className="flex flex-wrap items-center gap-2 mb-1.5 py-1">
-                          <span className="text-slate-200 text-xs min-w-[7.5rem]">
-                            &ldquo;{name}&rdquo;
-                          </span>
-                          <span className="text-slate-600 text-xs">→</span>
-                          <select
-                            className="bg-slate-900 text-slate-200 border border-slate-600 rounded px-1.5 py-0.5 text-xs font-mono"
-                            value={nameMapping[name] ?? ""}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setNameMapping((prev) => ({
-                                ...prev,
-                                [name]: val === "" ? undefined : parseInt(val, 10),
-                              }));
-                            }}
-                          >
-                            <option value="">- select -</option>
-                            {teams.map((t, idx) => {
-                              const taken = Object.entries(nameMapping).some(
-                                ([k, v]) => v === idx && k !== name,
-                              );
-                              return (
-                                <option key={idx} value={idx} disabled={taken}>
-                                  {t}
-                                  {taken ? " (taken)" : ""}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {allParsedNamesMapped() && (
-                    <div className="mt-2.5">
-                      {(() => {
-                        const indexedPairs: [number, number][] = [];
-                        for (const [a, b] of parseResult.rawPairs) {
-                          const ai = nameMapping[a];
-                          const bi = nameMapping[b];
-                          if (ai !== undefined && bi !== undefined && ai !== bi)
-                            indexedPairs.push([ai, bi]);
-                        }
-                        const doubles = detectDoublesFromPairs(indexedPairs);
-                        return (
-                          <p className="text-xs text-emerald-400">
-                            Detected <strong>{doubles.size}</strong> doubled pairs ready to apply
-                            as manual hard-avoid.
-                          </p>
-                        );
-                      })()}
-                      <button
-                        className={`${cls.primaryBtn} mt-2`}
-                        onClick={handleApplyParsed}
-                      >
-                        Apply to Matrix ↓
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </details>
+          {pasteFallback}
 
           <div className="flex items-center my-4 gap-3">
             <span className="text-[11px] text-slate-600 uppercase tracking-widest whitespace-nowrap w-full text-center border-t border-slate-700 pt-3">

@@ -62,6 +62,8 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 - **Vitest** for the algorithm test suite (92 tests across 7 supported formats)
 - **Vercel** for deployment
 
+See [ROADMAP.md](ROADMAP.md) for the full product roadmap and current state.
+
 ## License
 
 MIT - see [LICENSE](LICENSE).
