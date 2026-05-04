@@ -228,11 +228,12 @@ Phases 1–2 are the foundation. Phase 3 is the biggest UX win. Phases 4–5 get
 
 ## Current State
 
-Working 12-team / 14-week prototype exists as a Claude artifact with:
-- Full scheduling algorithm with 3-year lookback
-- Sleeper integration via Node.js script (CORS workaround)
-- Paste-and-parse fallback for non-Sleeper platforms
-- User ID-based identity tracking
-- Persistent storage across sessions
-- Weeks 1–3 / 12–14 double spacing (11-week gap)
-- Instruction guide for annual commissioner workflow
+Phases 1–3 are complete:
+
+- **Phase 1 — Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 92 Vitest tests prove constraints (decomposability, separation, lookback feasibility, identity preservation) hold across every format.
+- **Phase 2 — Next.js 14 App Router.** Prototype ported into `app/` with Tailwind CSS and a responsive UI (matrix grid scrolls horizontally on mobile, week navigator wraps). localStorage persistence; no database yet.
+- **Phase 3 — Server-side platform integrations.** `app/api/import/sleeper` and `app/api/import/espn` walk the season-history chain, normalize doubled pairs into the shared `ImportedSeasonRecord` shape, and apply IP-based rate limiting via `lib/api/rate-limit.ts`. The generate page consumes both routes plus a JSON paste fallback.
+
+### Post-Phase 3 follow-up
+
+Add a lookback window override control in Step 2 (Review). After import, display "Using last N seasons (recommended for X-team / Y-week)" with a dropdown to override. Defaults to the format's lookback (hard + soft from `describeFormat`).
