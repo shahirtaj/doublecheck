@@ -10,7 +10,7 @@ Fair rotational schedules for fantasy football leagues. No team gets doubled aga
 
 In a 12-team, 14-week fantasy football league, every team plays 3 opponents twice and 8 once. Random scheduling clusters those repeat matchups: some pairs get doubled multiple seasons in a row, others never. With 66 possible pairs across the league, ~4 will draw the short straw in any given season.
 
-Across four seasons of random schedules, the probability that a *specific* pair gets doubled in 3+ seasons is ~6.5% — but multiplied across the league, somebody is almost always living it.
+Across four seasons of random schedules, the probability that a *specific* pair gets doubled in 3+ seasons is ~6.5% - but multiplied across the league, somebody is almost always living it.
 
 ## The math
 
@@ -33,27 +33,27 @@ The tool generates each year's doubles to satisfy that rotation, with the lookba
 | 14 / 14 | 1 | 12 | ~13 years | Minimal impact |
 | 14 / 15 | 2 | 11 | ~7 years | |
 
-Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g. 8-team / 14-week) have no fairness problem — the tool detects these and tells you no schedule is needed. Odd-sized and 16+ team leagues are out of scope.
+Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g. 8-team / 14-week) have no fairness problem - the tool detects these and tells you no schedule is needed. Odd-sized and 16+ team leagues are out of scope.
 
 ## The algorithm
 
-- **Maximum separation.** Doubled pairs play in the first N and last N weeks (N = doubles per team). For 12/14 that's weeks 1–3 and 12–14 — an 11-week gap between the two meetings.
+- **Maximum separation.** Doubled pairs play in the first N and last N weeks (N = doubles per team). For 12/14 that's weeks 1–3 and 12–14 - an 11-week gap between the two meetings.
 - **Per-format lookback window.** The lookback is computed per format to maximize rotation coverage. Recent seasons are hard-avoided (cannot repeat), with the next oldest soft-avoided (preferred to skip but allowed when the constraint set is too tight).
 - **Identity tracking via user IDs.** Doubled pairs are stored by Sleeper / ESPN user ID, not team name. The schedule survives team renames, manager changes, and roster reshuffles between seasons.
 
 ## Supported platforms
 
-- **Sleeper** — fully public API, paste your league ID and you're done.
-- **ESPN** — public leagues by league ID. Private league support and a paste fallback follow ESPN's undocumented API quirks.
-- **Yahoo** — coming soon (OAuth 2.0 flow, requires registered Yahoo developer app).
-- **NFL.com / CBS / Fantrax / others** — paste-and-parse fallback ("Team A vs Team B" per line).
+- **Sleeper** - fully public API, paste your league ID and you're done.
+- **ESPN** - public leagues by league ID. Private league support and a paste fallback follow ESPN's undocumented API quirks.
+- **Yahoo** - coming soon (OAuth 2.0 flow, requires registered Yahoo developer app).
+- **NFL.com / CBS / Fantrax / others** - paste-and-parse fallback ("Team A vs Team B" per line).
 
 ## Quick start
 
 1. Visit [DoubleCheck](https://doublecheckff.com).
-2. Pick your platform and enter your league ID — or paste your previous schedules.
+2. Pick your platform and enter your league ID - or paste your previous schedules.
 3. Review the avoidance matrix and generate this year's schedule.
-4. Save the season — its doubles automatically feed next year's lookback.
+4. Save the season - its doubles automatically feed next year's lookback.
 
 ## Tech stack
 
@@ -64,4 +64,4 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE).

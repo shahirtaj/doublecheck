@@ -211,7 +211,7 @@ export default function GeneratePage() {
   const [espnStatus, setEspnStatus] = useState<ImportStatus>("");
   const [espnMsg, setEspnMsg] = useState("");
 
-  // Shared preview — Sleeper / ESPN populate this; Apply commits it.
+  // Shared preview - Sleeper / ESPN populate this; Apply commits it.
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
 
   // Hydrate from localStorage on mount.
@@ -654,7 +654,7 @@ export default function GeneratePage() {
       <div className={cls.pasteSection}>
         <h3 className={cls.sectionTitle}>Import from Sleeper</h3>
         <p className={cls.hint}>
-          Enter your current Sleeper league ID — the server walks the history chain to find
+          Enter your current Sleeper league ID - the server walks the history chain to find
           completed seasons. Find it in your league URL: sleeper.com/leagues/
           <strong>YOUR_ID</strong>
         </p>
@@ -691,8 +691,8 @@ export default function GeneratePage() {
         <h3 className={cls.sectionTitle}>Import from ESPN</h3>
         <p className={cls.hint}>
           Public leagues only for now. Find your league ID in the URL:
-          fantasy.espn.com/football/league?leagueId=<strong>YOUR_ID</strong>. ESPN&apos;s API is
-          undocumented; if it fails, use the schedule paste below.
+          fantasy.espn.com/football/league?leagueId=<strong>YOUR_ID</strong>. If it fails, use the
+          schedule paste below.
         </p>
         <div className="flex flex-wrap gap-2 items-stretch">
           <input
@@ -728,7 +728,7 @@ export default function GeneratePage() {
           Yahoo <span className="text-[10px] text-slate-500 font-normal">(coming soon)</span>
         </h3>
         <p className={cls.hint}>
-          Yahoo requires OAuth 2.0 with a registered developer app — landing in a follow-up
+          Yahoo requires OAuth 2.0 with a registered developer app - landing in a follow-up
           phase.
         </p>
       </div>
@@ -743,7 +743,7 @@ export default function GeneratePage() {
             .
           </p>
           <p className="text-[11px] text-slate-400 mb-2">
-            Most recent: {importPreview.seasons[0]!.seasonYear || "unknown"} —{" "}
+            Most recent: {importPreview.seasons[0]!.seasonYear || "unknown"} -{" "}
             {importPreview.seasons[0]!.doubles.length} doubled pairs across{" "}
             {importPreview.seasons[0]!.regWeeks ?? "?"} weeks ·{" "}
             {importPreview.seasons[0]!.teamNames.length}-team format.
@@ -788,7 +788,7 @@ export default function GeneratePage() {
           <h2 className={cls.cardTitle}>Import a league to get started</h2>
           <p className={cls.hint}>
             DoubleCheck detects your league&apos;s format (team count and week count) from the
-            seasons it imports. Connect Sleeper or ESPN below to begin — once import succeeds, the
+            seasons it imports. Connect Sleeper or ESPN below to begin - once import succeeds, the
             review and schedule steps appear.
           </p>
           {importSections}
@@ -813,7 +813,7 @@ export default function GeneratePage() {
                 {teamCount}-team / {weekCount}-week
               </strong>
               : a complete double round-robin where every team plays every opponent exactly twice.
-              The schedule is fully determined — every pair is doubled — so there&apos;s no
+              The schedule is fully determined - every pair is doubled - so there&apos;s no
               rotational fairness problem to solve.
             </p>
           )}
@@ -860,7 +860,7 @@ export default function GeneratePage() {
             </summary>
             <div className={`${cls.pasteSection} mt-2`}>
               <p className={cls.hint}>
-                Paste from ESPN, Yahoo, etc. — &ldquo;Team A vs Team B&rdquo; per line. Scores and
+                Paste from ESPN, Yahoo, etc. - &ldquo;Team A vs Team B&rdquo; per line. Scores and
                 week headers are stripped automatically. Detected doubles become hard-avoid for the
                 upcoming generation.
               </p>
@@ -918,7 +918,7 @@ export default function GeneratePage() {
                               }));
                             }}
                           >
-                            <option value="">— select —</option>
+                            <option value="">- select -</option>
                             {teams.map((t, idx) => {
                               const taken = Object.entries(nameMapping).some(
                                 ([k, v]) => v === idx && k !== name,
@@ -1220,7 +1220,7 @@ export default function GeneratePage() {
           )}
           {schedule.softRepeated.length > 0 && (
             <p className="text-[11px] text-slate-400 mb-3">
-              {schedule.softRepeated.length} pair(s) repeated from older seasons — this is
+              {schedule.softRepeated.length} pair(s) repeated from older seasons - this is
               expected to maintain the rotation.
             </p>
           )}
@@ -1305,7 +1305,7 @@ export default function GeneratePage() {
               </button>
             ) : (
               <span className="text-emerald-400 text-[13px] font-semibold">
-                ✓ Saved — this season&apos;s doubles feed next year&apos;s avoidance
+                ✓ Saved - this season&apos;s doubles feed next year&apos;s avoidance
               </span>
             )}
           </div>

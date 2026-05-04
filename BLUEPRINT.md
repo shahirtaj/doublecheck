@@ -1,4 +1,4 @@
-# DoubleCheck — Product Blueprint
+# DoubleCheck - Product Blueprint
 
 ## What it is
 
@@ -11,7 +11,7 @@ A web tool that generates fair rotational schedules for fantasy football leagues
 
 ## The Problem
 
-In a 12-team, 14-week fantasy football league, each team plays 3 opponents twice and 8 once. With random scheduling, some pairs get doubled year after year — creating a measurable competitive imbalance. The probability that any specific pair repeats across 3+ of 4 seasons is ~6.5%, but with 66 total pairs, ~4 pairs will experience this in any league. It's a near-certainty someone is getting a raw deal.
+In a 12-team, 14-week fantasy football league, each team plays 3 opponents twice and 8 once. With random scheduling, some pairs get doubled year after year - creating a measurable competitive imbalance. The probability that any specific pair repeats across 3+ of 4 seasons is ~6.5%, but with 66 total pairs, ~4 pairs will experience this in any league. It's a near-certainty someone is getting a raw deal.
 
 ---
 
@@ -39,9 +39,9 @@ In a 12-team, 14-week fantasy football league, each team plays 3 opponents twice
 | 14 / 14 | 1 | 12 | ~13 years | Minimal impact, tool should be transparent |
 | 14 / 15 | 2 | 11 | ~7 years | |
 
-Formats with zero doubles (e.g., 14-team / 13-week) are pure round-robins — the tool detects these and tells the user no schedule is needed.
+Formats with zero doubles (e.g., 14-team / 13-week) are pure round-robins - the tool detects these and tells the user no schedule is needed.
 
-Formats with complete double round-robins (e.g., 8-team / 14-week) also have no fairness problem — the tool detects and communicates this.
+Formats with complete double round-robins (e.g., 8-team / 14-week) also have no fairness problem - the tool detects and communicates this.
 
 Odd-number leagues and 16+ team leagues are out of scope.
 
@@ -56,6 +56,8 @@ Odd-number leagues and 16+ team leagues are out of scope.
 | Yahoo | ~5-10M | Official, OAuth 2.0 | Developer app registration | 🔜 Phase 6.5 |
 | NFL.com | Small | None | N/A | Paste-and-parse fallback |
 | CBS | Small | None | N/A | Paste-and-parse fallback |
+
+No write APIs exist on any platform for schedule input. Commissioners enter the generated schedule manually through their platform's commissioner tools. This is a one-time annual task (~10 minutes).
 
 ---
 
@@ -93,7 +95,7 @@ Parameterized the core algorithm by `(teamCount, weekCount)`. Covers all 7 suppo
 ### Phase 2: Next.js Project ✅
 **Tool: Claude Code**
 
-Next.js 14 App Router with Tailwind CSS. Tool is the homepage (`app/page.tsx`). Responsive UI — matrix grid scrolls horizontally on mobile, week navigator wraps. localStorage for persistence.
+Next.js 14 App Router with Tailwind CSS. Tool is the homepage (`app/page.tsx`). Responsive UI - matrix grid scrolls horizontally on mobile, week navigator wraps. localStorage for persistence.
 
 **Deliverable:** Full app running locally and deployed.
 
@@ -104,7 +106,7 @@ Next.js 14 App Router with Tailwind CSS. Tool is the homepage (`app/page.tsx`). 
 
 Server-side API routes at `/api/import/sleeper` and `/api/import/espn`. Walk the season-history chain, fetch all completed seasons (up to 5), normalize doubled pairs into `ImportedSeasonRecord` shape. IP-based rate limiting via `lib/api/rate-limit.ts`. Schedule text paste fallback for non-API platforms.
 
-**Deliverable:** Unified import UI — enter league ID, fetch, apply.
+**Deliverable:** Unified import UI - enter league ID, fetch, apply.
 
 ---
 
@@ -126,17 +128,20 @@ Deployed on Vercel with auto-deploy from `main`. Custom domain `doublecheckff.co
 
 ---
 
-### Phase 6: Landing Page + SEO + Polish
+### Phase 6: SEO, Auto-Detection, Lookback Override, Favicon ✅
 **Tool: Claude Code**
 
-The tool is currently the homepage. This phase adds marketing/explainer content and polish:
+- Generic tagline: "Fair rotational schedules for fantasy football leagues"
+- Inline SVG favicon: dark slate rounded square with two emerald checkmarks ("double check")
+- Open Graph + Twitter meta tags for social sharing
+- SEO title: "DoubleCheck - Fair Fantasy Football Schedule Generator"
+- League format auto-detected from imported data (teamCount from roster size, weekCount from regWeeks) - no manual format selector
+- Before import: "Import a league to get started" prompt with Sleeper/ESPN/paste options
+- Edge-case detection: pure round-robin and complete double round-robin show explanatory messages
+- Lookback window override in Step 2 (Review): "Using last N seasons (recommended for X-team / Y-week)" with dropdown to override (1 through history length), defaults to format-recommended value
+- All `TEAM_COUNT`/`WEEK_COUNT` constants replaced with dynamic state derived from import
 
-- Landing page content above or alongside the tool: the fairness problem in plain English, visual example of double clustering, the math, which formats benefit
-- Favicon and Open Graph meta tags for social sharing
-- Target keywords: "fantasy football schedule fairness," "fantasy football repeat matchups," "rotational scheduling fantasy football," "fantasy football schedule generator"
-- Lookback window override control in Step 2 (Review) — display "Using last N seasons (recommended for X-team / Y-week)" with a dropdown to override, defaulting to the format's lookback (hard + soft from `describeFormat`)
-
-**Deliverable:** SEO-optimized site with polished UX.
+**Deliverable:** SEO-optimized, format-aware tool with user-controllable lookback.
 
 ---
 
@@ -160,7 +165,7 @@ Yahoo's official Fantasy Sports API requires a registered developer app and a fu
 
 Add Supabase: Google sign-in, Postgres for user data / league history / team names. Enables:
 - Cross-device access (commissioner uses laptop at home, phone on draft day)
-- Shareable read-only league links (the viral loop — 11 managers see the tool, some are commissioners in other leagues, they use it for theirs)
+- Shareable read-only league links (the viral loop - 11 managers see the tool, some are commissioners in other leagues, they use it for theirs)
 
 Post-launch. localStorage works for v1.
 
@@ -175,7 +180,7 @@ Two posts, different audiences:
 
 **r/FFCommish** (~50K members): Commissioner-focused. Lead with the problem ("Has anyone noticed the same teams getting doubled year after year?"), explain the math, link the tool. This audience understands immediately.
 
-**r/fantasyfootball** (~2M members): Broader audience. Lead with the unfairness angle ("Your league's schedule might be screwing you — here's the math"), make it accessible, link the tool.
+**r/fantasyfootball** (~2M members): Broader audience. Lead with the unfairness angle ("Your league's schedule might be screwing you - here's the math"), make it accessible, link the tool.
 
 **Timing:** Late July or early August, when commissioners are setting up leagues.
 
@@ -183,7 +188,7 @@ Two posts, different audiences:
 
 ---
 
-### Phase 9: Analytics + Rate Limiting
+### Phase 9: Analytics
 **Tool: Claude Code**
 
 - Plausible or Umami for privacy-friendly analytics
@@ -196,25 +201,30 @@ Data shapes what to prioritize post-launch.
 
 ## Priority Order
 
-Phases 1–5 are done. Phase 6 polishes for launch. Phases 6.5–7 add platform coverage and persistence. Phase 8 drives traffic. Phase 9 measures it.
+Phases 1–6 are done. Phase 6.5 adds Yahoo. Phase 7 adds persistence. Phase 8 drives traffic. Phase 9 measures it.
 
 ## Estimated Effort
 
-Phases 1–5 completed in one day. Remaining phases: 1–2 weekends.
+Phases 1–6 completed in one day. Remaining phases: 1–2 weekends.
 
 ---
 
 ## Current State
 
-Phases 1–5 are complete. The tool is live at [doublecheckff.com](https://doublecheckff.com).
+Phases 1–6 are complete. The tool is live at [doublecheckff.com](https://doublecheckff.com).
 
-- **Phase 1 — Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 92 Vitest tests prove constraints hold across every format.
-- **Phase 2 — Next.js 14 App Router.** Tool is the homepage with Tailwind CSS and responsive UI. localStorage persistence.
-- **Phase 3 — Server-side platform integrations.** `/api/import/sleeper` and `/api/import/espn` walk the season-history chain, fetch all completed seasons, and apply IP-based rate limiting. Schedule text paste fallback for non-API platforms.
-- **Phase 4 — GitHub.** Public repo with README, MIT license, and GitHub Actions CI (92/92 tests passing).
-- **Phase 5 — Deployed.** Live on Vercel at doublecheckff.com with auto-deploy from main.
+- **Phase 1 - Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 92 Vitest tests prove constraints hold across every format.
+- **Phase 2 - Next.js 14 App Router.** Tool is the homepage with Tailwind CSS and responsive UI. localStorage persistence.
+- **Phase 3 - Server-side platform integrations.** `/api/import/sleeper` and `/api/import/espn` walk the season-history chain, fetch all completed seasons, and apply IP-based rate limiting. Schedule text paste fallback for non-API platforms.
+- **Phase 4 - GitHub.** Public repo with README, MIT license, and GitHub Actions CI (92/92 tests passing).
+- **Phase 5 - Deployed.** Live on Vercel at doublecheckff.com with auto-deploy from main.
+- **Phase 6 - SEO + polish.** Favicon (double checkmark SVG), OG/Twitter meta tags, auto-detected league format from import data, lookback window override control, edge-case format detection. No manual format selector - format is derived from imported seasons.
 
 ### Superseded files removed
-- `fetch-sleeper.js` — replaced by `/api/import/sleeper` server-side route
-- `prototype.jsx` — replaced by `app/page.tsx`
-- Sleeper JSON paste fallback — removed, server-side route eliminates the need
+- `fetch-sleeper.js` - replaced by `/api/import/sleeper` server-side route
+- `prototype.jsx` - replaced by `app/page.tsx`
+- Sleeper JSON paste fallback - removed, server-side route eliminates the need
+- Manual format selector - removed, replaced by auto-detection from import data
+
+### Investigated and deferred
+- **Platform write APIs for schedule input:** No write APIs exist on Sleeper, ESPN, or Yahoo. Headless browser automation (Puppeteer/Playwright) would require storing credentials, break on UI changes, and create unsustainable support burden - all to save ~10 minutes of annual manual entry. Not worth building.
