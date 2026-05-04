@@ -724,8 +724,7 @@ export default function GeneratePage() {
           </div>
 
           <p className={cls.hint}>
-            Auto-filled by Sleeper or ESPN imports, or enter manually. Overwrite with real names if
-            you prefer those over usernames.
+            Auto-filled after import. Edit to use real names if you prefer.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {teams.map((t, i) => (
