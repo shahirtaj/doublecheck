@@ -1134,8 +1134,13 @@ export default function GeneratePage() {
 
           <div className="flex gap-3 mt-5 flex-wrap">
             <button
-              className="bg-transparent text-amber-400 border border-amber-700 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:text-amber-300 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={
+                manualDoubles.size === 0
+                  ? cls.secondaryBtn
+                  : "bg-transparent text-amber-400 border border-amber-700 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:text-amber-300 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              }
               onClick={() => setManualDoubles(new Set())}
+              disabled={manualDoubles.size === 0}
             >
               Clear Manual Overrides
             </button>
