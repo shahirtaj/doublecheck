@@ -60,7 +60,7 @@ type ImportedSeasonRecord = {
   regWeeks?: number;
 };
 
-type ImportPlatform = "sleeper" | "espn";
+type ImportPlatform = "sleeper" | "espn" | "yahoo";
 
 type ImportPreview = {
   platform: ImportPlatform;
@@ -68,6 +68,13 @@ type ImportPreview = {
 };
 
 type ImportStatus = "" | "loading" | "ready" | "error";
+
+type YahooLeagueOption = {
+  leagueKey: string;
+  name: string;
+  season: string;
+  numTeams: number;
+};
 
 type Step = "teams" | "doubles" | "schedule";
 
@@ -109,6 +116,10 @@ export default function GeneratePage() {
   // Shared preview - Fetch populates this; Apply commits it.
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
 
+  // Yahoo flow: leagues list (after connect), selected league key (for picker).
+  const [yahooLeagues, setYahooLeagues] = useState<YahooLeagueOption[] | null>(null);
+  const [selectedYahooLeague, setSelectedYahooLeague] = useState<string>("");
+
   // Hydrate from localStorage on mount.
   useEffect(() => {
     try {
@@ -139,6 +150,31 @@ export default function GeneratePage() {
       // Ignore corrupt storage; fall back to empty state.
     }
     setLoading(false);
+  }, []);
+
+  // Yahoo OAuth callback hand-off. The callback route redirects to
+  // /?yahoo=connected on success or /?yahoo=error&reason=... on failure. We
+  // strip the params, switch to the Yahoo platform, and either auto-load
+  // leagues or surface the error message.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("yahoo");
+    if (!status) return;
+    const reason = params.get("reason");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("yahoo");
+    url.searchParams.delete("reason");
+    window.history.replaceState({}, "", url.toString());
+
+    setPlatform("yahoo");
+    if (status === "connected") {
+      void fetchYahooLeagues();
+    } else if (status === "error") {
+      setImportStatus("error");
+      setImportMsg(`Yahoo connection failed: ${(reason || "unknown").replace(/_/g, " ")}.`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const saveToStorage = useCallback(
@@ -320,6 +356,88 @@ export default function GeneratePage() {
     }
   }
 
+  // Yahoo helpers ─ separate from handleFetch because the flow is two-step:
+  // first list the user's leagues (no body), then fetch a chosen league's
+  // season chain (with leagueKey). 401 means the user hasn't gone through
+  // OAuth yet (or their refresh token expired); the UI shows Connect Yahoo.
+
+  async function fetchYahooLeagueSeasons(leagueKey: string) {
+    setImportStatus("loading");
+    setImportMsg("Fetching season data from Yahoo…");
+    setImportPreview(null);
+    try {
+      const res = await fetch("/api/import/yahoo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leagueKey }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      const seasons = data as ImportedSeasonRecord[];
+      if (!Array.isArray(seasons) || seasons.length === 0) {
+        throw new Error("No seasons returned.");
+      }
+      const detected = filterToDetectedFormat(seasons);
+      if (!detected) {
+        throw new Error(
+          "Could not detect a valid league format from the most recent season (need an even team count and a regular-season week count).",
+        );
+      }
+      setImportPreview({ platform: "yahoo", seasons: detected.seasons });
+      setImportStatus("ready");
+      setImportMsg(
+        `Fetched ${detected.seasons.length} season${detected.seasons.length > 1 ? "s" : ""} of ${detected.detected.teamCount}-team / ${detected.detected.weekCount}-week play: ${detected.seasons
+          .map((s) => s.seasonYear || "?")
+          .join(", ")}.`,
+      );
+    } catch (e) {
+      setImportStatus("error");
+      setImportMsg((e as Error).message || "Fetch failed.");
+    }
+  }
+
+  async function fetchYahooLeagues() {
+    setImportStatus("loading");
+    setImportMsg("Loading Yahoo leagues…");
+    setYahooLeagues(null);
+    setSelectedYahooLeague("");
+    setImportPreview(null);
+    try {
+      const res = await fetch("/api/import/yahoo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      if (res.status === 401) {
+        // Treated as "not connected" — clear status so the Connect Yahoo
+        // button shows. The user will run through OAuth to get a token.
+        setYahooLeagues(null);
+        setImportStatus("");
+        setImportMsg("");
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      const leagues = (data?.leagues || []) as YahooLeagueOption[];
+      setYahooLeagues(leagues);
+      if (leagues.length === 0) {
+        setImportStatus("error");
+        setImportMsg("No NFL leagues found on your Yahoo account.");
+        return;
+      }
+      if (leagues.length === 1) {
+        setSelectedYahooLeague(leagues[0]!.leagueKey);
+        await fetchYahooLeagueSeasons(leagues[0]!.leagueKey);
+        return;
+      }
+      setImportStatus("");
+      setImportMsg(`Found ${leagues.length} Yahoo leagues — pick one.`);
+    } catch (e) {
+      setImportStatus("error");
+      setImportMsg((e as Error).message || "Failed to load Yahoo leagues.");
+    }
+  }
+
   function handleApplyImport() {
     if (!importPreview || importPreview.seasons.length === 0) return;
     const mostRecent = importPreview.seasons[0]!;
@@ -436,6 +554,8 @@ export default function GeneratePage() {
     resetImportUi();
     setLeagueId("");
     setPlatform("sleeper");
+    setYahooLeagues(null);
+    setSelectedYahooLeague("");
     setStep("teams");
     setFurthestStep("teams");
     setConfirmReset(false);
@@ -490,11 +610,13 @@ export default function GeneratePage() {
             <>
               Enter your league ID from sleeper.com/leagues/<strong>YOUR_ID</strong>
             </>
-          ) : (
+          ) : platform === "espn" ? (
             <>
               Enter your league ID from fantasy.espn.com/football/league?leagueId=
               <strong>YOUR_ID</strong> (public leagues only)
             </>
+          ) : (
+            <>Sign in with Yahoo to import your fantasy leagues.</>
           )}
         </p>
         <div className="flex flex-wrap gap-2 items-stretch">
@@ -503,42 +625,83 @@ export default function GeneratePage() {
             value={platform}
             onChange={(e) => {
               const next = e.target.value as ImportPlatform;
+              if (next === platform) return;
               setPlatform(next);
-              if (importPreview) setImportPreview(null);
-              if (importStatus) {
-                setImportStatus("");
-                setImportMsg("");
+              setImportPreview(null);
+              setImportStatus("");
+              setImportMsg("");
+              setYahooLeagues(null);
+              setSelectedYahooLeague("");
+              if (next === "yahoo") {
+                void fetchYahooLeagues();
               }
             }}
           >
             <option value="sleeper">Sleeper</option>
             <option value="espn">ESPN</option>
-            <option value="yahoo" disabled>
-              Yahoo (coming soon)
-            </option>
+            <option value="yahoo">Yahoo</option>
           </select>
-          <input
-            className={cls.leagueInput}
-            value={leagueId}
-            onChange={(e) => {
-              setLeagueId(e.target.value);
-              if (importPreview) setImportPreview(null);
-              if (importStatus) {
-                setImportStatus("");
-                setImportMsg("");
-              }
-            }}
-            placeholder={
-              platform === "sleeper" ? "e.g. 924039458279227392" : "e.g. 123456789"
-            }
-          />
-          <button
-            className={cls.primaryBtn}
-            onClick={handleFetch}
-            disabled={!leagueId.trim() || importBusy}
-          >
-            {importStatus === "loading" ? "Fetching…" : "Fetch"}
-          </button>
+          {platform === "yahoo" ? (
+            yahooLeagues && yahooLeagues.length > 1 ? (
+              <>
+                <select
+                  className={cls.leagueInput}
+                  value={selectedYahooLeague}
+                  onChange={(e) => setSelectedYahooLeague(e.target.value)}
+                >
+                  <option value="">— pick a league —</option>
+                  {yahooLeagues.map((l) => (
+                    <option key={l.leagueKey} value={l.leagueKey}>
+                      {l.season ? `${l.season} — ` : ""}
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className={cls.primaryBtn}
+                  onClick={() => fetchYahooLeagueSeasons(selectedYahooLeague)}
+                  disabled={!selectedYahooLeague || importBusy}
+                >
+                  {importStatus === "loading" ? "Loading…" : "Use this league"}
+                </button>
+              </>
+            ) : (
+              <button
+                className={cls.primaryBtn}
+                onClick={() => {
+                  window.location.href = "/api/auth/yahoo/start";
+                }}
+                disabled={importBusy}
+              >
+                {importStatus === "loading" ? "Loading…" : "Connect Yahoo"}
+              </button>
+            )
+          ) : (
+            <>
+              <input
+                className={cls.leagueInput}
+                value={leagueId}
+                onChange={(e) => {
+                  setLeagueId(e.target.value);
+                  if (importPreview) setImportPreview(null);
+                  if (importStatus) {
+                    setImportStatus("");
+                    setImportMsg("");
+                  }
+                }}
+                placeholder={
+                  platform === "sleeper" ? "e.g. 924039458279227392" : "e.g. 123456789"
+                }
+              />
+              <button
+                className={cls.primaryBtn}
+                onClick={handleFetch}
+                disabled={!leagueId.trim() || importBusy}
+              >
+                {importStatus === "loading" ? "Fetching…" : "Fetch"}
+              </button>
+            </>
+          )}
         </div>
 
         {importMsg && (

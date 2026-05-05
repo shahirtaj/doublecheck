@@ -45,7 +45,7 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 
 - **Sleeper** - fully public API, paste your league ID and you're done.
 - **ESPN** - public leagues by league ID. Private league support follows ESPN's undocumented API quirks.
-- **Yahoo** - coming soon (OAuth 2.0 flow, requires registered Yahoo developer app).
+- **Yahoo** - sign in with Yahoo (OAuth 2.0). Tokens are stored in an encrypted httpOnly cookie - no database, no account needed.
 
 ## Quick start
 
