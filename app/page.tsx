@@ -97,7 +97,6 @@ export default function GeneratePage() {
   const [saved, setSaved] = useState(false);
 
   const [confirmReset, setConfirmReset] = useState(false);
-  const [confirmClear, setConfirmClear] = useState(false);
 
   // League import (server-side via /api/import/<platform>)
   const [platform, setPlatform] = useState<ImportPlatform>("sleeper");
@@ -708,7 +707,11 @@ export default function GeneratePage() {
                 Using last{" "}
                 <strong className="text-slate-200">{effectiveLookbackTotal}</strong>{" "}
                 season{effectiveLookbackTotal !== 1 ? "s" : ""} (recommended for {teamCount}-team /{" "}
-                {weekCount}-week).
+                {weekCount}-week
+                {effectiveLookbackTotal !== recommendedLookbackTotal
+                  ? ` is ${recommendedLookbackTotal}`
+                  : ""}
+                ).
               </p>
               <div className="mt-2 flex flex-wrap gap-2 items-center text-[11px]">
                 <label htmlFor="lookback-override" className="text-slate-500">
@@ -1060,36 +1063,6 @@ export default function GeneratePage() {
               </div>
             );
           })}
-          {!confirmClear ? (
-            <button
-              className="mt-3 bg-transparent text-amber-400 border border-amber-700 px-4 py-2.5 rounded-md text-xs cursor-pointer hover:text-amber-300 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => setConfirmClear(true)}
-            >
-              Clear History
-            </button>
-          ) : (
-            <div className="mt-3 flex gap-2 items-center flex-wrap">
-              <span className="text-[11px] text-red-400">Clear all history?</span>
-              <button
-                className="bg-red-600 text-emerald-50 border-0 px-2.5 py-1 rounded-md text-[11px] font-semibold cursor-pointer hover:bg-red-500"
-                onClick={() => {
-                  setHistory([]);
-                  setManualDoubles(new Set());
-                  setSaved(false);
-                  setConfirmClear(false);
-                  saveToStorage({ history: [], manualDoubles: [] });
-                }}
-              >
-                Yes
-              </button>
-              <button
-                className="bg-transparent text-slate-400 border border-slate-600 rounded-md px-2.5 py-1 text-[11px] cursor-pointer"
-                onClick={() => setConfirmClear(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
         </details>
       )}
         </>
