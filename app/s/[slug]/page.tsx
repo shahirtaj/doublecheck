@@ -3,6 +3,8 @@
 // message if the slug is missing or the entry has expired.
 
 import { kv } from "@vercel/kv";
+import { cache } from "react";
+import type { Metadata } from "next";
 import { SharedScheduleView } from "./SharedScheduleView";
 
 type SharedPayload = {
@@ -35,6 +37,52 @@ function isValidPayload(v: unknown): v is SharedPayload {
   return true;
 }
 
+const getShareData = cache(async (slug: string): Promise<unknown> => {
+  try {
+    return await kv.get(`share:${slug}`);
+  } catch {
+    return null;
+  }
+});
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { slug: string };
+}): Promise<Metadata> {
+  const data = await getShareData(params.slug);
+  const fallbackTitle = "DoubleCheck - Shared Schedule";
+  const fallbackDescription = "View this shared fantasy football schedule on DoubleCheck";
+
+  if (!isValidPayload(data)) {
+    return {
+      title: fallbackTitle,
+      description: fallbackDescription,
+      openGraph: {
+        title: fallbackTitle,
+        description: fallbackDescription,
+        images: ["/og.png"],
+      },
+    };
+  }
+
+  const trimmedName = data.leagueName?.trim();
+  const title = trimmedName ? `DoubleCheck - ${trimmedName} Schedule` : fallbackTitle;
+  const description = trimmedName
+    ? `View the ${data.format.teamCount}-team / ${data.format.weekCount}-week schedule for ${trimmedName}`
+    : fallbackDescription;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: ["/og.png"],
+    },
+  };
+}
+
 function NotFoundView() {
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 max-w-[700px] mx-auto text-center">
@@ -55,12 +103,7 @@ function NotFoundView() {
 }
 
 export default async function SharePage({ params }: { params: { slug: string } }) {
-  let data: unknown = null;
-  try {
-    data = await kv.get(`share:${params.slug}`);
-  } catch {
-    data = null;
-  }
+  const data = await getShareData(params.slug);
 
   return (
     <div className="min-h-screen px-4 py-6 text-slate-200 font-mono">
