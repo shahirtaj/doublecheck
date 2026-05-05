@@ -591,11 +591,7 @@ export default function GeneratePage() {
       {!format ? (
         <div className={cls.card}>
           <h2 className={cls.cardTitle}>Import a league to get started</h2>
-          <p className={cls.hint}>
-            DoubleCheck detects your league&apos;s format (team count and week count) from the
-            seasons it imports. Connect Sleeper or ESPN below to begin - once import succeeds, the
-            review and schedule steps appear.
-          </p>
+          <p className={cls.hint}>Import your league to get started.</p>
           {importSections}
         </div>
       ) : isEdgeCaseFormat ? (
@@ -1101,34 +1097,36 @@ export default function GeneratePage() {
         </>
       )}
 
-      <div className="max-w-[700px] mx-auto mt-6 text-center">
-        {!confirmReset ? (
-          <button
-            className="bg-transparent text-red-400 border border-red-700 px-3 py-1.5 rounded-md text-[11px] cursor-pointer hover:text-red-300 hover:border-red-600"
-            onClick={() => setConfirmReset(true)}
-          >
-            Reset
-          </button>
-        ) : (
-          <div className="inline-flex gap-2 items-center flex-wrap justify-center">
-            <span className="text-[11px] text-red-400">
-              Clear all data? Cannot be undone.
-            </span>
+      {selectedFormat && (
+        <div className="max-w-[700px] mx-auto mt-6 text-center">
+          {!confirmReset ? (
             <button
-              className="bg-red-600 text-emerald-50 border-0 px-3.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer hover:bg-red-500"
-              onClick={handleResetEverything}
+              className="bg-transparent text-red-400 border border-red-700 px-3 py-1.5 rounded-md text-[11px] cursor-pointer hover:text-red-300 hover:border-red-600"
+              onClick={() => setConfirmReset(true)}
             >
-              Yes, reset
+              Reset
             </button>
-            <button
-              className="bg-transparent text-slate-400 border border-slate-600 rounded-md px-3.5 py-1.5 text-[11px] cursor-pointer"
-              onClick={() => setConfirmReset(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="inline-flex gap-2 items-center flex-wrap justify-center">
+              <span className="text-[11px] text-red-400">
+                Clear all data? Cannot be undone.
+              </span>
+              <button
+                className="bg-red-600 text-emerald-50 border-0 px-3.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer hover:bg-red-500"
+                onClick={handleResetEverything}
+              >
+                Yes, reset
+              </button>
+              <button
+                className="bg-transparent text-slate-400 border border-slate-600 rounded-md px-3.5 py-1.5 text-[11px] cursor-pointer"
+                onClick={() => setConfirmReset(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <footer className="max-w-[700px] mx-auto mt-4 text-center text-[11px] text-slate-500">
         <a
