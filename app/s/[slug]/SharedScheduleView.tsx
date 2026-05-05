@@ -6,17 +6,26 @@ import { unpackPairKey } from "@/lib/algorithm";
 type Props = {
   format: { teamCount: number; weekCount: number };
   leagueName?: string;
+  seasonYear?: number;
   teams: string[];
   weeks: [number, number][][];
   doubledPairs: string[];
 };
 
-export function SharedScheduleView({ format, leagueName, teams, weeks, doubledPairs }: Props) {
+export function SharedScheduleView({
+  format,
+  leagueName,
+  seasonYear,
+  teams,
+  weeks,
+  doubledPairs,
+}: Props) {
   const [selectedWeek, setSelectedWeek] = useState(0);
   const doubledSet = new Set(doubledPairs);
   const trimmedName = leagueName?.trim();
+  const yearLabel = seasonYear ? `${seasonYear} ` : "";
   const heading = trimmedName
-    ? `${trimmedName} Schedule`
+    ? `${trimmedName} ${yearLabel}Schedule`
     : `${format.teamCount}-team / ${format.weekCount}-week Schedule`;
 
   return (
