@@ -1,7 +1,7 @@
 // Direct port of fetch-sleeper.js into a serverless Route Handler. Server-side
 // fetch eliminates the browser CORS issue that the original Node script worked
 // around. POST with { leagueId, seasons? }, returns an array of season records
-// shaped to match the JSON-paste fallback the generate page already consumes.
+// shaped to match the season-record format the generate page consumes.
 
 import { NextResponse } from "next/server";
 import { pairKey } from "@/lib/algorithm";

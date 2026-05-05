@@ -1,7 +1,7 @@
 // ESPN's lm-api-reads endpoint is undocumented and historically prone to
 // breaking changes, so the route is permissive about partial failures: if any
 // requested season succeeds the route still returns 200, and total failure
-// surfaces a message that points the user at the paste-and-parse fallback.
+// surfaces the per-season error messages.
 // Public leagues only — private leagues require espn_s2 + SWID cookies, which
 // are out of scope for this phase.
 
@@ -12,7 +12,6 @@ import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
 
 const BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
 const MAX_SEASONS = 5;
-const FALLBACK_HINT = "If this keeps failing, paste your schedule as text below.";
 
 type EspnTeam = {
   id: number;
@@ -167,7 +166,7 @@ export async function POST(req: Request) {
   if (results.length === 0) {
     return NextResponse.json(
       {
-        error: `Could not fetch any seasons from ESPN. ${errors.join(" | ")}. ${FALLBACK_HINT}`,
+        error: `Could not fetch any seasons from ESPN. ${errors.join(" | ")}.`,
       },
       { status: 502 },
     );
