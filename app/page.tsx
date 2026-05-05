@@ -99,17 +99,13 @@ export default function GeneratePage() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
-  // Sleeper import (server-side via /api/import/sleeper)
-  const [sleeperId, setSleeperId] = useState("");
-  const [sleeperStatus, setSleeperStatus] = useState<ImportStatus>("");
-  const [sleeperMsg, setSleeperMsg] = useState("");
+  // League import (server-side via /api/import/<platform>)
+  const [platform, setPlatform] = useState<ImportPlatform>("sleeper");
+  const [leagueId, setLeagueId] = useState("");
+  const [importStatus, setImportStatus] = useState<ImportStatus>("");
+  const [importMsg, setImportMsg] = useState("");
 
-  // ESPN import (server-side via /api/import/espn)
-  const [espnId, setEspnId] = useState("");
-  const [espnStatus, setEspnStatus] = useState<ImportStatus>("");
-  const [espnMsg, setEspnMsg] = useState("");
-
-  // Shared preview - Sleeper / ESPN populate this; Apply commits it.
+  // Shared preview - Fetch populates this; Apply commits it.
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
 
   // Hydrate from localStorage on mount.
@@ -265,10 +261,8 @@ export default function GeneratePage() {
 
   function resetImportUi() {
     setImportPreview(null);
-    setSleeperStatus("");
-    setSleeperMsg("");
-    setEspnStatus("");
-    setEspnMsg("");
+    setImportStatus("");
+    setImportMsg("");
   }
 
   // Filter imported seasons down to the format detected from the most recent
@@ -286,18 +280,17 @@ export default function GeneratePage() {
     return { detected, seasons: filtered };
   }
 
-  async function handleSleeperFetch() {
-    if (!sleeperId.trim()) return;
-    setSleeperStatus("loading");
-    setSleeperMsg("Fetching from Sleeper…");
+  async function handleFetch() {
+    if (!leagueId.trim()) return;
+    const platformLabel = platform === "sleeper" ? "Sleeper" : "ESPN";
+    setImportStatus("loading");
+    setImportMsg(`Fetching from ${platformLabel}…`);
     setImportPreview(null);
-    setEspnStatus("");
-    setEspnMsg("");
     try {
-      const res = await fetch("/api/import/sleeper", {
+      const res = await fetch(`/api/import/${platform}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leagueId: sleeperId.trim() }),
+        body: JSON.stringify({ leagueId: leagueId.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
@@ -311,54 +304,16 @@ export default function GeneratePage() {
           "Could not detect a valid league format from the most recent season (need an even team count and a regular-season week count).",
         );
       }
-      setImportPreview({ platform: "sleeper", seasons: detected.seasons });
-      setSleeperStatus("ready");
-      setSleeperMsg(
+      setImportPreview({ platform, seasons: detected.seasons });
+      setImportStatus("ready");
+      setImportMsg(
         `Fetched ${detected.seasons.length} season${detected.seasons.length > 1 ? "s" : ""} of ${detected.detected.teamCount}-team / ${detected.detected.weekCount}-week play: ${detected.seasons
           .map((s) => s.seasonYear || "?")
           .join(", ")}.`,
       );
     } catch (e) {
-      setSleeperStatus("error");
-      setSleeperMsg((e as Error).message || "Fetch failed.");
-    }
-  }
-
-  async function handleEspnFetch() {
-    if (!espnId.trim()) return;
-    setEspnStatus("loading");
-    setEspnMsg("Fetching from ESPN…");
-    setImportPreview(null);
-    setSleeperStatus("");
-    setSleeperMsg("");
-    try {
-      const res = await fetch("/api/import/espn", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leagueId: espnId.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      const seasons = data as ImportedSeasonRecord[];
-      if (!Array.isArray(seasons) || seasons.length === 0) {
-        throw new Error("No seasons returned.");
-      }
-      const detected = filterToDetectedFormat(seasons);
-      if (!detected) {
-        throw new Error(
-          "Could not detect a valid league format from the most recent season (need an even team count and a regular-season week count).",
-        );
-      }
-      setImportPreview({ platform: "espn", seasons: detected.seasons });
-      setEspnStatus("ready");
-      setEspnMsg(
-        `Fetched ${detected.seasons.length} season${detected.seasons.length > 1 ? "s" : ""} of ${detected.detected.teamCount}-team / ${detected.detected.weekCount}-week play: ${detected.seasons
-          .map((s) => s.seasonYear || "?")
-          .join(", ")}.`,
-      );
-    } catch (e) {
-      setEspnStatus("error");
-      setEspnMsg((e as Error).message || "Fetch failed.");
+      setImportStatus("error");
+      setImportMsg((e as Error).message || "Fetch failed.");
     }
   }
 
@@ -432,12 +387,9 @@ export default function GeneratePage() {
 
     setManualDoubles(new Set());
     setImportPreview(null);
-    setSleeperId("");
-    setEspnId("");
-    setSleeperStatus("");
-    setSleeperMsg("");
-    setEspnStatus("");
-    setEspnMsg("");
+    setLeagueId("");
+    setImportStatus("");
+    setImportMsg("");
   }
 
   // ── Derived helpers ──
@@ -475,8 +427,8 @@ export default function GeneratePage() {
     setSaved(false);
     setLookbackOverride(null);
     resetImportUi();
-    setSleeperId("");
-    setEspnId("");
+    setLeagueId("");
+    setPlatform("sleeper");
     setStep("teams");
     setConfirmReset(false);
     try {
@@ -495,8 +447,7 @@ export default function GeneratePage() {
   }
 
   const avoidInfo = getAvoidDisplay();
-  const importBusy =
-    sleeperStatus === "loading" || espnStatus === "loading";
+  const importBusy = importStatus === "loading";
 
   // ── Tailwind class atoms (mirrors the prototype's S object) ──
 
@@ -525,82 +476,67 @@ export default function GeneratePage() {
 
   const importSections = (
     <>
-      {/* Sleeper */}
       <div className={cls.subSection}>
-        <h3 className={cls.sectionTitle}>Import from Sleeper</h3>
         <p className={cls.hint}>
-          Enter your league ID. Find it in your league URL: sleeper.com/leagues/
-          <strong>YOUR_ID</strong>
+          {platform === "sleeper" ? (
+            <>
+              Enter your league ID. Find it in your league URL: sleeper.com/leagues/
+              <strong>YOUR_ID</strong>
+            </>
+          ) : (
+            <>
+              Public leagues only. Find your league ID in the URL:
+              fantasy.espn.com/football/league?leagueId=<strong>YOUR_ID</strong>
+            </>
+          )}
         </p>
         <div className="flex flex-wrap gap-2 items-stretch">
-          <input
-            className={cls.leagueInput}
-            value={sleeperId}
+          <select
+            className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+            value={platform}
             onChange={(e) => {
-              setSleeperId(e.target.value);
-              if (importPreview?.platform === "sleeper") setImportPreview(null);
-              if (sleeperStatus) {
-                setSleeperStatus("");
-                setSleeperMsg("");
+              const next = e.target.value as ImportPlatform;
+              setPlatform(next);
+              if (importPreview) setImportPreview(null);
+              if (importStatus) {
+                setImportStatus("");
+                setImportMsg("");
               }
             }}
-            placeholder="e.g. 924039458279227392"
+          >
+            <option value="sleeper">Sleeper</option>
+            <option value="espn">ESPN</option>
+            <option value="yahoo" disabled>
+              Yahoo (coming soon)
+            </option>
+          </select>
+          <input
+            className={cls.leagueInput}
+            value={leagueId}
+            onChange={(e) => {
+              setLeagueId(e.target.value);
+              if (importPreview) setImportPreview(null);
+              if (importStatus) {
+                setImportStatus("");
+                setImportMsg("");
+              }
+            }}
+            placeholder={
+              platform === "sleeper" ? "e.g. 924039458279227392" : "e.g. 123456789"
+            }
           />
           <button
             className={cls.primaryBtn}
-            onClick={handleSleeperFetch}
-            disabled={!sleeperId.trim() || importBusy}
+            onClick={handleFetch}
+            disabled={!leagueId.trim() || importBusy}
           >
-            {sleeperStatus === "loading" ? "Fetching…" : "Fetch"}
+            {importStatus === "loading" ? "Fetching…" : "Fetch"}
           </button>
         </div>
 
-        {sleeperMsg && (
-          <p className={`text-[11px] mt-2 ${statusToneClass(sleeperStatus)}`}>{sleeperMsg}</p>
+        {importMsg && (
+          <p className={`text-[11px] mt-2 ${statusToneClass(importStatus)}`}>{importMsg}</p>
         )}
-      </div>
-
-      {/* ESPN */}
-      <div className={cls.subSection}>
-        <h3 className={cls.sectionTitle}>Import from ESPN</h3>
-        <p className={cls.hint}>
-          Public leagues only. Find your league ID in the URL:
-          fantasy.espn.com/football/league?leagueId=<strong>YOUR_ID</strong>
-        </p>
-        <div className="flex flex-wrap gap-2 items-stretch">
-          <input
-            className={cls.leagueInput}
-            value={espnId}
-            onChange={(e) => {
-              setEspnId(e.target.value);
-              if (importPreview?.platform === "espn") setImportPreview(null);
-              if (espnStatus) {
-                setEspnStatus("");
-                setEspnMsg("");
-              }
-            }}
-            placeholder="e.g. 123456789"
-          />
-          <button
-            className={cls.primaryBtn}
-            onClick={handleEspnFetch}
-            disabled={!espnId.trim() || importBusy}
-          >
-            {espnStatus === "loading" ? "Fetching…" : "Fetch"}
-          </button>
-        </div>
-
-        {espnMsg && (
-          <p className={`text-[11px] mt-2 ${statusToneClass(espnStatus)}`}>{espnMsg}</p>
-        )}
-      </div>
-
-      {/* Yahoo placeholder */}
-      <div className={`${cls.subSection} opacity-60`}>
-        <h3 className={cls.sectionTitle}>
-          Import from Yahoo{" "}
-          <span className="text-[10px] text-slate-500 font-normal">(coming soon)</span>
-        </h3>
       </div>
 
       {/* Shared import preview */}
