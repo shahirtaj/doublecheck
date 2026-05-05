@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
 
-Fair rotational schedules for fantasy football leagues. No team gets doubled against the same opponent year after year.
+Fair schedules for fantasy football leagues. No team gets doubled against the same opponent year after year.
 
 ---
 
