@@ -63,6 +63,10 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 
 See [ROADMAP.md](ROADMAP.md) for the full product roadmap and current state.
 
+## Support
+
+If DoubleCheck saves your league from unfair schedules, [buy me a coffee](https://buymeacoffee.com/shahirtaj).
+
 ## License
 
 MIT - see [LICENSE](LICENSE).
