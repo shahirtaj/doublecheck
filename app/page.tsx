@@ -1104,7 +1104,7 @@ export default function GeneratePage() {
       <div className="max-w-[700px] mx-auto mt-6 text-center">
         {!confirmReset ? (
           <button
-            className="bg-transparent text-slate-500 border border-slate-700 px-3 py-1.5 rounded-md text-[11px] cursor-pointer hover:text-slate-400 hover:border-slate-600"
+            className="bg-transparent text-red-400 border border-red-700 px-3 py-1.5 rounded-md text-[11px] cursor-pointer hover:text-red-300 hover:border-red-600"
             onClick={() => setConfirmReset(true)}
           >
             Reset
