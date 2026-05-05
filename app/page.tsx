@@ -708,7 +708,7 @@ export default function GeneratePage() {
                 Using last{" "}
                 <strong className="text-slate-200">{effectiveLookbackTotal}</strong>{" "}
                 season{effectiveLookbackTotal !== 1 ? "s" : ""} (recommended for {teamCount}-team /{" "}
-                {weekCount}-week is {recommendedLookbackTotal}).
+                {weekCount}-week).
               </p>
               <div className="mt-2 flex flex-wrap gap-2 items-center text-[11px]">
                 <label htmlFor="lookback-override" className="text-slate-500">
@@ -806,27 +806,29 @@ export default function GeneratePage() {
                   })}
                 </div>
               ))}
-              <div className="flex">
-                <div className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10">
-                  CT
-                </div>
-                {doublesPerTeam().map((c, i) => (
-                  <div
-                    key={i}
-                    className={`w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-[8px] font-semibold border border-slate-800 box-border ${
-                      c === format.doublesPerTeam
-                        ? "text-emerald-400"
-                        : c > format.doublesPerTeam
-                          ? "text-red-400"
-                          : c === 0
-                            ? "text-slate-600"
-                            : "text-slate-400"
-                    }`}
-                  >
-                    {c}
+              {manualDoubles.size > 0 && (
+                <div className="flex">
+                  <div className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10">
+                    CT
                   </div>
-                ))}
-              </div>
+                  {doublesPerTeam().map((c, i) => (
+                    <div
+                      key={i}
+                      className={`w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-[8px] font-semibold border border-slate-800 box-border ${
+                        c === format.doublesPerTeam
+                          ? "text-emerald-400"
+                          : c > format.doublesPerTeam
+                            ? "text-red-400"
+                            : c === 0
+                              ? "text-slate-600"
+                              : "text-slate-400"
+                      }`}
+                    >
+                      {c}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -877,10 +879,10 @@ export default function GeneratePage() {
 
           <div className="flex gap-3 mt-5 flex-wrap">
             <button
-              className={cls.secondaryBtn}
+              className="bg-transparent text-amber-400 border border-amber-700 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:text-amber-300 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => setManualDoubles(new Set())}
             >
-              Clear Manual
+              Clear Manual Overrides
             </button>
             <button className={cls.primaryBtn} onClick={handleGenerate}>
               Generate Schedule →
@@ -1060,7 +1062,7 @@ export default function GeneratePage() {
           })}
           {!confirmClear ? (
             <button
-              className={`${cls.secondaryBtn} mt-3 text-xs`}
+              className="mt-3 bg-transparent text-amber-400 border border-amber-700 px-4 py-2.5 rounded-md text-xs cursor-pointer hover:text-amber-300 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => setConfirmClear(true)}
             >
               Clear History
