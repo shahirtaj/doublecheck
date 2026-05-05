@@ -131,7 +131,7 @@ Deployed on Vercel with auto-deploy from `main`. Custom domain `doublecheckff.co
 ### Phase 6: SEO, Auto-Detection, Lookback Override, Favicon ✅
 **Tool: Claude Code**
 
-- Generic tagline: "Fair rotational schedules for fantasy football leagues"
+- Generic tagline: "Fair schedules for fantasy football leagues"
 - Inline SVG favicon: dark slate rounded square with two emerald checkmarks ("double check")
 - Open Graph + Twitter meta tags for social sharing
 - SEO title: "DoubleCheck - Fair Fantasy Football Schedule Generator"
@@ -139,7 +139,13 @@ Deployed on Vercel with auto-deploy from `main`. Custom domain `doublecheckff.co
 - Before import: "Import a league to get started" prompt with Sleeper/ESPN options
 - Edge-case detection: pure round-robin and complete double round-robin show explanatory messages
 - Lookback window override in Step 2 (Review): "Using last N seasons (recommended for X-team / Y-week)" with dropdown to override (1 through history length), defaults to format-recommended value
+- Lookback override capped at the format-recommended maximum
 - All `TEAM_COUNT`/`WEEK_COUNT` constants replaced with dynamic state derived from import
+- Consolidated platform selector (single dropdown for Sleeper/ESPN/Yahoo instead of separate sections)
+- Step navigation: tabs allow backward navigation but not forward to unreached steps
+- Footer with bug report (GitHub Issues) and Buy Me a Coffee links
+- Duplicate import prevention (same year + identical doubles is skipped)
+- UI polish: simplified copy, destructive button styling, season history moved to Review step only
 
 **Deliverable:** SEO-optimized, format-aware tool with user-controllable lookback.
 
