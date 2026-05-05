@@ -589,7 +589,7 @@ export default function GeneratePage() {
           DoubleCheck
         </h1>
         <p className="text-[11px] text-slate-500 mt-1 tracking-wider">
-          Fair rotational schedules for fantasy football leagues
+          Fair schedules for fantasy football leagues
         </p>
       </div>
 
