@@ -708,9 +708,9 @@ export default function GeneratePage() {
                 <strong className="text-slate-200">{effectiveLookbackTotal}</strong>{" "}
                 season{effectiveLookbackTotal !== 1 ? "s" : ""} (recommended for {teamCount}-team /{" "}
                 {weekCount}-week
-                {effectiveLookbackTotal !== recommendedLookbackTotal
-                  ? ` is ${recommendedLookbackTotal}`
-                  : ""}
+                {effectiveLookbackTotal !== recommendedLookbackTotal && (
+                  <span className="text-amber-400"> is {recommendedLookbackTotal}</span>
+                )}
                 ).
               </p>
               <div className="mt-2 flex flex-wrap gap-2 items-center text-[11px]">
