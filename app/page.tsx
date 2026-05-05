@@ -285,39 +285,44 @@ export default function GeneratePage() {
     setFurthestStep("schedule");
   }
 
-  function handleSaveSeason() {
-    if (!schedule) return;
-    const currentYear = new Date().getFullYear();
-    const lastYearStr = history.length > 0 ? history[history.length - 1]!.season : "";
-    const lastYear = parseInt(lastYearStr, 10);
-    const seasonLabel = String(
-      Math.max(currentYear, Number.isNaN(lastYear) ? currentYear : lastYear + 1),
-    );
-    const hasUserIds = userIds.some((id) => id != null);
+  async function handleSaveAndShare() {
+    if (!schedule || !selectedFormat) return;
 
-    let doubles: PairKey[];
-    let format: "userid" | "index";
-    if (hasUserIds) {
-      doubles = [...schedule.doubledPairs].map((key) => {
-        const [a, b] = unpackPairKey(key);
-        return [userIds[a], userIds[b]].sort().join(":");
-      });
-      format = "userid";
-    } else {
-      doubles = [...schedule.doubledPairs];
-      format = "index";
+    // Save once per generated schedule. Subsequent clicks just re-share so the
+    // history doesn't accumulate duplicate entries.
+    let nextHistory = history;
+    let nextManualDoubles: PairKey[] = [...manualDoubles];
+    if (!saved) {
+      const currentYear = new Date().getFullYear();
+      const lastYearStr = history.length > 0 ? history[history.length - 1]!.season : "";
+      const lastYear = parseInt(lastYearStr, 10);
+      const seasonLabel = String(
+        Math.max(currentYear, Number.isNaN(lastYear) ? currentYear : lastYear + 1),
+      );
+      const hasUserIds = userIds.some((id) => id != null);
+
+      let doubles: PairKey[];
+      let format: "userid" | "index";
+      if (hasUserIds) {
+        doubles = [...schedule.doubledPairs].map((key) => {
+          const [a, b] = unpackPairKey(key);
+          return [userIds[a], userIds[b]].sort().join(":");
+        });
+        format = "userid";
+      } else {
+        doubles = [...schedule.doubledPairs];
+        format = "index";
+      }
+
+      const entry: SeasonHistory = { season: seasonLabel, doubles, format };
+      nextHistory = [...history, entry];
+      nextManualDoubles = [];
+      setHistory(nextHistory);
+      setManualDoubles(new Set());
+      saveToStorage({ history: nextHistory, manualDoubles: [] });
+      setSaved(true);
     }
 
-    const entry: SeasonHistory = { season: seasonLabel, doubles, format };
-    const newHistory = [...history, entry];
-    setHistory(newHistory);
-    setManualDoubles(new Set());
-    saveToStorage({ history: newHistory, manualDoubles: [] });
-    setSaved(true);
-  }
-
-  async function handleShare() {
-    if (!schedule || !selectedFormat) return;
     setShareStatus("loading");
     setShareError("");
     setShareCopied(false);
@@ -327,8 +332,8 @@ export default function GeneratePage() {
         leagueName,
         teams,
         userIds,
-        history,
-        manualDoubles: [...manualDoubles],
+        history: nextHistory,
+        manualDoubles: nextManualDoubles,
         schedule: {
           weeks: schedule.weeks,
           doubledPairs: [...schedule.doubledPairs],
@@ -1248,22 +1253,18 @@ export default function GeneratePage() {
             <button className={cls.secondaryBtn} onClick={handleGenerate}>
               Regenerate
             </button>
-            {!saved ? (
-              <button className={cls.primaryBtn} onClick={handleSaveSeason}>
-                Save Season
-              </button>
-            ) : (
-              <span className="text-emerald-400 text-[13px] font-semibold">
-                ✓ Season saved - schedule history updated for next year
-              </span>
-            )}
             <button
-              className={cls.secondaryBtn}
-              onClick={handleShare}
+              className={cls.primaryBtn}
+              onClick={handleSaveAndShare}
               disabled={shareStatus === "loading"}
             >
-              {shareStatus === "loading" ? "Sharing…" : "Share"}
+              {shareStatus === "loading" ? "Saving…" : "Save & Share"}
             </button>
+            {saved && (
+              <span className="text-emerald-400 text-[13px] font-semibold">
+                ✓ Season saved - history updated for next year
+              </span>
+            )}
           </div>
 
           {shareStatus === "ready" && shareUrl && (
