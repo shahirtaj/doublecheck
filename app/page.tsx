@@ -1129,6 +1129,26 @@ export default function GeneratePage() {
           </div>
         )}
       </div>
+
+      <footer className="max-w-[700px] mx-auto mt-4 text-center text-[11px] text-slate-500">
+        <a
+          href="https://github.com/shahirtaj/doublecheck/issues"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-slate-400"
+        >
+          Report a bug
+        </a>
+        <span className="mx-2">·</span>
+        <a
+          href="https://buymeacoffee.com/shahirtaj"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-slate-400"
+        >
+          Buy me a coffee
+        </a>
+      </footer>
     </div>
   );
 }
