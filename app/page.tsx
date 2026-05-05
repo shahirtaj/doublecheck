@@ -1262,7 +1262,7 @@ export default function GeneratePage() {
             </button>
             {saved && (
               <span className="text-emerald-400 text-[13px] font-semibold">
-                ✓ Season saved - history updated for next year
+                ✓ Saved - share link ready
               </span>
             )}
           </div>
