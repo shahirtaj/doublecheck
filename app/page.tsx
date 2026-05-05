@@ -1001,11 +1001,11 @@ export default function GeneratePage() {
 
           <div className="flex gap-3 mt-6 flex-wrap items-center">
             <button className={cls.secondaryBtn} onClick={handleGenerate}>
-              Re-generate
+              Regenerate
             </button>
             {!saved ? (
               <button className={cls.primaryBtn} onClick={handleSaveSeason}>
-                Save & Lock Season
+                Save Season
               </button>
             ) : (
               <span className="text-emerald-400 text-[13px] font-semibold">
