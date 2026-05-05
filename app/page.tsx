@@ -1036,6 +1036,7 @@ export default function GeneratePage() {
                     }
                     const at = cellAvoidType(i, j);
                     const isManual = manualDoubles.has(pairKey(i, j));
+                    const isLocked = at === "hard" || at === "soft";
                     let cellTone = "bg-slate-800 text-slate-500 hover:bg-slate-700";
                     let glyph = "";
                     if (isManual) {
@@ -1053,7 +1054,8 @@ export default function GeneratePage() {
                         key={j}
                         type="button"
                         onClick={() => toggleDouble(i, j)}
-                        className={`w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border cursor-pointer select-none ${cellTone}`}
+                        disabled={isLocked}
+                        className={`w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none ${isLocked ? "cursor-not-allowed" : "cursor-pointer"} ${cellTone}`}
                       >
                         {glyph}
                       </button>
