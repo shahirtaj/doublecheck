@@ -48,6 +48,19 @@ function detectFormatFromImport(season: ImportedSeasonRecord): SelectedFormat | 
   return { teamCount, weekCount };
 }
 
+// Year shown in the step-3 heading, the copy-as-text export, and the share
+// payload. Picks the most recent valid season year from history when it's at
+// or beyond the current calendar year (so the just-saved year stays put);
+// otherwise rolls forward to the next slot or the current year.
+function deriveScheduleYear(history: SeasonHistory[]): number {
+  const currentYear = new Date().getFullYear();
+  if (history.length === 0) return currentYear;
+  const lastYear = parseInt(history[history.length - 1]!.season, 10);
+  if (Number.isNaN(lastYear)) return currentYear;
+  if (lastYear >= currentYear) return lastYear;
+  return Math.max(currentYear, lastYear + 1);
+}
+
 function formatImportSuccess(seasons: ImportedSeasonRecord[], format: SelectedFormat): string {
   const count = seasons.length;
   const years = seasons.map((s) => s.seasonYear || "?").join(", ");
@@ -242,6 +255,7 @@ export default function GeneratePage() {
     () => (format ? deriveLookback(effectiveLookbackTotal, format.lookback) : { hard: 0, soft: 0 }),
     [effectiveLookbackTotal, format],
   );
+  const scheduleYear = useMemo(() => deriveScheduleYear(history), [history]);
 
   function getAvoidSets() {
     const { hard, soft } = buildAvoidMap(history, userIds, effectiveLookback);
@@ -330,6 +344,7 @@ export default function GeneratePage() {
       const payload = {
         format: selectedFormat,
         leagueName,
+        seasonYear: scheduleYear,
         teams,
         userIds,
         history: nextHistory,
@@ -1163,7 +1178,7 @@ export default function GeneratePage() {
       {step === "schedule" && schedule && (
         <div className={cls.card}>
           <h2 className={cls.cardTitle}>
-            {leagueName ? `${leagueName} Schedule` : "Generated Schedule"}
+            {leagueName ? `${leagueName} ${scheduleYear} Schedule` : "Generated Schedule"}
           </h2>
 
           {schedule.hardRepeated.length > 0 && (
@@ -1298,15 +1313,18 @@ export default function GeneratePage() {
             <textarea
               readOnly
               className="w-full bg-slate-900 text-slate-400 border border-slate-700 rounded-md p-2.5 text-[11px] font-mono resize-y mt-2 box-border"
-              value={schedule.weeks
-                .map(
-                  (week: Matching, wi: number) =>
-                    `Week ${wi + 1}\n` +
-                    week
-                      .map(([a, b]: [number, number]) => `  ${teams[a]}  vs  ${teams[b]}`)
-                      .join("\n"),
-                )
-                .join("\n\n")}
+              value={
+                (leagueName ? `${leagueName} ${scheduleYear} Schedule\n\n` : "") +
+                schedule.weeks
+                  .map(
+                    (week: Matching, wi: number) =>
+                      `Week ${wi + 1}\n` +
+                      week
+                        .map(([a, b]: [number, number]) => `  ${teams[a]}  vs  ${teams[b]}`)
+                        .join("\n"),
+                  )
+                  .join("\n\n")
+              }
               rows={12}
               onClick={(e: MouseEvent<HTMLTextAreaElement>) =>
                 (e.target as HTMLTextAreaElement).select()

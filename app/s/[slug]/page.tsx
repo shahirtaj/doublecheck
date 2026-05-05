@@ -10,6 +10,7 @@ import { SharedScheduleView } from "./SharedScheduleView";
 type SharedPayload = {
   format: { teamCount: number; weekCount: number };
   leagueName?: string;
+  seasonYear?: number;
   teams: string[];
   schedule: {
     weeks: [number, number][][];
@@ -29,6 +30,12 @@ function isValidPayload(v: unknown): v is SharedPayload {
     return false;
   }
   if (obj.leagueName !== undefined && typeof obj.leagueName !== "string") return false;
+  if (
+    obj.seasonYear !== undefined &&
+    (typeof obj.seasonYear !== "number" || !Number.isInteger(obj.seasonYear))
+  ) {
+    return false;
+  }
   if (!Array.isArray(obj.teams)) return false;
   const schedule = obj.schedule as Record<string, unknown> | undefined;
   if (!schedule) return false;
@@ -67,7 +74,10 @@ export async function generateMetadata({
   }
 
   const trimmedName = data.leagueName?.trim();
-  const title = trimmedName ? `DoubleCheck - ${trimmedName} Schedule` : fallbackTitle;
+  const yearLabel = data.seasonYear ? `${data.seasonYear} ` : "";
+  const title = trimmedName
+    ? `DoubleCheck - ${trimmedName} ${yearLabel}Schedule`
+    : fallbackTitle;
   const description = trimmedName
     ? `View the ${data.format.teamCount}-team / ${data.format.weekCount}-week schedule for ${trimmedName}`
     : fallbackDescription;
@@ -122,6 +132,7 @@ export default async function SharePage({ params }: { params: { slug: string } }
         <SharedScheduleView
           format={data.format}
           leagueName={data.leagueName}
+          seasonYear={data.seasonYear}
           teams={data.teams}
           weeks={data.schedule.weeks}
           doubledPairs={data.schedule.doubledPairs}

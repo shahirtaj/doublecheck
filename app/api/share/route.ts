@@ -54,6 +54,13 @@ function validatePayload(body: unknown): string | null {
     return "leagueName must be a string when provided.";
   }
 
+  if (
+    body.seasonYear !== undefined &&
+    (typeof body.seasonYear !== "number" || !Number.isInteger(body.seasonYear))
+  ) {
+    return "seasonYear must be an integer when provided.";
+  }
+
   if (!Array.isArray(body.userIds)) return "userIds must be an array.";
   if (!Array.isArray(body.history)) return "history must be an array.";
   if (!Array.isArray(body.manualDoubles)) return "manualDoubles must be an array.";
