@@ -53,7 +53,7 @@ Odd-number leagues and 16+ team leagues are out of scope.
 |----------|-------|-----|------|--------|
 | Sleeper | Fastest growing | Fully public, free | None | ✅ Integrated |
 | ESPN | ~13M | Undocumented, fragile | Cookies for private leagues | ✅ Integrated (public leagues) |
-| Yahoo | ~5-10M | Official, OAuth 2.0 | Developer app registration | 🔜 Phase 6.5 |
+| Yahoo | ~5-10M | Official, OAuth 2.0 | Developer app registration | ✅ Integrated (OAuth 2.0) |
 | NFL.com | Small | None | N/A | Not supported |
 | CBS | Small | None | N/A | Not supported |
 
@@ -70,14 +70,13 @@ No write APIs exist on any platform for schedule input. Commissioners enter the 
 | Styling | Tailwind CSS | Standard for Next.js, rapid responsive development |
 | Deployment | Vercel | Native Next.js support, serverless functions, free tier |
 | Domain | doublecheckff.com | Purchased via Vercel |
-| Database (v2) | Supabase (Postgres) | Auth + DB in one, free tier covers launch |
-| Auth (v2) | Supabase Auth (Google sign-in) | Most fantasy players have Google accounts |
+| Storage (v2) | Vercel KV (Redis) | Stores share-link payloads keyed by short slug; no auth or user accounts needed |
 | Analytics | Plausible or Umami | Privacy-friendly, free self-hosted |
 | Testing | Vitest | Fast, TypeScript-native |
 | CI | GitHub Actions | Typecheck + test + build on push/PR to main |
 | License | MIT | Maximizes credibility, community signal |
 
-v1 launches with localStorage. Supabase added when shareable links justify the complexity.
+v1 launches with localStorage. Vercel KV gets added when shareable links justify the complexity.
 
 ---
 
@@ -151,31 +150,33 @@ Deployed on Vercel with auto-deploy from `main`. Custom domain `doublecheckff.co
 
 ---
 
-### Phase 6.5: Yahoo Integration
+### Phase 6.5: Yahoo Integration ✅
 **Tool: Claude Code**
 
-Yahoo's official Fantasy Sports API requires a registered developer app and a full OAuth 2.0 user-consent flow. Kick this off after deploy so the approval clock runs in parallel.
+Yahoo's official Fantasy Sports API requires a registered developer app and a full OAuth 2.0 user-consent flow.
 
-- Register Yahoo Developer app (request "Fantasy Sports Read" scope)
-- Implement `/api/auth/yahoo/start` and `/api/auth/yahoo/callback` redirect flow
-- Encrypt and store the access/refresh tokens (server-side; not in localStorage)
-- `/api/import/yahoo` route: list user's leagues, fetch matchups by league_key
-- Replace "Yahoo coming soon" placeholder with a "Connect Yahoo" button
+- Yahoo Developer app registered with `fspt-r` (Fantasy Sports Read) scope
+- `/api/auth/yahoo/start` and `/api/auth/yahoo/callback` handle the redirect flow with a CSRF state cookie
+- Access + refresh tokens encrypted with AES-256-GCM (`YAHOO_TOKEN_SECRET`-keyed) and stored in an httpOnly cookie - no database, no user accounts
+- `/api/import/yahoo` runs in two modes: empty body lists the user's NFL leagues for a picker; `{leagueKey}` walks the renew chain and returns `ImportedSeasonRecord[]` for completed seasons. Auto-refreshes expired access tokens and rewrites the cookie before responding
+- Yahoo dropdown option shows a "Connect Yahoo" button (no more "coming soon")
 
 **Deliverable:** Yahoo league import with the same UX as Sleeper/ESPN.
 
 ---
 
-### Phase 7: Auth + Database
+### Phase 7: Shareable Links
 **Tool: Claude Code**
 
-Add Supabase: Google sign-in, Postgres for user data / league history / team names. Enables:
-- Cross-device access (commissioner uses laptop at home, phone on draft day)
-- Shareable read-only league links (the viral loop - 11 managers see the tool, some are commissioners in other leagues, they use it for theirs)
+Add Vercel KV (Redis) for shareable read-only league links - the viral loop. 11 managers see the tool, some are commissioners in other leagues, they use it for theirs. No auth, no accounts, no Postgres - the share link itself is the identifier.
 
-Post-launch. localStorage works for v1.
+- "Share" button serializes the current league state (format, history, schedule) and POSTs to `/api/share`, which writes to Vercel KV under a short random slug and returns the URL
+- `/share/[slug]` server-renders a read-only view from KV
+- KV entries get a TTL (e.g. 12 months) so storage stays bounded; recreate after expiry via the same flow
 
-**Deliverable:** Persistent accounts, shareable league links.
+Local-first usage stays on localStorage. KV is opt-in per share.
+
+**Deliverable:** Shareable league links that work cross-device without sign-in.
 
 ---
 
@@ -207,17 +208,17 @@ Two posts, different audiences:
 
 ## Priority Order
 
-Phases 1–6 are done. Phase 6.5 adds Yahoo. Phase 7 adds persistence. Phase 8 measures traffic. Phase 9 drives it.
+Phases 1–6.5 are done. Phase 7 adds shareable links. Phase 8 measures traffic. Phase 9 drives it.
 
 ## Estimated Effort
 
-Phases 1–6 completed in one day. Remaining phases: 1–2 weekends.
+Phases 1–6.5 completed across two days. Remaining phases: 1–2 weekends.
 
 ---
 
 ## Current State
 
-Phases 1–6 are complete. The tool is live at [doublecheckff.com](https://doublecheckff.com).
+Phases 1–6.5 are complete. The tool is live at [doublecheckff.com](https://doublecheckff.com).
 
 - **Phase 1 - Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 92 Vitest tests prove constraints hold across every format.
 - **Phase 2 - Next.js 14 App Router.** Tool is the homepage with Tailwind CSS and responsive UI. localStorage persistence.
@@ -225,6 +226,7 @@ Phases 1–6 are complete. The tool is live at [doublecheckff.com](https://doubl
 - **Phase 4 - GitHub.** Public repo with README, MIT license, and GitHub Actions CI (92/92 tests passing).
 - **Phase 5 - Deployed.** Live on Vercel at doublecheckff.com with auto-deploy from main.
 - **Phase 6 - SEO + polish.** Favicon (double checkmark SVG), OG/Twitter meta tags, auto-detected league format from import data, lookback window override control, edge-case format detection. No manual format selector - format is derived from imported seasons.
+- **Phase 6.5 - Yahoo OAuth 2.0 import.** `/api/auth/yahoo/start` + `/api/auth/yahoo/callback` handle the OAuth dance with a CSRF state cookie. Access + refresh tokens encrypted with AES-256-GCM and stored in an httpOnly cookie - no database, no user accounts. `/api/import/yahoo` lists the user's NFL leagues for a picker, then walks the renew chain on selection to return `ImportedSeasonRecord[]`. Auto-refreshes expired tokens.
 
 ### Superseded files removed
 - `fetch-sleeper.js` - replaced by `/api/import/sleeper` server-side route
