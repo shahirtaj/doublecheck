@@ -550,10 +550,7 @@ export default function GeneratePage() {
             .
           </p>
           <p className="text-[11px] text-slate-400 mb-2">
-            Most recent: {importPreview.seasons[0]!.seasonYear || "unknown"} -{" "}
-            {importPreview.seasons[0]!.doubles.length} doubled pairs across{" "}
-            {importPreview.seasons[0]!.regWeeks ?? "?"} weeks ·{" "}
-            {importPreview.seasons[0]!.teamNames.length}-team format.
+            Most recent: {importPreview.seasons[0]!.seasonYear || "unknown"}
           </p>
           <p className="text-[11px] text-slate-500 mb-2">
             Managers: {importPreview.seasons[0]!.teamNames.join(", ")}
