@@ -71,7 +71,7 @@ No write APIs exist on any platform for schedule input. Commissioners enter the 
 | Deployment | Vercel | Native Next.js support, serverless functions, free tier |
 | Domain | doublecheckff.com | Purchased via Vercel |
 | Storage (v2) | Vercel KV (Redis) | Stores share-link payloads keyed by short slug; no auth or user accounts needed |
-| Analytics | Plausible or Umami | Privacy-friendly, free self-hosted |
+| Analytics | Vercel Web Analytics | Free tier, zero-config on Vercel, privacy-friendly (no cookies, no PII) |
 | Testing | Vitest | Fast, TypeScript-native |
 | CI | GitHub Actions | Typecheck + test + build on push/PR to main |
 | License | MIT | Maximizes credibility, community signal |
@@ -181,12 +181,13 @@ Local-first usage stays on localStorage. KV is opt-in per share.
 
 ---
 
-### Phase 8: Analytics
+### Phase 8: Analytics ✅
 **Tool: Claude Code**
 
-- Plausible or Umami for privacy-friendly analytics
+- Vercel Web Analytics (free tier) for privacy-friendly traffic insights - no cookies, no PII, zero-config when deployed on Vercel
+- `@vercel/analytics/next` `<Analytics />` component mounted in the root layout so every page (including `/s/[slug]` share views) reports pageviews
 - Rate limiting already implemented in Phase 3 (`lib/api/rate-limit.ts`)
-- Track: which platforms people use, which formats are most common, Reddit referral traffic
+- Track: which platforms people use, which formats are most common, Reddit referral traffic, share-link reach
 
 Data shapes what to prioritize post-launch.
 
@@ -209,17 +210,17 @@ Two posts, different audiences:
 
 ## Priority Order
 
-Phases 1–7 are done. Phase 8 measures traffic. Phase 9 drives it.
+Phases 1–8 are done. Phase 9 drives traffic.
 
 ## Estimated Effort
 
-Phases 1–7 completed across two days. Remaining phases: 1–2 weekends.
+Phases 1–8 completed across two days. Remaining phase: 1 weekend.
 
 ---
 
 ## Current State
 
-Phases 1–7 are complete. The tool is live at [doublecheckff.com](https://doublecheckff.com).
+Phases 1–8 are complete. The tool is live at [doublecheckff.com](https://doublecheckff.com).
 
 - **Phase 1 - Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 92 Vitest tests prove constraints hold across every format.
 - **Phase 2 - Next.js 14 App Router.** Tool is the homepage with Tailwind CSS and responsive UI. localStorage persistence.
@@ -229,6 +230,7 @@ Phases 1–7 are complete. The tool is live at [doublecheckff.com](https://doubl
 - **Phase 6 - SEO + polish.** Favicon (double checkmark SVG), OG/Twitter meta tags, auto-detected league format from import data, lookback window override control, edge-case format detection. No manual format selector - format is derived from imported seasons.
 - **Phase 6.5 - Yahoo OAuth 2.0 import.** `/api/auth/yahoo/start` + `/api/auth/yahoo/callback` handle the OAuth dance with a CSRF state cookie. Access + refresh tokens encrypted with AES-256-GCM and stored in an httpOnly cookie - no database, no user accounts. `/api/import/yahoo` lists the user's NFL leagues for a picker, then walks the renew chain on selection to return `ImportedSeasonRecord[]`. Auto-refreshes expired tokens.
 - **Phase 7 - Shareable read-only links via Vercel KV.** `/api/share` accepts the current league state, generates an 8-char alphanumeric slug, and writes the payload to Vercel KV with a 365-day TTL. `/s/[slug]` server-renders a read-only schedule view (week navigator, matchup list, double-matchup summary). Step 3 has a "Share" button that returns the URL with a "Copy link" affordance. IP rate limit of 5 shares per hour, namespaced separately from the import quota.
+- **Phase 8 - Vercel Web Analytics.** `@vercel/analytics/next` `<Analytics />` mounted in `app/layout.tsx` so every route (homepage + share views) reports pageviews on the free tier. No cookies, no PII, zero-config when deployed on Vercel.
 
 ### Superseded files removed
 - `fetch-sleeper.js` - replaced by `/api/import/sleeper` server-side route
