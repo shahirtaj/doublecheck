@@ -173,7 +173,18 @@ Post-launch. localStorage works for v1.
 
 ---
 
-### Phase 8: Reddit Launch
+### Phase 8: Analytics
+**Tool: Claude Code**
+
+- Plausible or Umami for privacy-friendly analytics
+- Rate limiting already implemented in Phase 3 (`lib/api/rate-limit.ts`)
+- Track: which platforms people use, which formats are most common, Reddit referral traffic
+
+Data shapes what to prioritize post-launch.
+
+---
+
+### Phase 9: Reddit Launch
 **Tool: Claude chat**
 
 Two posts, different audiences:
@@ -188,20 +199,9 @@ Two posts, different audiences:
 
 ---
 
-### Phase 9: Analytics
-**Tool: Claude Code**
-
-- Plausible or Umami for privacy-friendly analytics
-- Rate limiting already implemented in Phase 3 (`lib/api/rate-limit.ts`)
-- Track: which platforms people use, which formats are most common, Reddit referral traffic
-
-Data shapes what to prioritize post-launch.
-
----
-
 ## Priority Order
 
-Phases 1–6 are done. Phase 6.5 adds Yahoo. Phase 7 adds persistence. Phase 8 drives traffic. Phase 9 measures it.
+Phases 1–6 are done. Phase 6.5 adds Yahoo. Phase 7 adds persistence. Phase 8 measures traffic. Phase 9 drives it.
 
 ## Estimated Effort
 
