@@ -1026,7 +1026,7 @@ export default function GeneratePage() {
         </div>
       )}
 
-      {history.length > 0 && (
+      {step === "doubles" && history.length > 0 && (
         <details className="max-w-[700px] mx-auto mt-6">
           <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
             Season History ({history.length} saved)
