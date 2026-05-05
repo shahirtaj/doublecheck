@@ -14,8 +14,9 @@ type Props = {
 export function SharedScheduleView({ format, leagueName, teams, weeks, doubledPairs }: Props) {
   const [selectedWeek, setSelectedWeek] = useState(0);
   const doubledSet = new Set(doubledPairs);
-  const heading = leagueName?.trim()
-    ? leagueName.trim()
+  const trimmedName = leagueName?.trim();
+  const heading = trimmedName
+    ? `${trimmedName} Schedule`
     : `${format.teamCount}-team / ${format.weekCount}-week Schedule`;
 
   return (

@@ -796,6 +796,9 @@ export default function GeneratePage() {
             <strong className="text-emerald-400">
               {importPreview.platform.charAt(0).toUpperCase() + importPreview.platform.slice(1)}
             </strong>
+            {importPreview.seasons[0]!.seasonName?.trim()
+              ? ` (${importPreview.seasons[0]!.seasonName!.trim()})`
+              : ""}
             .
           </p>
           <p className="text-[11px] text-slate-400 mb-2">
@@ -955,9 +958,7 @@ export default function GeneratePage() {
       {/* ═══ STEP 2: AVOID ═══ */}
       {step === "doubles" && (
         <div className={cls.card}>
-          <h2 className={cls.cardTitle}>
-            {leagueName ? `Review Avoidance - ${leagueName}` : "Review Avoidance"}
-          </h2>
+          <h2 className={cls.cardTitle}>{leagueName || "Review"}</h2>
 
           {history.length > 0 && (
             <div className="bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 mb-4">
@@ -1254,11 +1255,11 @@ export default function GeneratePage() {
               </button>
             ) : (
               <span className="text-emerald-400 text-[13px] font-semibold">
-                ✓ Saved - this season&apos;s doubles feed next year&apos;s avoidance
+                ✓ Season saved - schedule history updated for next year
               </span>
             )}
             <button
-              className={cls.primaryBtn}
+              className={cls.secondaryBtn}
               onClick={handleShare}
               disabled={shareStatus === "loading"}
             >
