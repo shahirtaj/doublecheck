@@ -76,7 +76,7 @@ No write APIs exist on any platform for schedule input. Commissioners enter the 
 | CI | GitHub Actions | Typecheck + test + build on push/PR to main |
 | License | MIT | Maximizes credibility, community signal |
 
-v1 launches with localStorage. Vercel KV gets added when shareable links justify the complexity.
+localStorage for local state. Vercel KV for shareable links.
 
 ---
 
