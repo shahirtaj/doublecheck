@@ -544,7 +544,9 @@ export default function GeneratePage() {
           <p className="text-xs text-slate-200 mb-1">
             Ready to apply: {importPreview.seasons.length} season
             {importPreview.seasons.length > 1 ? "s" : ""} from{" "}
-            <strong className="text-emerald-400">{importPreview.platform.toUpperCase()}</strong>
+            <strong className="text-emerald-400">
+              {importPreview.platform.charAt(0).toUpperCase() + importPreview.platform.slice(1)}
+            </strong>
             .
           </p>
           <p className="text-[11px] text-slate-400 mb-2">
@@ -566,11 +568,9 @@ export default function GeneratePage() {
             >
               Cancel
             </button>
-            <span className="text-[10px] text-slate-500">
-              {selectedFormat && teams.some((t, i) => t !== `Team ${i + 1}`)
-                ? "Keeps your custom names"
-                : "Imports manager names"}
-            </span>
+            {selectedFormat && teams.some((t, i) => t !== `Team ${i + 1}`) && (
+              <span className="text-[10px] text-slate-500">Keeps your custom names</span>
+            )}
           </div>
         </div>
       )}
