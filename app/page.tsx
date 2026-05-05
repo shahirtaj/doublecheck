@@ -627,15 +627,16 @@ export default function GeneratePage() {
       <div className="flex justify-center gap-1 mb-5 flex-wrap">
         {(
           [
-            ["teams", "1 · Import"],
-            ["doubles", "2 · Review"],
-            ["schedule", "3 · Schedule"],
-          ] as [Step, string][]
-        ).map(([key, label]) => (
+            ["teams", "1 · Import", false],
+            ["doubles", "2 · Review", !selectedFormat],
+            ["schedule", "3 · Schedule", !schedule],
+          ] as [Step, string, boolean][]
+        ).map(([key, label, disabled]) => (
           <button
             key={key}
             onClick={() => setStep(key)}
-            className={`bg-transparent border px-3.5 py-1.5 rounded-md text-xs font-mono cursor-pointer ${
+            disabled={disabled}
+            className={`bg-transparent border px-3.5 py-1.5 rounded-md text-xs font-mono cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
               step === key
                 ? "bg-emerald-800 border-emerald-600 text-emerald-50"
                 : "border-slate-700 text-slate-400 hover:border-slate-500"
@@ -1024,14 +1025,6 @@ export default function GeneratePage() {
               }
             />
           </details>
-        </div>
-      )}
-
-      {step === "schedule" && !schedule && (
-        <div className={cls.card}>
-          <p className={cls.hint}>
-            No schedule generated yet. Go to step 2 and click Generate.
-          </p>
         </div>
       )}
 
