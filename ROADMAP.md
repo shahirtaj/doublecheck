@@ -165,14 +165,15 @@ Yahoo's official Fantasy Sports API requires a registered developer app and a fu
 
 ---
 
-### Phase 7: Shareable Links
+### Phase 7: Shareable Links ✅
 **Tool: Claude Code**
 
-Add Vercel KV (Redis) for shareable read-only league links - the viral loop. 11 managers see the tool, some are commissioners in other leagues, they use it for theirs. No auth, no accounts, no Postgres - the share link itself is the identifier.
+Vercel KV (Redis) backs shareable read-only league links - the viral loop. 11 managers see the tool, some are commissioners in other leagues, they use it for theirs. No auth, no accounts, no Postgres - the share link itself is the identifier.
 
-- "Share" button serializes the current league state (format, history, schedule) and POSTs to `/api/share`, which writes to Vercel KV under a short random slug and returns the URL
-- `/share/[slug]` server-renders a read-only view from KV
-- KV entries get a TTL (e.g. 12 months) so storage stays bounded; recreate after expiry via the same flow
+- "Share" button in Step 3 serializes the current league state (format, teams, userIds, history, manualDoubles, schedule) and POSTs to `/api/share`, which writes to Vercel KV under an 8-char alphanumeric slug and returns `/s/{slug}`
+- `/s/[slug]` server-renders a read-only view from KV: league format, manager list, week navigator, matchup list, and double-matchup summary - no edit, save, or import controls
+- 365-day TTL on KV entries; expired or missing slugs render a "Link expired or not found" message
+- IP-based rate limit of 5 shares per hour, namespaced separately from the import quota
 
 Local-first usage stays on localStorage. KV is opt-in per share.
 
@@ -208,17 +209,17 @@ Two posts, different audiences:
 
 ## Priority Order
 
-Phases 1–6.5 are done. Phase 7 adds shareable links. Phase 8 measures traffic. Phase 9 drives it.
+Phases 1–7 are done. Phase 8 measures traffic. Phase 9 drives it.
 
 ## Estimated Effort
 
-Phases 1–6.5 completed across two days. Remaining phases: 1–2 weekends.
+Phases 1–7 completed across two days. Remaining phases: 1–2 weekends.
 
 ---
 
 ## Current State
 
-Phases 1–6.5 are complete. The tool is live at [doublecheckff.com](https://doublecheckff.com).
+Phases 1–7 are complete. The tool is live at [doublecheckff.com](https://doublecheckff.com).
 
 - **Phase 1 - Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 92 Vitest tests prove constraints hold across every format.
 - **Phase 2 - Next.js 14 App Router.** Tool is the homepage with Tailwind CSS and responsive UI. localStorage persistence.
@@ -227,6 +228,7 @@ Phases 1–6.5 are complete. The tool is live at [doublecheckff.com](https://dou
 - **Phase 5 - Deployed.** Live on Vercel at doublecheckff.com with auto-deploy from main.
 - **Phase 6 - SEO + polish.** Favicon (double checkmark SVG), OG/Twitter meta tags, auto-detected league format from import data, lookback window override control, edge-case format detection. No manual format selector - format is derived from imported seasons.
 - **Phase 6.5 - Yahoo OAuth 2.0 import.** `/api/auth/yahoo/start` + `/api/auth/yahoo/callback` handle the OAuth dance with a CSRF state cookie. Access + refresh tokens encrypted with AES-256-GCM and stored in an httpOnly cookie - no database, no user accounts. `/api/import/yahoo` lists the user's NFL leagues for a picker, then walks the renew chain on selection to return `ImportedSeasonRecord[]`. Auto-refreshes expired tokens.
+- **Phase 7 - Shareable read-only links via Vercel KV.** `/api/share` accepts the current league state, generates an 8-char alphanumeric slug, and writes the payload to Vercel KV with a 365-day TTL. `/s/[slug]` server-renders a read-only schedule view (week navigator, matchup list, double-matchup summary). Step 3 has a "Share" button that returns the URL with a "Copy link" affordance. IP rate limit of 5 shares per hour, namespaced separately from the import quota.
 
 ### Superseded files removed
 - `fetch-sleeper.js` - replaced by `/api/import/sleeper` server-side route

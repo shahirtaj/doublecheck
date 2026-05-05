@@ -107,6 +107,13 @@ export default function GeneratePage() {
 
   const [confirmReset, setConfirmReset] = useState(false);
 
+  // Share-link state. Cleared whenever the schedule is regenerated so users
+  // don't share a URL that points to the previous schedule.
+  const [shareStatus, setShareStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [shareUrl, setShareUrl] = useState("");
+  const [shareError, setShareError] = useState("");
+  const [shareCopied, setShareCopied] = useState(false);
+
   // League import (server-side via /api/import/<platform>)
   const [platform, setPlatform] = useState<ImportPlatform>("sleeper");
   const [leagueId, setLeagueId] = useState("");
@@ -236,6 +243,10 @@ export default function GeneratePage() {
   function handleGenerate() {
     setGenError("");
     setSaved(false);
+    setShareStatus("idle");
+    setShareUrl("");
+    setShareError("");
+    setShareCopied(false);
     const { hard, soft } = getAvoidSets();
     const result = buildSchedule({
       teamCount,
@@ -286,6 +297,55 @@ export default function GeneratePage() {
     setManualDoubles(new Set());
     saveToStorage({ history: newHistory, manualDoubles: [] });
     setSaved(true);
+  }
+
+  async function handleShare() {
+    if (!schedule || !selectedFormat) return;
+    setShareStatus("loading");
+    setShareError("");
+    setShareCopied(false);
+    try {
+      const payload = {
+        format: selectedFormat,
+        teams,
+        userIds,
+        history,
+        manualDoubles: [...manualDoubles],
+        schedule: {
+          weeks: schedule.weeks,
+          doubledPairs: [...schedule.doubledPairs],
+          softRepeated: schedule.softRepeated,
+          hardRepeated: schedule.hardRepeated,
+          clean: schedule.clean,
+          format: schedule.format,
+        },
+      };
+      const res = await fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      const fullUrl = `${window.location.origin}${data.url}`;
+      setShareUrl(fullUrl);
+      setShareStatus("ready");
+    } catch (e) {
+      setShareStatus("error");
+      setShareError((e as Error).message || "Share failed.");
+    }
+  }
+
+  async function handleCopyShareLink() {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      // Clipboard may be unavailable (insecure context); leave the URL
+      // selectable in the input as fallback.
+    }
   }
 
   function toggleDouble(i: number, j: number) {
@@ -1175,7 +1235,38 @@ export default function GeneratePage() {
                 ✓ Saved - this season&apos;s doubles feed next year&apos;s avoidance
               </span>
             )}
+            <button
+              className={cls.secondaryBtn}
+              onClick={handleShare}
+              disabled={shareStatus === "loading"}
+            >
+              {shareStatus === "loading" ? "Sharing…" : "Share"}
+            </button>
           </div>
+
+          {shareStatus === "ready" && shareUrl && (
+            <div className="mt-3 px-3 py-2.5 bg-slate-900 rounded-md border border-emerald-700">
+              <p className="text-[11px] text-slate-400 mb-2">
+                Shareable read-only link (expires in 365 days):
+              </p>
+              <div className="flex gap-2 items-center flex-wrap">
+                <input
+                  readOnly
+                  className="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[12px] text-slate-200 font-mono outline-none"
+                  value={shareUrl}
+                  onClick={(e: MouseEvent<HTMLInputElement>) =>
+                    (e.currentTarget as HTMLInputElement).select()
+                  }
+                />
+                <button className={cls.secondaryBtn} onClick={handleCopyShareLink}>
+                  {shareCopied ? "✓ Copied" : "Copy link"}
+                </button>
+              </div>
+            </div>
+          )}
+          {shareStatus === "error" && shareError && (
+            <p className={cls.error}>{shareError}</p>
+          )}
 
           <details className="mt-4">
             <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">

@@ -4,29 +4,40 @@
 
 type Bucket = { count: number; resetAt: number };
 
-const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 10;
+const DEFAULT_WINDOW_MS = 60_000;
+const DEFAULT_MAX_PER_WINDOW = 10;
 const CLEANUP_THRESHOLD = 1000;
 
 const buckets = new Map<string, Bucket>();
 
 export type RateLimitResult = { ok: true } | { ok: false; retryAfter: number };
 
-export function checkRateLimit(ip: string): RateLimitResult {
+export type RateLimitOptions = {
+  windowMs?: number;
+  max?: number;
+  // Optional namespace so different routes (e.g. import vs. share) keep
+  // separate buckets and don't deplete each other's quota.
+  namespace?: string;
+};
+
+export function checkRateLimit(ip: string, opts: RateLimitOptions = {}): RateLimitResult {
+  const windowMs = opts.windowMs ?? DEFAULT_WINDOW_MS;
+  const max = opts.max ?? DEFAULT_MAX_PER_WINDOW;
+  const key = opts.namespace ? `${opts.namespace}:${ip}` : ip;
   const now = Date.now();
 
   if (buckets.size > CLEANUP_THRESHOLD) {
-    for (const [key, b] of buckets) {
-      if (b.resetAt < now) buckets.delete(key);
+    for (const [k, b] of buckets) {
+      if (b.resetAt < now) buckets.delete(k);
     }
   }
 
-  const bucket = buckets.get(ip);
+  const bucket = buckets.get(key);
   if (!bucket || bucket.resetAt < now) {
-    buckets.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
     return { ok: true };
   }
-  if (bucket.count >= MAX_PER_WINDOW) {
+  if (bucket.count >= max) {
     return { ok: false, retryAfter: Math.ceil((bucket.resetAt - now) / 1000) };
   }
   bucket.count++;
