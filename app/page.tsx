@@ -480,13 +480,12 @@ export default function GeneratePage() {
         <p className={cls.hint}>
           {platform === "sleeper" ? (
             <>
-              Enter your league ID. Find it in your league URL: sleeper.com/leagues/
-              <strong>YOUR_ID</strong>
+              Enter your league ID from sleeper.com/leagues/<strong>YOUR_ID</strong>
             </>
           ) : (
             <>
-              Public leagues only. Find your league ID in the URL:
-              fantasy.espn.com/football/league?leagueId=<strong>YOUR_ID</strong>
+              Enter your league ID from fantasy.espn.com/football/league?leagueId=
+              <strong>YOUR_ID</strong> (public leagues only)
             </>
           )}
         </p>
