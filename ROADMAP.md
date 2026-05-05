@@ -196,15 +196,13 @@ Data shapes what to prioritize post-launch.
 ### Phase 9: Reddit Launch
 **Tool: Claude chat**
 
-Two posts, different audiences:
+Two waves, different audiences and timing:
 
-**r/FFCommish** (~50K members): Commissioner-focused. Lead with the problem ("Has anyone noticed the same teams getting doubled year after year?"), explain the math, link the tool. This audience understands immediately.
+**Wave 1 (May 2026):** r/DynastyFF (~200K members), r/FFCommish (~50K members), and r/fantasyfootball (~2M members). Dynasty commissioners are active with rookie drafts happening now. Lead with the problem, explain the math, link the tool.
 
-**r/fantasyfootball** (~2M members): Broader audience. Lead with the unfairness angle ("Your league's schedule might be screwing you - here's the math"), make it accessible, link the tool.
+**Wave 2 (late July/August 2026):** All three subreddits again. Redraft league setup season. Fresh angle for the second round.
 
-**Timing:** Late July or early August, when commissioners are setting up leagues.
-
-**Deliverable:** Two posts, ready to publish.
+**Deliverable:** Six posts across two waves.
 
 ---
 
