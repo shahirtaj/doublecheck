@@ -50,6 +50,10 @@ function validatePayload(body: unknown): string | null {
     return "teams must be strings.";
   }
 
+  if (body.leagueName !== undefined && typeof body.leagueName !== "string") {
+    return "leagueName must be a string when provided.";
+  }
+
   if (!Array.isArray(body.userIds)) return "userIds must be an array.";
   if (!Array.isArray(body.history)) return "history must be an array.";
   if (!Array.isArray(body.manualDoubles)) return "manualDoubles must be an array.";

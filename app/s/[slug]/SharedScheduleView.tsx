@@ -5,25 +5,23 @@ import { unpackPairKey } from "@/lib/algorithm";
 
 type Props = {
   format: { teamCount: number; weekCount: number };
+  leagueName?: string;
   teams: string[];
   weeks: [number, number][][];
   doubledPairs: string[];
 };
 
-export function SharedScheduleView({ format, teams, weeks, doubledPairs }: Props) {
+export function SharedScheduleView({ format, leagueName, teams, weeks, doubledPairs }: Props) {
   const [selectedWeek, setSelectedWeek] = useState(0);
   const doubledSet = new Set(doubledPairs);
+  const heading = leagueName?.trim()
+    ? leagueName.trim()
+    : `${format.teamCount}-team / ${format.weekCount}-week Schedule`;
 
   return (
     <>
       <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 max-w-[700px] mx-auto">
-        <h2 className="text-base font-bold text-emerald-50 mb-1.5">Shared Schedule</h2>
-        <p className="text-xs text-slate-400 leading-relaxed mb-3">
-          <strong className="text-slate-200">
-            {format.teamCount}-team / {format.weekCount}-week
-          </strong>{" "}
-          league.
-        </p>
+        <h2 className="text-base font-bold text-emerald-50 mb-3">{heading}</h2>
 
         <div className="bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 mb-4">
           <strong className="text-slate-200 text-[13px]">Managers</strong>
@@ -104,12 +102,11 @@ export function SharedScheduleView({ format, teams, weeks, doubledPairs }: Props
 
       <div className="max-w-[700px] mx-auto mt-6 text-center">
         <p className="text-[11px] text-slate-500">
-          Shared schedule ·{" "}
           <a
             href="https://doublecheckff.com"
             className="text-emerald-400 hover:text-emerald-300"
           >
-            generate your own at doublecheckff.com
+            Generate your own schedule
           </a>
         </p>
       </div>

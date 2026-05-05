@@ -7,6 +7,7 @@ import { SharedScheduleView } from "./SharedScheduleView";
 
 type SharedPayload = {
   format: { teamCount: number; weekCount: number };
+  leagueName?: string;
   teams: string[];
   schedule: {
     weeks: [number, number][][];
@@ -25,6 +26,7 @@ function isValidPayload(v: unknown): v is SharedPayload {
   ) {
     return false;
   }
+  if (obj.leagueName !== undefined && typeof obj.leagueName !== "string") return false;
   if (!Array.isArray(obj.teams)) return false;
   const schedule = obj.schedule as Record<string, unknown> | undefined;
   if (!schedule) return false;
@@ -76,6 +78,7 @@ export default async function SharePage({ params }: { params: { slug: string } }
       ) : (
         <SharedScheduleView
           format={data.format}
+          leagueName={data.leagueName}
           teams={data.teams}
           weeks={data.schedule.weeks}
           doubledPairs={data.schedule.doubledPairs}

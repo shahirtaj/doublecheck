@@ -48,6 +48,17 @@ function detectFormatFromImport(season: ImportedSeasonRecord): SelectedFormat | 
   return { teamCount, weekCount };
 }
 
+function formatImportSuccess(seasons: ImportedSeasonRecord[], format: SelectedFormat): string {
+  const count = seasons.length;
+  const years = seasons.map((s) => s.seasonYear || "?").join(", ");
+  const leagueLabel = (seasons[0]?.seasonName || "").trim();
+  const formatLabel = `${format.teamCount}-team / ${format.weekCount}-week`;
+  const headline = leagueLabel
+    ? `${leagueLabel} (${formatLabel})`
+    : `${formatLabel} play`;
+  return `Fetched ${count} season${count > 1 ? "s" : ""} of ${headline}: ${years}.`;
+}
+
 // ── Types ─────────────────────────────────────────────────
 
 type ImportedSeasonRecord = {
@@ -96,6 +107,9 @@ export default function GeneratePage() {
 
   const [teams, setTeams] = useState<string[]>(() => []);
   const [userIds, setUserIds] = useState<(string | null)[]>(() => []);
+  // Human-readable league name from the import (Sleeper/ESPN/Yahoo all surface
+  // it on each season record). Used in step headings and the share payload.
+  const [leagueName, setLeagueName] = useState<string>("");
   const [manualDoubles, setManualDoubles] = useState<Set<PairKey>>(() => new Set());
   const [schedule, setSchedule] = useState<ScheduleSuccess | null>(null);
   const [history, setHistory] = useState<SeasonHistory[]>([]);
@@ -150,6 +164,7 @@ export default function GeneratePage() {
           if (Array.isArray(d.history)) setHistory(d.history);
           if (Array.isArray(d.manualDoubles)) setManualDoubles(new Set(d.manualDoubles));
           if (typeof d.lookbackOverride === "number") setLookbackOverride(d.lookbackOverride);
+          if (typeof d.leagueName === "string") setLeagueName(d.leagueName);
           setFurthestStep("doubles");
         }
       }
@@ -193,6 +208,7 @@ export default function GeneratePage() {
         manualDoubles: PairKey[];
         format: SelectedFormat | null;
         lookbackOverride: number | null;
+        leagueName: string;
       }> = {},
     ) => {
       try {
@@ -203,6 +219,7 @@ export default function GeneratePage() {
           manualDoubles: [...manualDoubles],
           format: selectedFormat,
           lookbackOverride,
+          leagueName,
           ...extra,
         };
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -210,7 +227,7 @@ export default function GeneratePage() {
         // Storage may be full or unavailable; ignore.
       }
     },
-    [teams, userIds, history, manualDoubles, selectedFormat, lookbackOverride],
+    [teams, userIds, history, manualDoubles, selectedFormat, lookbackOverride, leagueName],
   );
 
   const recommendedLookbackTotal = format ? format.lookback.hard + format.lookback.soft : 0;
@@ -307,6 +324,7 @@ export default function GeneratePage() {
     try {
       const payload = {
         format: selectedFormat,
+        leagueName,
         teams,
         userIds,
         history,
@@ -405,11 +423,7 @@ export default function GeneratePage() {
       }
       setImportPreview({ platform, seasons: detected.seasons });
       setImportStatus("ready");
-      setImportMsg(
-        `Fetched ${detected.seasons.length} season${detected.seasons.length > 1 ? "s" : ""} of ${detected.detected.teamCount}-team / ${detected.detected.weekCount}-week play: ${detected.seasons
-          .map((s) => s.seasonYear || "?")
-          .join(", ")}.`,
-      );
+      setImportMsg(formatImportSuccess(detected.seasons, detected.detected));
     } catch (e) {
       setImportStatus("error");
       setImportMsg((e as Error).message || "Fetch failed.");
@@ -445,11 +459,7 @@ export default function GeneratePage() {
       }
       setImportPreview({ platform: "yahoo", seasons: detected.seasons });
       setImportStatus("ready");
-      setImportMsg(
-        `Fetched ${detected.seasons.length} season${detected.seasons.length > 1 ? "s" : ""} of ${detected.detected.teamCount}-team / ${detected.detected.weekCount}-week play: ${detected.seasons
-          .map((s) => s.seasonYear || "?")
-          .join(", ")}.`,
-      );
+      setImportMsg(formatImportSuccess(detected.seasons, detected.detected));
     } catch (e) {
       setImportStatus("error");
       setImportMsg((e as Error).message || "Fetch failed.");
@@ -562,11 +572,18 @@ export default function GeneratePage() {
     }
 
     setHistory(newHistory);
+
+    // Adopt the most recent season's league name. The Yahoo picker, ESPN's
+    // settings.name, and Sleeper's league.name all flow through seasonName.
+    const nextLeagueName = (mostRecent.seasonName || "").trim();
+    if (nextLeagueName) setLeagueName(nextLeagueName);
+
     saveToStorage({
       history: newHistory,
       teams: nextTeams,
       userIds: nextUserIds,
       format: detected,
+      ...(nextLeagueName ? { leagueName: nextLeagueName } : {}),
       ...(formatChanged ? { lookbackOverride: null } : {}),
     });
 
@@ -611,6 +628,7 @@ export default function GeneratePage() {
     setSchedule(null);
     setSaved(false);
     setLookbackOverride(null);
+    setLeagueName("");
     resetImportUi();
     setLeagueId("");
     setPlatform("sleeper");
@@ -937,7 +955,9 @@ export default function GeneratePage() {
       {/* ═══ STEP 2: AVOID ═══ */}
       {step === "doubles" && (
         <div className={cls.card}>
-          <h2 className={cls.cardTitle}>Review Avoidance</h2>
+          <h2 className={cls.cardTitle}>
+            {leagueName ? `Review Avoidance - ${leagueName}` : "Review Avoidance"}
+          </h2>
 
           {history.length > 0 && (
             <div className="bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 mb-4">
@@ -1137,7 +1157,9 @@ export default function GeneratePage() {
       {/* ═══ STEP 3: SCHEDULE ═══ */}
       {step === "schedule" && schedule && (
         <div className={cls.card}>
-          <h2 className={cls.cardTitle}>Generated Schedule</h2>
+          <h2 className={cls.cardTitle}>
+            {leagueName ? `${leagueName} Schedule` : "Generated Schedule"}
+          </h2>
 
           {schedule.hardRepeated.length > 0 && (
             <div className="bg-amber-950 border border-amber-800 rounded-md px-3 py-2 text-[11px] text-amber-400 mb-3">
@@ -1236,7 +1258,7 @@ export default function GeneratePage() {
               </span>
             )}
             <button
-              className={cls.secondaryBtn}
+              className={cls.primaryBtn}
               onClick={handleShare}
               disabled={shareStatus === "loading"}
             >
