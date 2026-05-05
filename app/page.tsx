@@ -23,6 +23,7 @@ import {
 
 // ── Format constants ──────────────────────────────────────
 const STORAGE_KEY = "ff-rotational-scheduler";
+const STEP_ORDER = ["teams", "doubles", "schedule"] as const;
 
 type SelectedFormat = { teamCount: number; weekCount: number };
 
@@ -74,6 +75,7 @@ type Step = "teams" | "doubles" | "schedule";
 
 export default function GeneratePage() {
   const [step, setStep] = useState<Step>("teams");
+  const [furthestStep, setFurthestStep] = useState<Step>("teams");
   const [selectedFormat, setSelectedFormat] = useState<SelectedFormat | null>(null);
   const teamCount = selectedFormat?.teamCount ?? 0;
   const weekCount = selectedFormat?.weekCount ?? 0;
@@ -130,6 +132,7 @@ export default function GeneratePage() {
           if (Array.isArray(d.history)) setHistory(d.history);
           if (Array.isArray(d.manualDoubles)) setManualDoubles(new Set(d.manualDoubles));
           if (typeof d.lookbackOverride === "number") setLookbackOverride(d.lookbackOverride);
+          setFurthestStep("doubles");
         }
       }
     } catch {
@@ -215,6 +218,7 @@ export default function GeneratePage() {
     setSchedule(result);
     setSelectedWeek(0);
     setStep("schedule");
+    setFurthestStep("schedule");
   }
 
   function handleSaveSeason() {
@@ -433,6 +437,7 @@ export default function GeneratePage() {
     setLeagueId("");
     setPlatform("sleeper");
     setStep("teams");
+    setFurthestStep("teams");
     setConfirmReset(false);
     try {
       window.localStorage.removeItem(STORAGE_KEY);
@@ -627,24 +632,27 @@ export default function GeneratePage() {
       <div className="flex justify-center gap-1 mb-5 flex-wrap">
         {(
           [
-            ["teams", "1 · Import", false],
-            ["doubles", "2 · Review", !selectedFormat],
-            ["schedule", "3 · Schedule", !schedule],
-          ] as [Step, string, boolean][]
-        ).map(([key, label, disabled]) => (
-          <button
-            key={key}
-            onClick={() => setStep(key)}
-            disabled={disabled}
-            className={`bg-transparent border px-3.5 py-1.5 rounded-md text-xs font-mono cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
-              step === key
-                ? "bg-emerald-800 border-emerald-600 text-emerald-50"
-                : "border-slate-700 text-slate-400 hover:border-slate-500"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+            ["teams", "1 · Import"],
+            ["doubles", "2 · Review"],
+            ["schedule", "3 · Schedule"],
+          ] as [Step, string][]
+        ).map(([key, label]) => {
+          const disabled = STEP_ORDER.indexOf(key) > STEP_ORDER.indexOf(furthestStep);
+          return (
+            <button
+              key={key}
+              onClick={() => setStep(key)}
+              disabled={disabled}
+              className={`bg-transparent border px-3.5 py-1.5 rounded-md text-xs font-mono cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
+                step === key
+                  ? "bg-emerald-800 border-emerald-600 text-emerald-50"
+                  : "border-slate-700 text-slate-400 hover:border-slate-500"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* ═══ STEP 1: IMPORT ═══ */}
@@ -692,6 +700,9 @@ export default function GeneratePage() {
               onClick={() => {
                 saveToStorage();
                 setStep("doubles");
+                setFurthestStep((prev) =>
+                  STEP_ORDER.indexOf(prev) < STEP_ORDER.indexOf("doubles") ? "doubles" : prev,
+                );
               }}
             >
               Next →
