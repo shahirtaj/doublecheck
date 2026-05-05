@@ -902,15 +902,7 @@ export default function GeneratePage() {
       {/* ═══ STEP 1: IMPORT ═══ */}
       {step === "teams" && (
         <div className={cls.card}>
-          <h2 className={cls.cardTitle}>Import Last Season(s)</h2>
-
-          {importSections}
-
-          <div className="flex items-center my-4 gap-3">
-            <span className="text-[11px] text-slate-600 uppercase tracking-widest whitespace-nowrap w-full text-center border-t border-slate-700 pt-3">
-              manager names
-            </span>
-          </div>
+          <h2 className={cls.cardTitle}>{leagueName || "Managers"}</h2>
 
           <p className={cls.hint}>
             Auto-filled after import. Edit to use real names if you prefer.
