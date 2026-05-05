@@ -590,7 +590,7 @@ export default function GeneratePage() {
 
       {!format ? (
         <div className={cls.card}>
-          <h2 className={cls.cardTitle}>Import a league to get started</h2>
+          <h2 className={cls.cardTitle}>Import your league</h2>
           {importSections}
         </div>
       ) : isEdgeCaseFormat ? (
