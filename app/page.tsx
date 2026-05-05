@@ -624,7 +624,7 @@ export default function GeneratePage() {
             </p>
           )}
           <p className="text-[11px] text-slate-500 mt-3">
-            Use Reset Everything below to clear and re-import a different league.
+            Use Reset below to clear and re-import a different league.
           </p>
         </div>
       ) : (
@@ -1108,7 +1108,7 @@ export default function GeneratePage() {
             className="bg-transparent text-slate-500 border border-slate-700 px-3 py-1.5 rounded-md text-[11px] cursor-pointer hover:text-slate-400 hover:border-slate-600"
             onClick={() => setConfirmReset(true)}
           >
-            Reset Everything
+            Reset
           </button>
         ) : (
           <div className="inline-flex gap-2 items-center flex-wrap justify-center">
