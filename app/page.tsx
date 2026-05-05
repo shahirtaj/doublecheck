@@ -837,7 +837,7 @@ export default function GeneratePage() {
         <h1 className="text-xl sm:text-2xl font-extrabold text-emerald-50 uppercase tracking-tight">
           DoubleCheck
         </h1>
-        <p className="text-[11px] text-slate-500 mt-1 tracking-wider">
+        <p className="text-[11px] text-emerald-400 mt-1 tracking-wider">
           Fair schedules for fantasy football leagues
         </p>
       </div>
