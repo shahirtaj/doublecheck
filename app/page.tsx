@@ -363,12 +363,16 @@ export default function GeneratePage() {
         importDoubles = season.doubles;
       }
 
-      const lastEntry = newHistory[newHistory.length - 1];
-      const lastDoublesStr = lastEntry ? [...lastEntry.doubles].sort().join(",") : "";
-      const newDoublesStr = [...importDoubles].sort().join(",");
-      if (lastDoublesStr !== newDoublesStr) {
+      const candidateYear = season.seasonYear || String(new Date().getFullYear() - 1);
+      const candidateDoublesStr = [...importDoubles].sort().join(",");
+      const isDuplicate = newHistory.some(
+        (entry) =>
+          entry.season === candidateYear &&
+          [...entry.doubles].sort().join(",") === candidateDoublesStr,
+      );
+      if (!isDuplicate) {
         newHistory.push({
-          season: season.seasonYear || String(new Date().getFullYear() - 1),
+          season: candidateYear,
           doubles: importDoubles,
           format: hasUids ? "userid" : "index",
         });
