@@ -398,75 +398,90 @@ async function readBody(req: Request): Promise<{ leagueKey?: string }> {
 }
 
 export async function POST(req: Request) {
-  const rl = checkRateLimit(getClientIp(req));
-  if (!rl.ok) {
-    return NextResponse.json(
-      { error: `Rate limit exceeded. Retry in ${rl.retryAfter}s.` },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
-    );
-  }
-
-  const body = await readBody(req);
-  const leagueKey = body.leagueKey?.trim();
-
-  let tokens: YahooTokens;
-  let refreshed = false;
   try {
-    const got = await getValidTokens(req);
-    tokens = got.tokens;
-    refreshed = got.refreshed;
-  } catch (e) {
-    if ((e as Error).message === "NOT_AUTHENTICATED") {
+    const rl = checkRateLimit(getClientIp(req));
+    if (!rl.ok) {
       return NextResponse.json(
-        { error: "Not connected to Yahoo. Connect first." },
-        { status: 401 },
+        { error: `Rate limit exceeded. Retry in ${rl.retryAfter}s.` },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
       );
     }
-    return NextResponse.json(
-      { error: `Yahoo token error: ${(e as Error).message}` },
-      { status: 502 },
-    );
-  }
 
-  try {
-    if (!leagueKey) {
-      const json = await fetchYahooJson(
-        `${YAHOO_BASE}/users;use_login=1/games;game_keys=nfl/leagues`,
-        tokens.accessToken,
+    const body = await readBody(req);
+    const leagueKey = body.leagueKey?.trim();
+
+    let tokens: YahooTokens;
+    let refreshed = false;
+    try {
+      const got = await getValidTokens(req);
+      tokens = got.tokens;
+      refreshed = got.refreshed;
+    } catch (e) {
+      if ((e as Error).message === "NOT_AUTHENTICATED") {
+        return NextResponse.json(
+          { error: "Not connected to Yahoo. Connect first." },
+          { status: 401 },
+        );
+      }
+      console.error("[/api/import/yahoo] Token error:", e);
+      return NextResponse.json(
+        { error: `Yahoo token error: ${(e as Error).message}` },
+        { status: 502 },
       );
-      const leagues = parseLeaguesList(json);
-      const res = NextResponse.json({ leagues });
+    }
+
+    try {
+      if (!leagueKey) {
+        const json = await fetchYahooJson(
+          `${YAHOO_BASE}/users;use_login=1/games;game_keys=nfl/leagues`,
+          tokens.accessToken,
+        );
+        const leagues = parseLeaguesList(json);
+        const res = NextResponse.json({ leagues });
+        if (refreshed) setRefreshedCookie(res, tokens);
+        return res;
+      }
+
+      if (!/^[\w.]+\.l\.\d+$/.test(leagueKey)) {
+        return NextResponse.json(
+          { error: "leagueKey must look like '<gameKey>.l.<leagueId>'." },
+          { status: 400 },
+        );
+      }
+
+      const records = await fetchSeasonChain(leagueKey, tokens.accessToken);
+      if (records.length === 0) {
+        return NextResponse.json(
+          { error: "No completed seasons found in this Yahoo league's history." },
+          { status: 404 },
+        );
+      }
+      const res = NextResponse.json(records);
       if (refreshed) setRefreshedCookie(res, tokens);
       return res;
-    }
-
-    if (!/^[\w.]+\.l\.\d+$/.test(leagueKey)) {
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (msg === "UNAUTHORIZED") {
+        return NextResponse.json(
+          { error: "Yahoo authorization expired. Please reconnect." },
+          { status: 401 },
+        );
+      }
+      console.error("[/api/import/yahoo] Fetch error:", e);
       return NextResponse.json(
-        { error: "leagueKey must look like '<gameKey>.l.<leagueId>'." },
-        { status: 400 },
+        { error: `Failed to fetch from Yahoo: ${msg}` },
+        { status: 502 },
       );
     }
-
-    const records = await fetchSeasonChain(leagueKey, tokens.accessToken);
-    if (records.length === 0) {
-      return NextResponse.json(
-        { error: "No completed seasons found in this Yahoo league's history." },
-        { status: 404 },
-      );
-    }
-    const res = NextResponse.json(records);
-    if (refreshed) setRefreshedCookie(res, tokens);
-    return res;
   } catch (e) {
-    const msg = (e as Error).message;
-    if (msg === "UNAUTHORIZED") {
-      return NextResponse.json(
-        { error: "Yahoo authorization expired. Please reconnect." },
-        { status: 401 },
-      );
-    }
+    console.error("[/api/import/yahoo] Unhandled error:", e);
     return NextResponse.json(
-      { error: `Failed to fetch from Yahoo: ${msg}` },
+      {
+        error:
+          e instanceof Error
+            ? `Failed to fetch from Yahoo: ${e.message}`
+            : "Unexpected error processing Yahoo import.",
+      },
       { status: 502 },
     );
   }

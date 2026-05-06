@@ -45,6 +45,23 @@ type DiscoveredSeason = {
   settings?: { playoff_week_start?: number };
 };
 
+// Sleeper uses the literal string "0" to mean "no previous league" on the
+// first season of a chain. "0" is truthy in JS, so a naive `id || null` walks
+// into a 404 on the next iteration and the whole chain explodes.
+function nextChainId(prev: unknown): string | null {
+  if (typeof prev !== "string") return null;
+  const trimmed = prev.trim();
+  if (!trimmed || trimmed === "0") return null;
+  return trimmed;
+}
+
+class LeagueNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "LeagueNotFoundError";
+  }
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
@@ -56,10 +73,35 @@ async function discoverChain(leagueId: string): Promise<DiscoveredSeason[]> {
   let currentId: string | null = leagueId;
 
   for (let depth = 0; depth < MAX_CHAIN_DEPTH && currentId; depth++) {
-    const league: SleeperLeague = await fetchJson(`${BASE}/league/${currentId}`);
-    if (!league?.league_id) break;
+    let league: SleeperLeague | null = null;
+    try {
+      league = await fetchJson<SleeperLeague>(`${BASE}/league/${currentId}`);
+    } catch (e) {
+      if (depth === 0) {
+        throw new LeagueNotFoundError(
+          `Sleeper league ${currentId} could not be loaded. Verify the league ID.`,
+        );
+      }
+      // Mid-chain failures (e.g. an old league that's been deleted) just stop
+      // the walk; we still return the seasons we did find.
+      break;
+    }
 
-    const week1 = await fetchJson<SleeperMatchup[]>(`${BASE}/league/${currentId}/matchups/1`);
+    if (!league || typeof league !== "object" || !league.league_id) {
+      if (depth === 0) {
+        throw new LeagueNotFoundError(
+          `Sleeper returned no league for ID ${currentId}. Verify the league ID.`,
+        );
+      }
+      break;
+    }
+
+    let week1: SleeperMatchup[] | null = null;
+    try {
+      week1 = await fetchJson<SleeperMatchup[]>(`${BASE}/league/${currentId}/matchups/1`);
+    } catch {
+      week1 = null;
+    }
     const hasData =
       Array.isArray(week1) && week1.some((m) => m.matchup_id != null && (m.points ?? 0) > 0);
 
@@ -71,7 +113,7 @@ async function discoverChain(leagueId: string): Promise<DiscoveredSeason[]> {
       settings: league.settings,
     });
 
-    currentId = league.previous_league_id || null;
+    currentId = nextChainId(league.previous_league_id);
   }
   return seasons;
 }
@@ -80,12 +122,19 @@ async function fetchSeason(leagueId: string, settings: DiscoveredSeason["setting
   const users = await fetchJson<SleeperUser[]>(`${BASE}/league/${leagueId}/users`);
   const rosters = await fetchJson<SleeperRoster[]>(`${BASE}/league/${leagueId}/rosters`);
 
+  const usersArr = Array.isArray(users) ? users : [];
+  const rostersArr = Array.isArray(rosters) ? rosters : [];
+  if (rostersArr.length === 0) {
+    throw new Error(`Sleeper returned no rosters for league ${leagueId}.`);
+  }
+
   const ownerInfo: Record<string, string> = {};
-  (users || []).forEach((u) => {
+  usersArr.forEach((u) => {
+    if (!u || typeof u.user_id !== "string") return;
     ownerInfo[u.user_id] = u.display_name || u.metadata?.team_name || u.user_id;
   });
 
-  const sorted = [...(rosters || [])].sort((a, b) => a.roster_id - b.roster_id);
+  const sorted = [...rostersArr].sort((a, b) => a.roster_id - b.roster_id);
   const rosterIdToIdx: Record<number, number> = {};
   const teamNames: string[] = [];
   const userIds: (string | null)[] = [];
@@ -131,31 +180,44 @@ async function fetchSeason(leagueId: string, settings: DiscoveredSeason["setting
 }
 
 export async function POST(req: Request) {
-  const rl = checkRateLimit(getClientIp(req));
-  if (!rl.ok) {
-    return NextResponse.json(
-      { error: `Rate limit exceeded. Retry in ${rl.retryAfter}s.` },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
-    );
-  }
-
-  let body: { leagueId?: string };
   try {
-    body = (await req.json()) as { leagueId?: string };
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
+    const rl = checkRateLimit(getClientIp(req));
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Retry in ${rl.retryAfter}s.` },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+      );
+    }
 
-  const leagueId = (body.leagueId || "").trim();
-  if (!leagueId || !/^\d+$/.test(leagueId)) {
-    return NextResponse.json(
-      { error: "leagueId is required and must be numeric." },
-      { status: 400 },
-    );
-  }
+    let body: { leagueId?: string };
+    try {
+      body = (await req.json()) as { leagueId?: string };
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    }
 
-  try {
-    const chain = await discoverChain(leagueId);
+    const leagueId = (body.leagueId || "").trim();
+    if (!leagueId || !/^\d+$/.test(leagueId) || /^0+$/.test(leagueId)) {
+      return NextResponse.json(
+        { error: "leagueId is required and must be a positive numeric Sleeper league ID." },
+        { status: 400 },
+      );
+    }
+
+    let chain: DiscoveredSeason[];
+    try {
+      chain = await discoverChain(leagueId);
+    } catch (e) {
+      if (e instanceof LeagueNotFoundError) {
+        return NextResponse.json({ error: e.message }, { status: 404 });
+      }
+      console.error("[/api/import/sleeper] discoverChain failed:", e);
+      return NextResponse.json(
+        { error: `Failed to fetch league chain from Sleeper: ${(e as Error).message}` },
+        { status: 502 },
+      );
+    }
+
     const completed = chain.filter((s) => s.hasData);
     if (completed.length === 0) {
       return NextResponse.json(
@@ -181,8 +243,14 @@ export async function POST(req: Request) {
 
     return NextResponse.json(results);
   } catch (e) {
+    console.error("[/api/import/sleeper] Unhandled error:", e);
     return NextResponse.json(
-      { error: (e as Error).message || "Failed to fetch from Sleeper." },
+      {
+        error:
+          e instanceof Error
+            ? `Failed to fetch from Sleeper: ${e.message}`
+            : "Unexpected error processing Sleeper import.",
+      },
       { status: 502 },
     );
   }

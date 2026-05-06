@@ -122,55 +122,68 @@ async function fetchEspnSeason(leagueId: string, seasonId: number) {
 }
 
 export async function POST(req: Request) {
-  const rl = checkRateLimit(getClientIp(req));
-  if (!rl.ok) {
-    return NextResponse.json(
-      { error: `Rate limit exceeded. Retry in ${rl.retryAfter}s.` },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
-    );
-  }
-
-  let body: { leagueId?: string; seasonId?: number };
   try {
-    body = (await req.json()) as { leagueId?: string; seasonId?: number };
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-
-  const leagueId = (body.leagueId || "").trim();
-  if (!leagueId || !/^\d+$/.test(leagueId)) {
-    return NextResponse.json(
-      { error: "leagueId is required and must be numeric." },
-      { status: 400 },
-    );
-  }
-
-  const startSeason =
-    body.seasonId && Number.isFinite(body.seasonId)
-      ? Math.floor(body.seasonId)
-      : new Date().getFullYear() - 1;
-
-  const results = [];
-  const errors: string[] = [];
-
-  for (let i = 0; i < MAX_SEASONS; i++) {
-    const year = startSeason - i;
-    try {
-      const data = await fetchEspnSeason(leagueId, year);
-      results.push(data);
-    } catch (e) {
-      errors.push(`${year}: ${(e as Error).message}`);
+    const rl = checkRateLimit(getClientIp(req));
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Retry in ${rl.retryAfter}s.` },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+      );
     }
-  }
 
-  if (results.length === 0) {
+    let body: { leagueId?: string; seasonId?: number };
+    try {
+      body = (await req.json()) as { leagueId?: string; seasonId?: number };
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    }
+
+    const leagueId = (body.leagueId || "").trim();
+    if (!leagueId || !/^\d+$/.test(leagueId) || /^0+$/.test(leagueId)) {
+      return NextResponse.json(
+        { error: "leagueId is required and must be a positive numeric ESPN league ID." },
+        { status: 400 },
+      );
+    }
+
+    const startSeason =
+      body.seasonId && Number.isFinite(body.seasonId)
+        ? Math.floor(body.seasonId)
+        : new Date().getFullYear() - 1;
+
+    const results = [];
+    const errors: string[] = [];
+
+    for (let i = 0; i < MAX_SEASONS; i++) {
+      const year = startSeason - i;
+      try {
+        const data = await fetchEspnSeason(leagueId, year);
+        results.push(data);
+      } catch (e) {
+        errors.push(`${year}: ${(e as Error).message}`);
+      }
+    }
+
+    if (results.length === 0) {
+      return NextResponse.json(
+        {
+          error: `Could not fetch any seasons from ESPN. ${errors.join(" | ")}.`,
+        },
+        { status: 502 },
+      );
+    }
+
+    return NextResponse.json(results);
+  } catch (e) {
+    console.error("[/api/import/espn] Unhandled error:", e);
     return NextResponse.json(
       {
-        error: `Could not fetch any seasons from ESPN. ${errors.join(" | ")}.`,
+        error:
+          e instanceof Error
+            ? `Failed to fetch from ESPN: ${e.message}`
+            : "Unexpected error processing ESPN import.",
       },
       { status: 502 },
     );
   }
-
-  return NextResponse.json(results);
 }
