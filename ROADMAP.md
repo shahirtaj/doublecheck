@@ -193,32 +193,36 @@ Data shapes what to prioritize post-launch.
 
 ---
 
-### Phase 9: Reddit Launch
+### Phase 9: Reddit Launch (Wave 1 in progress)
 **Tool: Claude chat**
 
 Two waves, different audiences and timing:
 
-**Wave 1 (May 2026):** r/DynastyFF (~200K members), r/FFCommish (~50K members), and r/fantasyfootball (~2M members). Dynasty commissioners are active with rookie drafts happening now. Lead with the problem, explain the math, link the tool.
+**Wave 1 (May 2026) - in progress:**
+- **r/FFCommish:** Posted ✅ - 12 upvotes, 6 comments, 3.4K views. Positive reception.
+- **r/DynastyNerds:** Posted ✅ - Live with link in comments (inline links filtered by spam). 1.6K views.
+- **r/SleeperApp:** Posted ✅ - Live with link in comments (inline links filtered by spam). 743 views. Messaged mods for fresh post approval, awaiting response.
+- **r/DynastyFF:** Rule 11 restricts tools to the Friday megathread. Standalone post denied by mods - deferred to Wave 2 megathread.
 
-**Wave 2 (late July/August 2026):** All three subreddits again. Redraft league setup season. Fresh angle for the second round.
+**Wave 2 (late July/August 2026):** r/DynastyFF (megathread), r/FFCommish, r/DynastyNerds, r/SleeperApp, r/fantasyfootball, r/Fantasy_Football. Redraft league setup season. Fresh angle for the second round.
 
-**Deliverable:** Six posts across two waves.
+**Deliverable:** Reddit reach across the dynasty + commissioner + Sleeper communities, with redraft-season follow-up in Wave 2.
 
 ---
 
 ## Priority Order
 
-Phases 1–8 are done. Phase 9 drives traffic.
+Phases 1–8 are done. Phase 9 Wave 1 is in progress (3 of 4 target subreddits posted; r/DynastyFF deferred to Wave 2 megathread).
 
 ## Estimated Effort
 
-Phases 1–8 completed across two days. Remaining phase: 1 weekend.
+Phases 1–8 completed across two days. Phase 9 Wave 1 in progress; Wave 2 planned for late July/August 2026.
 
 ---
 
 ## Current State
 
-Phases 1–8 are complete. The tool is live at [doublecheckff.com](https://doublecheckff.com).
+Phases 1–8 are complete. Phase 9 Wave 1 is in progress. The tool is live at [doublecheckff.com](https://doublecheckff.com).
 
 - **Phase 1 - Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 92 Vitest tests prove constraints hold across every format.
 - **Phase 2 - Next.js 14 App Router.** Tool is the homepage with Tailwind CSS and responsive UI. localStorage persistence.
@@ -229,6 +233,10 @@ Phases 1–8 are complete. The tool is live at [doublecheckff.com](https://doubl
 - **Phase 6.5 - Yahoo OAuth 2.0 import.** `/api/auth/yahoo/start` + `/api/auth/yahoo/callback` handle the OAuth dance with a CSRF state cookie. Access + refresh tokens encrypted with AES-256-GCM and stored in an httpOnly cookie - no database, no user accounts. `/api/import/yahoo` lists the user's NFL leagues for a picker, then walks the renew chain on selection to return `ImportedSeasonRecord[]`. Auto-refreshes expired tokens.
 - **Phase 7 - Shareable read-only links via Vercel KV.** `/api/share` accepts the current league state, generates an 8-char alphanumeric slug, and writes the payload to Vercel KV with a 365-day TTL. `/s/[slug]` server-renders a read-only schedule view (week navigator, matchup list, double-matchup summary). Step 3 has a "Share" button that returns the URL with a "Copy link" affordance. IP rate limit of 5 shares per hour, namespaced separately from the import quota.
 - **Phase 8 - Vercel Web Analytics.** `@vercel/analytics/next` `<Analytics />` mounted in `app/layout.tsx` so every route (homepage + share views) reports pageviews on the free tier. No cookies, no PII, zero-config when deployed on Vercel.
+- **Phase 9 Wave 1 - Reddit launch in progress.** Posted to r/FFCommish (12 upvotes, 6 comments, 3.4K views), r/DynastyNerds (1.6K views, link in comments after spam filter blocked the inline link), and r/SleeperApp (743 views, link in comments, modmail open for a fresh post). r/DynastyFF Rule 11 restricts tools to the Friday megathread - standalone post denied; deferred to Wave 2 megathread. Wave 2 (late July/August 2026) will hit r/DynastyFF (megathread), r/FFCommish, r/DynastyNerds, r/SleeperApp, r/fantasyfootball, and r/Fantasy_Football for redraft setup season.
+
+### Production fixes
+- **Sleeper import 502 on single-season leagues** (commit `f67c65a`). Sleeper returns `previous_league_id: "0"` for leagues with no prior season; `"0"` is truthy in JS, so the chain walker fetched `league/0`, got a 404, and crashed the route with a 502. Fix: `nextChainId()` now treats `"0"` (alongside `null`/`undefined`/`""`) as end-of-chain. Added a typed `LeagueNotFoundError`, an outer try/catch with `console.error` logging, and response validation. The same defensive fixes were applied to the ESPN and Yahoo routes so a single bad upstream response can't take down the import endpoints.
 
 ### Superseded files removed
 - `fetch-sleeper.js` - replaced by `/api/import/sleeper` server-side route
