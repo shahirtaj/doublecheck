@@ -101,14 +101,30 @@ async function lookupUserLeagues(username: string): Promise<SleeperLeagueOption[
       `Sleeper user "${username}" not found. Check the spelling.`,
     );
   }
+  // Try the current year first, then fall back to the prior year. Most
+  // returning leagues only show up under the new year once the commissioner
+  // recreates them (often weeks before the draft); during the offseason the
+  // user's "active" leagues are still under last year. The chain walker on
+  // the leagueId side handles historical seasons regardless.
   const currentYear = new Date().getFullYear();
+  for (const year of [currentYear, currentYear - 1]) {
+    const options = await fetchUserLeaguesForYear(user.user_id, year);
+    if (options.length > 0) return options;
+  }
+  return [];
+}
+
+async function fetchUserLeaguesForYear(
+  userId: string,
+  year: number,
+): Promise<SleeperLeagueOption[]> {
   let leagues: SleeperLeague[];
   try {
     leagues = await fetchJson<SleeperLeague[]>(
-      `${BASE}/user/${user.user_id}/leagues/nfl/${currentYear}`,
+      `${BASE}/user/${userId}/leagues/nfl/${year}`,
     );
   } catch {
-    leagues = [];
+    return [];
   }
   if (!Array.isArray(leagues)) return [];
   return leagues
@@ -118,7 +134,7 @@ async function lookupUserLeagues(username: string): Promise<SleeperLeagueOption[
     .map((l) => ({
       leagueId: l.league_id,
       name: (l.name || "").trim() || l.league_id,
-      season: (l.season || "").trim() || String(currentYear),
+      season: (l.season || "").trim() || String(year),
     }));
 }
 
@@ -273,7 +289,7 @@ export async function POST(req: Request) {
           const currentYear = new Date().getFullYear();
           return NextResponse.json(
             {
-              error: `No Sleeper NFL leagues found for "${username}" in ${currentYear}. If your league is from a different year, enter its league ID instead.`,
+              error: `No Sleeper NFL leagues found for "${username}" in ${currentYear - 1} or ${currentYear}. If your league is older, enter its league ID instead.`,
             },
             { status: 404 },
           );
