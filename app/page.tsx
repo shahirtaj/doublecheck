@@ -100,6 +100,12 @@ type YahooLeagueOption = {
   numTeams: number;
 };
 
+type SleeperLeagueOption = {
+  leagueId: string;
+  name: string;
+  season: string;
+};
+
 type Step = "teams" | "doubles" | "schedule";
 
 // ── Component ─────────────────────────────────────────────
@@ -153,6 +159,12 @@ export default function GeneratePage() {
   // Yahoo flow: leagues list (after connect), selected league key (for picker).
   const [yahooLeagues, setYahooLeagues] = useState<YahooLeagueOption[] | null>(null);
   const [selectedYahooLeague, setSelectedYahooLeague] = useState<string>("");
+
+  // Sleeper flow: when a non-numeric input is entered, the server returns the
+  // user's current-year leagues. Multiple results surface the picker; a single
+  // result auto-fetches its chain.
+  const [sleeperLeagues, setSleeperLeagues] = useState<SleeperLeagueOption[] | null>(null);
+  const [selectedSleeperLeague, setSelectedSleeperLeague] = useState<string>("");
 
   // Hydrate from localStorage on mount.
   useEffect(() => {
@@ -400,6 +412,8 @@ export default function GeneratePage() {
     setImportPreview(null);
     setImportStatus("");
     setImportMsg("");
+    setSleeperLeagues(null);
+    setSelectedSleeperLeague("");
   }
 
   // Filter imported seasons down to the format detected from the most recent
@@ -418,16 +432,54 @@ export default function GeneratePage() {
   }
 
   async function handleFetch() {
-    if (!leagueId.trim()) return;
+    const input = leagueId.trim();
+    if (!input) return;
+    setImportPreview(null);
+    setSleeperLeagues(null);
+    setSelectedSleeperLeague("");
+
+    // Sleeper accepts either a numeric league ID (existing chain flow) or a
+    // username (look up user → list current-year leagues → picker). ESPN only
+    // accepts league IDs.
+    if (platform === "sleeper" && !/^\d+$/.test(input)) {
+      setImportStatus("loading");
+      setImportMsg(`Looking up Sleeper user "${input}"…`);
+      try {
+        const res = await fetch("/api/import/sleeper", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: input }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+        const leagues = (data?.leagues || []) as SleeperLeagueOption[];
+        if (leagues.length === 0) {
+          throw new Error("No Sleeper NFL leagues found for this user.");
+        }
+        if (leagues.length === 1) {
+          setSleeperLeagues(leagues);
+          setSelectedSleeperLeague(leagues[0]!.leagueId);
+          await fetchSleeperLeagueSeasons(leagues[0]!.leagueId);
+          return;
+        }
+        setSleeperLeagues(leagues);
+        setImportStatus("");
+        setImportMsg(`Found ${leagues.length} Sleeper leagues — pick one.`);
+      } catch (e) {
+        setImportStatus("error");
+        setImportMsg((e as Error).message || "Sleeper username lookup failed.");
+      }
+      return;
+    }
+
     const platformLabel = platform === "sleeper" ? "Sleeper" : "ESPN";
     setImportStatus("loading");
     setImportMsg(`Fetching from ${platformLabel}…`);
-    setImportPreview(null);
     try {
       const res = await fetch(`/api/import/${platform}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leagueId: leagueId.trim() }),
+        body: JSON.stringify({ leagueId: input }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
@@ -442,6 +494,37 @@ export default function GeneratePage() {
         );
       }
       setImportPreview({ platform, seasons: detected.seasons });
+      setImportStatus("ready");
+      setImportMsg(formatImportSuccess(detected.seasons, detected.detected));
+    } catch (e) {
+      setImportStatus("error");
+      setImportMsg((e as Error).message || "Fetch failed.");
+    }
+  }
+
+  async function fetchSleeperLeagueSeasons(specificLeagueId: string) {
+    setImportStatus("loading");
+    setImportMsg("Fetching season data from Sleeper…");
+    setImportPreview(null);
+    try {
+      const res = await fetch("/api/import/sleeper", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leagueId: specificLeagueId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      const seasons = data as ImportedSeasonRecord[];
+      if (!Array.isArray(seasons) || seasons.length === 0) {
+        throw new Error("No seasons returned.");
+      }
+      const detected = filterToDetectedFormat(seasons);
+      if (!detected) {
+        throw new Error(
+          "Could not detect a valid league format from the most recent season (need an even team count and a regular-season week count).",
+        );
+      }
+      setImportPreview({ platform: "sleeper", seasons: detected.seasons });
       setImportStatus("ready");
       setImportMsg(formatImportSuccess(detected.seasons, detected.detected));
     } catch (e) {
@@ -612,6 +695,8 @@ export default function GeneratePage() {
     setLeagueId("");
     setImportStatus("");
     setImportMsg("");
+    setSleeperLeagues(null);
+    setSelectedSleeperLeague("");
   }
 
   // ── Derived helpers ──
@@ -706,7 +791,8 @@ export default function GeneratePage() {
         <p className={cls.hint}>
           {platform === "sleeper" ? (
             <>
-              Enter your league ID from sleeper.com/leagues/<strong>YOUR_ID</strong>
+              Enter your Sleeper username, or paste your league ID from
+              sleeper.com/leagues/<strong>YOUR_ID</strong>.
             </>
           ) : platform === "espn" ? (
             <>
@@ -730,6 +816,8 @@ export default function GeneratePage() {
               setImportMsg("");
               setYahooLeagues(null);
               setSelectedYahooLeague("");
+              setSleeperLeagues(null);
+              setSelectedSleeperLeague("");
               if (next === "yahoo") {
                 void fetchYahooLeagues();
               }
@@ -774,6 +862,41 @@ export default function GeneratePage() {
                 {importStatus === "loading" ? "Loading…" : "Connect Yahoo"}
               </button>
             )
+          ) : platform === "sleeper" && sleeperLeagues && sleeperLeagues.length > 1 ? (
+            <>
+              <select
+                className={cls.leagueInput}
+                value={selectedSleeperLeague}
+                onChange={(e) => setSelectedSleeperLeague(e.target.value)}
+              >
+                <option value="">— pick a league —</option>
+                {sleeperLeagues.map((l) => (
+                  <option key={l.leagueId} value={l.leagueId}>
+                    {l.season ? `${l.season} — ` : ""}
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                className={cls.primaryBtn}
+                onClick={() => fetchSleeperLeagueSeasons(selectedSleeperLeague)}
+                disabled={!selectedSleeperLeague || importBusy}
+              >
+                {importStatus === "loading" ? "Loading…" : "Use this league"}
+              </button>
+              <button
+                className={cls.secondaryBtn}
+                onClick={() => {
+                  setSleeperLeagues(null);
+                  setSelectedSleeperLeague("");
+                  setImportStatus("");
+                  setImportMsg("");
+                }}
+                disabled={importBusy}
+              >
+                Back
+              </button>
+            </>
           ) : (
             <>
               <input
@@ -782,13 +905,17 @@ export default function GeneratePage() {
                 onChange={(e) => {
                   setLeagueId(e.target.value);
                   if (importPreview) setImportPreview(null);
+                  if (sleeperLeagues) {
+                    setSleeperLeagues(null);
+                    setSelectedSleeperLeague("");
+                  }
                   if (importStatus) {
                     setImportStatus("");
                     setImportMsg("");
                   }
                 }}
                 placeholder={
-                  platform === "sleeper" ? "e.g. 924039458279227392" : "e.g. 123456789"
+                  platform === "sleeper" ? "username or 924039458279227392" : "e.g. 123456789"
                 }
               />
               <button

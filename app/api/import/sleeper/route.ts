@@ -1,7 +1,10 @@
 // Direct port of fetch-sleeper.js into a serverless Route Handler. Server-side
 // fetch eliminates the browser CORS issue that the original Node script worked
-// around. POST with { leagueId, seasons? }, returns an array of season records
-// shaped to match the season-record format the generate page consumes.
+// around. Two modes share the route:
+//   - POST { leagueId } → walk the renew chain back from leagueId, returning
+//     ImportedSeasonRecord[] for completed seasons (the original behavior).
+//   - POST { username } → look up the Sleeper user_id, list their current-year
+//     NFL leagues, and return them as { leagues } for the client picker.
 
 import { NextResponse } from "next/server";
 import { pairKey } from "@/lib/algorithm";
@@ -11,6 +14,7 @@ import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
 const BASE = "https://api.sleeper.app/v1";
 const MAX_SEASONS = 5;
 const MAX_CHAIN_DEPTH = 5;
+const MAX_USERNAME_LENGTH = 50;
 
 type SleeperLeague = {
   league_id?: string;
@@ -18,6 +22,12 @@ type SleeperLeague = {
   season?: string;
   previous_league_id?: string | null;
   settings?: { playoff_week_start?: number };
+};
+
+type SleeperLeagueOption = {
+  leagueId: string;
+  name: string;
+  season: string;
 };
 
 type SleeperUser = {
@@ -62,10 +72,54 @@ class LeagueNotFoundError extends Error {
   }
 }
 
+class UserNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UserNotFoundError";
+  }
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
   return (await res.json()) as T;
+}
+
+async function lookupUserLeagues(username: string): Promise<SleeperLeagueOption[]> {
+  let user: { user_id?: string } | null;
+  try {
+    user = await fetchJson<{ user_id?: string } | null>(
+      `${BASE}/user/${encodeURIComponent(username)}`,
+    );
+  } catch {
+    throw new UserNotFoundError(
+      `Sleeper user "${username}" not found. Check the spelling.`,
+    );
+  }
+  if (!user || typeof user.user_id !== "string" || !user.user_id) {
+    throw new UserNotFoundError(
+      `Sleeper user "${username}" not found. Check the spelling.`,
+    );
+  }
+  const currentYear = new Date().getFullYear();
+  let leagues: SleeperLeague[];
+  try {
+    leagues = await fetchJson<SleeperLeague[]>(
+      `${BASE}/user/${user.user_id}/leagues/nfl/${currentYear}`,
+    );
+  } catch {
+    leagues = [];
+  }
+  if (!Array.isArray(leagues)) return [];
+  return leagues
+    .filter((l): l is SleeperLeague & { league_id: string } =>
+      typeof l?.league_id === "string" && l.league_id.length > 0,
+    )
+    .map((l) => ({
+      leagueId: l.league_id,
+      name: (l.name || "").trim() || l.league_id,
+      season: (l.season || "").trim() || String(currentYear),
+    }));
 }
 
 async function discoverChain(leagueId: string): Promise<DiscoveredSeason[]> {
@@ -189,17 +243,58 @@ export async function POST(req: Request) {
       );
     }
 
-    let body: { leagueId?: string };
+    let body: { leagueId?: string; username?: string };
     try {
-      body = (await req.json()) as { leagueId?: string };
+      body = (await req.json()) as { leagueId?: string; username?: string };
     } catch {
       return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    }
+
+    const username = (body.username || "").trim();
+    if (username) {
+      if (username.length > MAX_USERNAME_LENGTH) {
+        return NextResponse.json(
+          { error: `Username too long (max ${MAX_USERNAME_LENGTH} characters).` },
+          { status: 400 },
+        );
+      }
+      if (/^\d+$/.test(username)) {
+        return NextResponse.json(
+          {
+            error:
+              "Username must contain at least one non-numeric character. Send a leagueId for numeric IDs.",
+          },
+          { status: 400 },
+        );
+      }
+      try {
+        const leagues = await lookupUserLeagues(username);
+        if (leagues.length === 0) {
+          const currentYear = new Date().getFullYear();
+          return NextResponse.json(
+            {
+              error: `No Sleeper NFL leagues found for "${username}" in ${currentYear}. If your league is from a different year, enter its league ID instead.`,
+            },
+            { status: 404 },
+          );
+        }
+        return NextResponse.json({ leagues });
+      } catch (e) {
+        if (e instanceof UserNotFoundError) {
+          return NextResponse.json({ error: e.message }, { status: 404 });
+        }
+        console.error("[/api/import/sleeper] lookupUserLeagues failed:", e);
+        return NextResponse.json(
+          { error: `Failed to look up Sleeper user: ${(e as Error).message}` },
+          { status: 502 },
+        );
+      }
     }
 
     const leagueId = (body.leagueId || "").trim();
     if (!leagueId || !/^\d+$/.test(leagueId) || /^0+$/.test(leagueId)) {
       return NextResponse.json(
-        { error: "leagueId is required and must be a positive numeric Sleeper league ID." },
+        { error: "Provide a Sleeper username or a positive numeric Sleeper league ID." },
         { status: 400 },
       );
     }
