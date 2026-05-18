@@ -804,7 +804,7 @@ export default function GeneratePage() {
           ) : platform === "espn" ? (
             <>
               Enter your league ID from fantasy.espn.com/football/league?leagueId=
-              <strong>YOUR_ID</strong> (public leagues only)
+              <strong>YOUR_ID</strong> (public leagues only).
             </>
           ) : (
             <>Sign in with Yahoo to import your fantasy leagues.</>
