@@ -922,7 +922,9 @@ export default function GeneratePage() {
                   }
                 }}
                 placeholder={
-                  platform === "sleeper" ? "username or 924039458279227392" : "e.g. 123456789"
+                  platform === "sleeper"
+                    ? "e.g. karimcozey or 1180738142470492160"
+                    : "e.g. 123456789"
                 }
               />
               <button
