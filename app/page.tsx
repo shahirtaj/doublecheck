@@ -61,6 +61,13 @@ function deriveScheduleYear(history: SeasonHistory[]): number {
   return Math.max(currentYear, lastYear + 1);
 }
 
+// "espn" needs to render as the full acronym; the other platforms are normal
+// proper nouns and just want title-case.
+function platformLabel(platform: ImportPlatform): string {
+  if (platform === "espn") return "ESPN";
+  return platform.charAt(0).toUpperCase() + platform.slice(1);
+}
+
 function formatImportSuccess(seasons: ImportedSeasonRecord[], format: SelectedFormat): string {
   const count = seasons.length;
   const years = seasons.map((s) => s.seasonYear || "?").join(", ");
@@ -941,7 +948,7 @@ export default function GeneratePage() {
             Ready to apply: {importPreview.seasons.length} season
             {importPreview.seasons.length > 1 ? "s" : ""} from{" "}
             <strong className="text-emerald-400">
-              {importPreview.platform.charAt(0).toUpperCase() + importPreview.platform.slice(1)}
+              {platformLabel(importPreview.platform)}
             </strong>
             {importPreview.seasons[0]!.seasonName?.trim()
               ? ` (${importPreview.seasons[0]!.seasonName!.trim()})`
