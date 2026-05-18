@@ -35,27 +35,97 @@ type EspnLeague = {
   settings?: { name?: string };
 };
 
+// ESPN signals "this league is private" inconsistently: sometimes 401, often
+// 403, and occasionally a 200 with an AUTH_LEAGUE_NOT_VISIBLE message in the
+// body. Checking the substring covers all known shapes (top-level `messages`
+// array, nested `details`, single-message envelopes) without coupling to a
+// specific schema we don't control.
+function hasAuthLeagueNotVisible(data: unknown): boolean {
+  try {
+    return JSON.stringify(data).includes("AUTH_LEAGUE_NOT_VISIBLE");
+  } catch {
+    return false;
+  }
+}
+
+function privateLeagueError(seasonId: number): Error {
+  return new Error(`Season ${seasonId} is private. Public leagues only for now.`);
+}
+
 async function fetchEspnSeason(leagueId: string, seasonId: number) {
   const url = `${BASE}/${seasonId}/segments/0/leagues/${leagueId}?view=mMatchupScore&view=mTeam`;
-  const res = await fetch(url, {
-    headers: { Accept: "application/json" },
-  });
-  if (res.status === 401) {
-    throw new Error(`Season ${seasonId} is private. Public leagues only for now.`);
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { Accept: "application/json" } });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "network error";
+    throw new Error(`Network error fetching season ${seasonId}: ${msg}.`);
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    throw privateLeagueError(seasonId);
   }
   if (res.status === 404) {
     throw new Error(`Season ${seasonId} not found for this league.`);
   }
+
+  // Read as text first so we can give a useful message if ESPN returns an
+  // HTML error page from CloudFront (or any other non-JSON body) instead of
+  // crashing on res.json().
+  let raw: string;
+  try {
+    raw = await res.text();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "stream error";
+    throw new Error(`Could not read ESPN response body for season ${seasonId}: ${msg}.`);
+  }
+
+  let data: unknown;
+  if (raw.length === 0) {
+    if (!res.ok) {
+      throw new Error(`ESPN HTTP ${res.status} for season ${seasonId} (empty response).`);
+    }
+    throw new Error(`Empty response from ESPN for season ${seasonId}.`);
+  }
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    const snippet = raw.slice(0, 80).replace(/\s+/g, " ").trim();
+    throw new Error(
+      `ESPN returned non-JSON for season ${seasonId} (status ${res.status})${snippet ? `: "${snippet}"` : ""}.`,
+    );
+  }
+
+  // Auth check has to run before the !res.ok branch because ESPN occasionally
+  // returns AUTH_LEAGUE_NOT_VISIBLE inside a 200 body.
+  if (hasAuthLeagueNotVisible(data)) {
+    throw privateLeagueError(seasonId);
+  }
+
   if (!res.ok) {
     throw new Error(`ESPN HTTP ${res.status} for season ${seasonId}.`);
   }
 
-  const data = (await res.json()) as EspnLeague;
-  if (!Array.isArray(data?.teams) || !Array.isArray(data?.schedule)) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error(`Unexpected ESPN response shape for season ${seasonId}.`);
+  }
+  const league = data as EspnLeague;
+  if (!Array.isArray(league.teams) || !Array.isArray(league.schedule)) {
     throw new Error(`Unexpected ESPN response shape for season ${seasonId}.`);
   }
 
-  const teams = [...data.teams].sort((a, b) => a.id - b.id);
+  const validTeams = league.teams.filter(
+    (t): t is EspnTeam =>
+      t != null &&
+      typeof t === "object" &&
+      typeof (t as EspnTeam).id === "number" &&
+      Number.isFinite((t as EspnTeam).id),
+  );
+  if (validTeams.length === 0) {
+    throw new Error(`No teams with valid IDs returned for season ${seasonId}.`);
+  }
+
+  const teams = [...validTeams].sort((a, b) => a.id - b.id);
   const teamIdToIdx: Record<number, number> = {};
   const teamNames: string[] = [];
   const userIds: (string | null)[] = [];
@@ -72,9 +142,10 @@ async function fetchEspnSeason(leagueId: string, seasonId: number) {
     userIds.push(owner);
   });
 
-  const regSchedule = data.schedule.filter(
-    (m) =>
-      m &&
+  const regSchedule = league.schedule.filter(
+    (m): m is EspnMatchup =>
+      m != null &&
+      typeof m === "object" &&
       (m.playoffTierType === "NONE" || m.playoffTierType == null) &&
       m.home != null &&
       m.away != null &&
@@ -110,9 +181,14 @@ async function fetchEspnSeason(leagueId: string, seasonId: number) {
     .filter(([, v]) => v > 1)
     .map(([k]) => k);
 
+  const settingsName =
+    league.settings && typeof league.settings === "object" && typeof league.settings.name === "string"
+      ? league.settings.name.trim()
+      : "";
+
   return {
     seasonYear: String(seasonId),
-    seasonName: data.settings?.name || `League ${leagueId}`,
+    seasonName: settingsName || `League ${leagueId}`,
     teamNames,
     userIds,
     doubles,
@@ -153,18 +229,34 @@ export async function POST(req: Request) {
 
     const results = [];
     const errors: string[] = [];
+    let allPrivate = true;
 
     for (let i = 0; i < MAX_SEASONS; i++) {
       const year = startSeason - i;
       try {
         const data = await fetchEspnSeason(leagueId, year);
         results.push(data);
+        allPrivate = false;
       } catch (e) {
-        errors.push(`${year}: ${(e as Error).message}`);
+        const msg =
+          e instanceof Error ? e.message : typeof e === "string" ? e : "unknown error";
+        if (!msg.includes("is private.")) allPrivate = false;
+        errors.push(`${year}: ${msg}`);
       }
     }
 
     if (results.length === 0) {
+      // If every season failed because the league is private, surface that as
+      // a 403 with a clean message instead of burying it in a 502 dump.
+      if (allPrivate) {
+        return NextResponse.json(
+          {
+            error:
+              "This ESPN league is private. DoubleCheck supports public ESPN leagues only.",
+          },
+          { status: 403 },
+        );
+      }
       return NextResponse.json(
         {
           error: `Could not fetch any seasons from ESPN. ${errors.join(" | ")}.`,
