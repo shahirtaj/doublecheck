@@ -43,14 +43,14 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 
 ## Supported platforms
 
-- **Sleeper** - fully public API, paste your league ID and you're done.
+- **Sleeper** - fully public API. Enter your Sleeper username (pick from your leagues) or paste a league ID directly.
 - **ESPN** - public leagues by league ID. Private league support follows ESPN's undocumented API quirks.
 - **Yahoo** - sign in with Yahoo (OAuth 2.0). Tokens are stored in an encrypted httpOnly cookie - no database, no account needed.
 
 ## Quick start
 
 1. Visit [DoubleCheck](https://doublecheckff.com).
-2. Pick your platform and enter your league ID.
+2. Pick your platform and enter your league ID (or, for Sleeper, your username — DoubleCheck will list your leagues to pick from).
 3. Review the avoidance matrix and generate this year's schedule.
 4. Save the season - its doubles automatically feed next year's lookback.
 5. Click **Share** to get a read-only `/s/{slug}` link your league members can open from any device. Links expire after 365 days; re-share to refresh.
