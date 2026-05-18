@@ -54,12 +54,20 @@ function privateLeagueError(seasonId: number): Error {
 
 async function fetchEspnSeason(leagueId: string, seasonId: number) {
   const url = `${BASE}/${seasonId}/segments/0/leagues/${leagueId}?view=mMatchupScore&view=mTeam`;
-  let res: Response;
-  try {
-    res = await fetch(url, { headers: { Accept: "application/json" } });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "network error";
-    throw new Error(`Network error fetching season ${seasonId}: ${msg}.`);
+
+  async function doFetch(): Promise<Response> {
+    try {
+      return await fetch(url, { headers: { Accept: "application/json" } });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "network error";
+      throw new Error(`Network error fetching season ${seasonId}: ${msg}.`);
+    }
+  }
+
+  let res = await doFetch();
+  // ESPN's edge occasionally returns transient 502/503s; one retry clears them.
+  if (res.status === 502 || res.status === 503) {
+    res = await doFetch();
   }
 
   if (res.status === 401 || res.status === 403) {
@@ -240,7 +248,7 @@ export async function POST(req: Request) {
       } catch (e) {
         const msg =
           e instanceof Error ? e.message : typeof e === "string" ? e : "unknown error";
-        if (!msg.includes("is private.")) allPrivate = false;
+        if (!msg.includes("is private.") && !msg.includes("not found")) allPrivate = false;
         errors.push(`${year}: ${msg}`);
       }
     }
