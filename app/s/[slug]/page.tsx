@@ -55,9 +55,12 @@ const getShareData = cache(async (slug: string): Promise<unknown> => {
 export async function generateMetadata({
   params,
 }: {
-  params: { slug: string };
+  // Next.js 15 makes params a Promise; awaiting a sync object is a no-op on 14
+  // so this stays forward-compatible without a runtime branch.
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const data = await getShareData(params.slug);
+  const { slug } = await params;
+  const data = await getShareData(slug);
   const fallbackTitle = "DoubleCheck - Shared Schedule";
   const fallbackDescription = "View this shared fantasy football schedule on DoubleCheck";
 
@@ -112,8 +115,13 @@ function NotFoundView() {
   );
 }
 
-export default async function SharePage({ params }: { params: { slug: string } }) {
-  const data = await getShareData(params.slug);
+export default async function SharePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const data = await getShareData(slug);
 
   return (
     <div className="min-h-screen px-4 py-6 text-slate-200 font-mono">
