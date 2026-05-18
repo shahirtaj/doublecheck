@@ -252,7 +252,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error:
-              "This ESPN league is private. DoubleCheck supports public ESPN leagues only.",
+              "This ESPN league is private. To import, temporarily set it to public in your ESPN league's Settings > Basic Settings, then try again.",
           },
           { status: 403 },
         );
