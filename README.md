@@ -46,7 +46,7 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 ## Supported platforms
 
 - **Sleeper** - fully public API. Enter your Sleeper username (pick from your leagues) or paste a league ID directly.
-- **ESPN** - public leagues by league ID. Private league support follows ESPN's undocumented API quirks.
+- **ESPN** - public leagues by league ID. Private leagues must be set to public by the commissioner before import.
 - **Yahoo** - sign in with Yahoo (OAuth 2.0). Tokens are stored in an encrypted httpOnly cookie - no database, no account needed.
 - **Manual entry** - for unsupported platforms (NFL.com, CBS, etc.). Pick your league format, name your teams, and click the doubled matchups from each past season on an interactive grid.
 
@@ -54,9 +54,9 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 
 The tool is a three-step flow at [doublecheckff.com](https://doublecheckff.com):
 
-1. **Import.** Pick your platform and enter your league ID (or, for Sleeper, your username - DoubleCheck lists your leagues to pick from). For platforms without automatic import (NFL.com, CBS, etc.), choose **Manual** and enter your league info directly. League format is auto-detected from imported data.
-2. **Review.** See the avoidance matrix, scan past season history, and (optionally) override the lookback window if you want to weight more or fewer prior seasons.
-3. **Schedule.** Browse the generated schedule week-by-week, click **Save & Share** to save the season (its doubles automatically feed next year's lookback) and get a read-only `/s/{slug}` link your league members can open from any device, or click **Copy Full Schedule as Text** for a plain-text dump. Links expire after 365 days.
+1. **Import.** Pick your platform and enter your league ID (or, for Sleeper, your username - DoubleCheck lists your leagues to pick from). League format is auto-detected from imported data. For platforms without automatic import (NFL.com, CBS, etc.), choose **Manual** and enter your league info directly.
+2. **Review.** See the lookback window (with optional override if you want to weight more or fewer prior seasons), scan past season history, and review the avoidance matrix.
+3. **Schedule.** Browse the generated schedule week-by-week, click **Save & Share** to get a read-only `/s/{slug}` link your league members can open from any device, or click **Copy Full Schedule as Text** for a plain-text dump. Links expire after 365 days.
 
 No platform exposes a write API for league schedules, so commissioners enter the generated matchups into their platform's commissioner tools by hand. It's a one-time ~10-minute annual task per league.
 
