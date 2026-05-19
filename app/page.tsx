@@ -195,6 +195,34 @@ export default function GeneratePage() {
   // null when adding a new season; otherwise the index in `history` we're editing.
   const [editingSeasonIndex, setEditingSeasonIndex] = useState<number | null>(null);
 
+  // Header tooltip: rendered as a fixed-position div at the root of the
+  // return so it escapes the matrix's overflow containers. The hovered
+  // cell's bounding rect drives positioning; a 200ms delay before showing
+  // matches the prior CSS tooltip behavior.
+  const [tooltipInfo, setTooltipInfo] = useState<{ text: string; rect: DOMRect } | null>(
+    null,
+  );
+  const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
+    };
+  }, []);
+  const showHeaderTooltip = useCallback((text: string, target: HTMLElement) => {
+    const rect = target.getBoundingClientRect();
+    if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
+    tooltipTimerRef.current = setTimeout(() => {
+      setTooltipInfo({ text, rect });
+    }, 200);
+  }, []);
+  const hideHeaderTooltip = useCallback(() => {
+    if (tooltipTimerRef.current) {
+      clearTimeout(tooltipTimerRef.current);
+      tooltipTimerRef.current = null;
+    }
+    setTooltipInfo(null);
+  }, []);
+
   // Hydrate from localStorage on mount.
   useEffect(() => {
     try {
@@ -1429,8 +1457,9 @@ export default function GeneratePage() {
                     {teams.map((t, i) => (
                       <div
                         key={i}
-                        data-tooltip={t}
-                        className="relative w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
+                        onMouseEnter={(e) => showHeaderTooltip(t, e.currentTarget)}
+                        onMouseLeave={hideHeaderTooltip}
+                        className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
                       >
                         {abbrev(t)}
                       </div>
@@ -1439,7 +1468,8 @@ export default function GeneratePage() {
                   {teams.map((t, i) => (
                     <div key={i} className="flex">
                       <div
-                        data-tooltip={t}
+                        onMouseEnter={(e) => showHeaderTooltip(t, e.currentTarget)}
+                        onMouseLeave={hideHeaderTooltip}
                         className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap"
                       >
                         {abbrev(t)}
@@ -1502,8 +1532,9 @@ export default function GeneratePage() {
                 {teams.map((t, i) => (
                   <div
                     key={i}
-                    data-tooltip={t}
-                    className="relative w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
+                    onMouseEnter={(e) => showHeaderTooltip(t, e.currentTarget)}
+                    onMouseLeave={hideHeaderTooltip}
+                    className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
                   >
                     {abbrev(t)}
                   </div>
@@ -1512,7 +1543,8 @@ export default function GeneratePage() {
               {teams.map((t, i) => (
                 <div key={i} className="flex">
                   <div
-                    data-tooltip={t}
+                    onMouseEnter={(e) => showHeaderTooltip(t, e.currentTarget)}
+                    onMouseLeave={hideHeaderTooltip}
                     className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap"
                   >
                     {abbrev(t)}
@@ -1918,6 +1950,19 @@ export default function GeneratePage() {
           Buy me a coffee
         </a>
       </footer>
+
+      {tooltipInfo && (
+        <div
+          className="fixed z-50 bg-slate-700 text-slate-200 text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap pointer-events-none"
+          style={{
+            top: tooltipInfo.rect.top - 4,
+            left: tooltipInfo.rect.left + tooltipInfo.rect.width / 2,
+            transform: "translate(-50%, -100%)",
+          }}
+        >
+          {tooltipInfo.text}
+        </div>
+      )}
     </div>
   );
 }
