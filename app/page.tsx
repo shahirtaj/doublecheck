@@ -1659,7 +1659,7 @@ export default function GeneratePage() {
                       cellTone = "bg-red-950 text-red-400 font-bold";
                       glyph = "H";
                     } else if (at === "soft") {
-                      cellTone = "bg-amber-950 text-amber-400 font-semibold";
+                      cellTone = "bg-amber-900 text-amber-400 font-semibold";
                       glyph = "S";
                     }
                     const cellDisabled = isLocked || addingPastSeason;
