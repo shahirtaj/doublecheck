@@ -1943,7 +1943,7 @@ export default function GeneratePage() {
             <p className={cls.error}>{shareError}</p>
           )}
 
-          <p className="text-[11px] text-slate-400 mt-4">
+          <p className="text-[11px] text-slate-300 mt-4">
             {platform === "sleeper" ? (
               <>
                 To apply this schedule, go to Settings &gt; Commissioner Control &gt; Edit Schedule
