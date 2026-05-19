@@ -1054,7 +1054,7 @@ export default function GeneratePage() {
         </p>
         <div className="flex flex-wrap gap-2 items-stretch">
           <select
-            className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+            className="w-full sm:w-auto bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
             value={platform}
             onChange={(e) => {
               const next = e.target.value as ImportPlatform;
