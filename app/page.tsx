@@ -1385,6 +1385,115 @@ export default function GeneratePage() {
             </div>
           )}
 
+          {addingPastSeason ? (
+            <div className={`${cls.subSection} mt-4`}>
+              {showLookbackNote && (
+                <p className="text-[11px] text-amber-400 mb-2">
+                  Additional seasons beyond the lookback window won&apos;t affect schedule
+                  generation.
+                </p>
+              )}
+              <h3 className={cls.sectionTitle}>
+                {editingSeasonIndex !== null ? "Edit Past Season" : "Add Past Season"}
+              </h3>
+              <p className={cls.hint}>
+                {editingSeasonIndex !== null
+                  ? "Adjust the doubled matchups for this season."
+                  : "Select the season year and click each doubled matchup from that season's schedule."}
+              </p>
+              <div className="flex flex-wrap gap-2 items-center mb-3">
+                <select
+                  className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                  value={pastSeasonYear}
+                  onChange={(e) => setPastSeasonYear(e.target.value)}
+                  disabled={editingSeasonIndex !== null}
+                >
+                  {editingSeasonIndex !== null ? (
+                    <option value={pastSeasonYear}>{pastSeasonYear}</option>
+                  ) : (
+                    availablePastSeasonYears.map((y) => (
+                      <option key={y} value={String(y)}>
+                        {y}
+                      </option>
+                    ))
+                  )}
+                </select>
+                <span className="text-[10px] text-slate-500">
+                  {pastSeasonDoubles.size} pair{pastSeasonDoubles.size === 1 ? "" : "s"} selected
+                </span>
+              </div>
+              <div className="overflow-x-auto -mx-2 px-2">
+                <div className="inline-block min-w-fit">
+                  <div className="flex">
+                    <div className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
+                    {teams.map((t, i) => (
+                      <div
+                        key={i}
+                        title={t}
+                        className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
+                      >
+                        {abbrev(t)}
+                      </div>
+                    ))}
+                  </div>
+                  {teams.map((t, i) => (
+                    <div key={i} className="flex">
+                      <div
+                        title={t}
+                        className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap"
+                      >
+                        {abbrev(t)}
+                      </div>
+                      {teams.map((_, j) => {
+                        if (j <= i) {
+                          return (
+                            <div
+                              key={j}
+                              className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 bg-slate-900 border border-slate-800 box-border"
+                            />
+                          );
+                        }
+                        const selected = pastSeasonDoubles.has(pairKey(i, j));
+                        return (
+                          <button
+                            key={j}
+                            type="button"
+                            onClick={() => togglePastSeasonDouble(i, j)}
+                            className={`w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none cursor-pointer ${
+                              selected
+                                ? "bg-emerald-900 text-emerald-400 font-bold"
+                                : "bg-slate-800 text-slate-500 hover:bg-slate-700"
+                            }`}
+                          >
+                            {selected ? "✕" : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2 mt-3 flex-wrap">
+                <button
+                  className={cls.primaryBtn}
+                  onClick={handleApplyPastSeason}
+                  disabled={!pastSeasonYear.trim()}
+                >
+                  {editingSeasonIndex !== null ? "Update Season" : "Add Season"}
+                </button>
+                <button className={cls.secondaryBtn} onClick={handleCancelPastSeason}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : availablePastSeasonYears.length > 0 ? (
+            <div className="mt-4">
+              <button className={cls.secondaryBtn} onClick={handleStartAddSeason}>
+                + Add Past Season
+              </button>
+            </div>
+          ) : null}
+
           {/* Matrix grid (horizontal scroll on mobile) */}
           <div className="overflow-x-auto -mx-2 px-2 mt-2">
             <div className="inline-block min-w-fit">
@@ -1517,115 +1626,6 @@ export default function GeneratePage() {
               })}
             </div>
           </details>
-
-          {addingPastSeason ? (
-            <div className={`${cls.subSection} mt-4`}>
-              {showLookbackNote && (
-                <p className="text-[11px] text-amber-400 mb-2">
-                  Additional seasons beyond the lookback window won&apos;t affect schedule
-                  generation.
-                </p>
-              )}
-              <h3 className={cls.sectionTitle}>
-                {editingSeasonIndex !== null ? "Edit Past Season" : "Add Past Season"}
-              </h3>
-              <p className={cls.hint}>
-                {editingSeasonIndex !== null
-                  ? "Adjust the doubled matchups for this season."
-                  : "Select the season year and click each doubled matchup from that season's schedule."}
-              </p>
-              <div className="flex flex-wrap gap-2 items-center mb-3">
-                <select
-                  className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500 disabled:opacity-60 disabled:cursor-not-allowed"
-                  value={pastSeasonYear}
-                  onChange={(e) => setPastSeasonYear(e.target.value)}
-                  disabled={editingSeasonIndex !== null}
-                >
-                  {editingSeasonIndex !== null ? (
-                    <option value={pastSeasonYear}>{pastSeasonYear}</option>
-                  ) : (
-                    availablePastSeasonYears.map((y) => (
-                      <option key={y} value={String(y)}>
-                        {y}
-                      </option>
-                    ))
-                  )}
-                </select>
-                <span className="text-[10px] text-slate-500">
-                  {pastSeasonDoubles.size} pair{pastSeasonDoubles.size === 1 ? "" : "s"} selected
-                </span>
-              </div>
-              <div className="overflow-x-auto -mx-2 px-2">
-                <div className="inline-block min-w-fit">
-                  <div className="flex">
-                    <div className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
-                    {teams.map((t, i) => (
-                      <div
-                        key={i}
-                        title={t}
-                        className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
-                      >
-                        {abbrev(t)}
-                      </div>
-                    ))}
-                  </div>
-                  {teams.map((t, i) => (
-                    <div key={i} className="flex">
-                      <div
-                        title={t}
-                        className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap"
-                      >
-                        {abbrev(t)}
-                      </div>
-                      {teams.map((_, j) => {
-                        if (j <= i) {
-                          return (
-                            <div
-                              key={j}
-                              className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 bg-slate-900 border border-slate-800 box-border"
-                            />
-                          );
-                        }
-                        const selected = pastSeasonDoubles.has(pairKey(i, j));
-                        return (
-                          <button
-                            key={j}
-                            type="button"
-                            onClick={() => togglePastSeasonDouble(i, j)}
-                            className={`w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none cursor-pointer ${
-                              selected
-                                ? "bg-emerald-900 text-emerald-400 font-bold"
-                                : "bg-slate-800 text-slate-500 hover:bg-slate-700"
-                            }`}
-                          >
-                            {selected ? "✕" : ""}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="flex gap-2 mt-3 flex-wrap">
-                <button
-                  className={cls.primaryBtn}
-                  onClick={handleApplyPastSeason}
-                  disabled={!pastSeasonYear.trim()}
-                >
-                  {editingSeasonIndex !== null ? "Update Season" : "Add Season"}
-                </button>
-                <button className={cls.secondaryBtn} onClick={handleCancelPastSeason}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : availablePastSeasonYears.length > 0 ? (
-            <div className="mt-4">
-              <button className={cls.secondaryBtn} onClick={handleStartAddSeason}>
-                + Add Past Season
-              </button>
-            </div>
-          ) : null}
 
           <div className="flex gap-3 mt-5 flex-wrap">
             <button
@@ -1841,10 +1841,10 @@ export default function GeneratePage() {
                 </span>
                 <span className={`text-[10px] ${tone}`}>{label}</span>
                 {h.format !== "userid" && (
-                  <span className="ml-auto flex gap-3">
+                  <span className="ml-auto flex gap-1">
                     <button
                       type="button"
-                      className="bg-transparent border-0 p-0 text-[10px] text-amber-400 hover:text-amber-300 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="bg-transparent text-[10px] text-amber-400 hover:text-amber-300 px-1.5 py-0.5 border border-amber-700 hover:border-amber-600 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       onClick={() => handleStartEditSeason(si)}
                       disabled={addingPastSeason}
                     >
@@ -1852,7 +1852,7 @@ export default function GeneratePage() {
                     </button>
                     <button
                       type="button"
-                      className="bg-transparent border-0 p-0 text-[10px] text-red-400 hover:text-red-300 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="bg-transparent text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 border border-red-700 hover:border-red-600 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       onClick={() => handleDeleteSeason(si)}
                       disabled={addingPastSeason}
                     >
