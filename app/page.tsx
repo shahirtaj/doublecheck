@@ -956,7 +956,7 @@ export default function GeneratePage() {
           ) : platform === "manual" ? (
             <>
               <input
-                className={cls.leagueInput}
+                className="w-full bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
                 value={manualLeagueName}
                 onChange={(e) => setManualLeagueName(e.target.value)}
                 placeholder="League name"
