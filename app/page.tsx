@@ -432,9 +432,7 @@ export default function GeneratePage() {
   } | null {
     const detected = detectFormatFromImport(seasons[0]!);
     if (!detected) return null;
-    const filtered = seasons.filter(
-      (s) => s.teamNames?.length === detected.teamCount && s.regWeeks === detected.weekCount,
-    );
+    const filtered = seasons.filter((s) => s.teamNames?.length === detected.teamCount);
     return { detected, seasons: filtered };
   }
 
