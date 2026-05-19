@@ -1,12 +1,14 @@
-// Server component for /s/[slug]. Reads the saved share payload from Vercel KV
-// and renders a read-only view of the schedule. Returns a friendly 404-style
-// message if the slug is missing or the entry has expired.
+// Server component for /s/[slug]. Reads the saved share payload from Upstash
+// Redis and renders a read-only view of the schedule. Returns a friendly
+// 404-style message if the slug is missing or the entry has expired.
 
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
 import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SharedScheduleView } from "./SharedScheduleView";
+
+const redis = Redis.fromEnv();
 
 type SharedPayload = {
   format: { teamCount: number; weekCount: number };
@@ -47,7 +49,7 @@ function isValidPayload(v: unknown): v is SharedPayload {
 
 const getShareData = cache(async (slug: string): Promise<unknown> => {
   try {
-    return await kv.get(`share:${slug}`);
+    return await redis.get(`share:${slug}`);
   } catch {
     return null;
   }

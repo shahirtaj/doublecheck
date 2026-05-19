@@ -1,11 +1,13 @@
 // POST a serialized league state and get back a short slug URL. The slug IS
 // the access token: anyone with the URL can read the schedule. Stored in
-// Vercel KV with a 365-day TTL so storage stays bounded; users recreate the
-// link via the same flow if it expires.
+// Upstash Redis with a 365-day TTL so storage stays bounded; users recreate
+// the link via the same flow if it expires.
 
 import { NextResponse } from "next/server";
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
 import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
+
+const redis = Redis.fromEnv();
 
 const SLUG_LENGTH = 8;
 const SLUG_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -108,7 +110,7 @@ export async function POST(req: Request) {
   for (let i = 0; i < MAX_SLUG_ATTEMPTS; i++) {
     const candidate = generateSlug();
     try {
-      const result = await kv.set(`share:${candidate}`, body, {
+      const result = await redis.set(`share:${candidate}`, body, {
         nx: true,
         ex: TTL_SECONDS,
       });
