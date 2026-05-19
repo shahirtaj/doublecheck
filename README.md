@@ -39,7 +39,9 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 
 - **Fair rotation.** Every opponent gets doubled exactly once over a full rotation cycle (~4 years for 12-team / 14-week). No pair keeps drawing the short straw season after season.
 - **Per-format lookback window.** The lookback is computed per format to maximize rotation coverage. Recent seasons are hard-avoided (cannot repeat), with the next oldest soft-avoided (preferred to skip but allowed when the constraint set is too tight).
-- **Identity tracking via user IDs.** Doubled pairs are stored by Sleeper / ESPN user ID, not team name. The schedule survives team renames, manager changes, and roster reshuffles between seasons.
+- **Maximum-separation placement.** Doubled pairs are placed at the largest possible week distance within the season (`weekCount - doublesPerTeam`), so a doubled rivalry's first and rematch games are as far apart as the format allows.
+- **Identity tracking via user IDs.** Doubled pairs are stored by Sleeper user ID, ESPN user ID, or Yahoo manager GUID - not team name. The schedule survives team renames, manager changes, and roster reshuffles between seasons.
+- **Auto-detected league format.** Team count and week count are read directly from the imported league data; there's no manual format selector.
 
 ## Supported platforms
 
@@ -53,8 +55,9 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 1. Visit [DoubleCheck](https://doublecheckff.com).
 2. Pick your platform and enter your league ID (or, for Sleeper, your username - DoubleCheck will list your leagues to pick from). For platforms without automatic import (NFL.com, CBS, etc.), choose Manual and enter your league info directly.
 3. Review the avoidance matrix and generate this year's schedule.
-4. Save the season - its doubles automatically feed next year's lookback.
-5. Click **Share** to get a read-only `/s/{slug}` link your league members can open from any device. Links expire after 365 days; re-share to refresh.
+4. Click **Save & Share** to save the season (its doubles automatically feed next year's lookback) and get a read-only `/s/{slug}` link your league members can open from any device. Links expire after 365 days; re-share to refresh.
+
+No platform exposes a write API for league schedules, so commissioners enter the generated matchups into their platform's commissioner tools by hand. It's a one-time ~10-minute annual task per league.
 
 ## Tech stack
 

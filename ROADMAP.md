@@ -72,13 +72,13 @@ No write APIs exist on any platform for schedule input. Commissioners enter the 
 | Linting | ESLint 9 (flat config in `eslint.config.mjs`) | Enforced in CI; `next lint` was removed in Next 16 so we call ESLint directly |
 | Deployment | Vercel | Native Next.js support, serverless functions, free tier |
 | Domain | doublecheckff.com | Purchased via Vercel |
-| Storage (v2) | Vercel KV (Redis) | Stores share-link payloads keyed by short slug; no auth or user accounts needed |
+| Storage (v2) | Upstash Redis | Stores share-link payloads keyed by short slug; no auth or user accounts needed. Originally Vercel KV; auto-migrated to Upstash Redis when Vercel KV was deprecated. |
 | Analytics | Vercel Web Analytics | Free tier, zero-config on Vercel, privacy-friendly (no cookies, no PII) |
 | Testing | Vitest | Fast, TypeScript-native |
 | CI | GitHub Actions | Typecheck + lint + test + build on push/PR to main |
 | License | MIT | Maximizes credibility, community signal |
 
-localStorage for local state. Vercel KV for shareable links.
+localStorage for local state. Upstash Redis for shareable links.
 
 ---
 
@@ -174,9 +174,9 @@ Yahoo's official Fantasy Sports API requires a registered developer app and a fu
 ### Phase 7: Shareable Links ✅
 **Tool: Claude Code**
 
-Vercel KV (Redis) backs shareable read-only league links - the viral loop. 11 managers see the tool, some are commissioners in other leagues, they use it for theirs. No auth, no accounts, no Postgres - the share link itself is the identifier.
+Upstash Redis backs shareable read-only league links - the viral loop. 11 managers see the tool, some are commissioners in other leagues, they use it for theirs. No auth, no accounts, no Postgres - the share link itself is the identifier.
 
-- "Share" button in Step 3 serializes the current league state (format, teams, userIds, history, manualDoubles, schedule) and POSTs to `/api/share`, which writes to Vercel KV under an 8-char alphanumeric slug and returns `/s/{slug}`
+- "Share" button in Step 3 serializes the current league state (format, teams, userIds, history, manualDoubles, schedule) and POSTs to `/api/share`, which writes to Upstash Redis under an 8-char alphanumeric slug and returns `/s/{slug}`
 - `/s/[slug]` server-renders a read-only view from KV: league format, manager list, week navigator, matchup list, and double-matchup summary - no edit, save, or import controls
 - 365-day TTL on KV entries; expired or missing slugs render a "Link expired or not found" message
 - IP-based rate limit of 5 shares per hour, namespaced separately from the import quota
@@ -238,7 +238,7 @@ Phases 1–8 are complete. Phase 9 Wave 1 is in progress. The tool is live at [d
 - **Phase 5 - Deployed.** Live on Vercel at doublecheckff.com with auto-deploy from main.
 - **Phase 6 - SEO + polish.** Favicon (double checkmark SVG), OG/Twitter meta tags, auto-detected league format from import data, lookback window override control, edge-case format detection. No manual format selector - format is derived from imported seasons.
 - **Phase 6.5 - Yahoo OAuth 2.0 import.** `/api/auth/yahoo/start` + `/api/auth/yahoo/callback` handle the OAuth dance with a CSRF state cookie. Access + refresh tokens encrypted with AES-256-GCM and stored in an httpOnly cookie - no database, no user accounts. `/api/import/yahoo` lists the user's NFL leagues for a picker, then walks the renew chain on selection to return `ImportedSeasonRecord[]`. Auto-refreshes expired tokens.
-- **Phase 7 - Shareable read-only links via Vercel KV.** `/api/share` accepts the current league state, generates an 8-char alphanumeric slug, and writes the payload to Vercel KV with a 365-day TTL. `/s/[slug]` server-renders a read-only schedule view (week navigator, matchup list, double-matchup summary). Step 3 has a "Share" button that returns the URL with a "Copy link" affordance. IP rate limit of 5 shares per hour, namespaced separately from the import quota.
+- **Phase 7 - Shareable read-only links via Upstash Redis.** `/api/share` accepts the current league state, generates an 8-char alphanumeric slug, and writes the payload to Upstash Redis (originally Vercel KV, auto-migrated when Vercel KV was deprecated) with a 365-day TTL. `/s/[slug]` server-renders a read-only schedule view (week navigator, matchup list, double-matchup summary). Step 3 has a "Save & Share" button that saves the season and returns the share URL with a "Copy link" affordance in one action. IP rate limit of 5 shares per hour, namespaced separately from the import quota.
 - **Phase 8 - Vercel Web Analytics.** `@vercel/analytics/next` `<Analytics />` mounted in `app/layout.tsx` so every route (homepage + share views) reports pageviews on the free tier. No cookies, no PII, zero-config when deployed on Vercel.
 - **Phase 9 Wave 1 - Reddit launch in progress.** Posted to r/FFCommish (12 upvotes, 6 comments, 3.4K views), r/DynastyNerds (1.6K views, link in comments after spam filter blocked the inline link), r/SleeperApp (743 views, link in comments, modmail open for a fresh post), and r/fantasyfootball (**527 upvotes, 118 comments, 88% upvote ratio** on a 3.4M-subscriber subreddit - top comment, 164 pts, requested rivalry weeks; **Sleeper username lookup shipped live in the thread**, and **manual entry shipped in response to NFL.com/CBS requests in the same thread**). r/DynastyFF Rule 11 restricts tools to the Friday megathread - standalone post denied; deferred to Wave 2 megathread. Wave 2 (late July/August 2026) will hit r/DynastyFF (megathread), r/FFCommish, r/DynastyNerds, r/SleeperApp, and r/Fantasy_Football for redraft setup season.
 
