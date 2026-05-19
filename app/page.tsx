@@ -319,13 +319,14 @@ export default function GeneratePage() {
   const recommendedLookbackTotal = format ? format.lookback.hard + format.lookback.soft : 0;
   // Years offered by the "Add Past Season" dropdown, sized to the format's
   // recommended lookback so we don't surface seasons that can't influence
-  // schedule generation. Empty until a format is selected. Existing entries
-  // older than this window still appear in the Season History list — this
-  // only narrows which years are addable.
+  // schedule generation. Ends at CURRENT_YEAR - 1 because the current year is
+  // the season being scheduled, not a past one. Empty until a format is
+  // selected. Existing entries older than this window still appear in the
+  // Season History list — this only narrows which years are addable.
   const PAST_SEASON_YEARS = format
     ? Array.from(
         { length: recommendedLookbackTotal },
-        (_, i) => CURRENT_YEAR - (recommendedLookbackTotal - 1) + i,
+        (_, i) => CURRENT_YEAR - recommendedLookbackTotal + i,
       )
     : [];
   // Override may only dial the lookback down. Anything higher than the per-format
