@@ -1122,32 +1122,34 @@ export default function GeneratePage() {
                 maxLength={48}
               />
               <div className="basis-full h-0" aria-hidden="true" />
-              <select
-                className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
-                value={manualTeamCount}
-                onChange={(e) => setManualTeamCount(Number(e.target.value))}
-              >
-                <option value={8}>8 teams</option>
-                <option value={10}>10 teams</option>
-                <option value={12}>12 teams</option>
-                <option value={14}>14 teams</option>
-              </select>
-              <select
-                className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
-                value={manualWeekCount}
-                onChange={(e) => setManualWeekCount(Number(e.target.value))}
-              >
-                <option value={13}>13 weeks</option>
-                <option value={14}>14 weeks</option>
-                <option value={15}>15 weeks</option>
-              </select>
-              <button
-                className={cls.primaryBtn}
-                onClick={handleManualStart}
-                disabled={!manualLeagueName.trim()}
-              >
-                Start
-              </button>
+              <div className="flex gap-2 items-stretch w-full">
+                <select
+                  className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                  value={manualTeamCount}
+                  onChange={(e) => setManualTeamCount(Number(e.target.value))}
+                >
+                  <option value={8}>8 teams</option>
+                  <option value={10}>10 teams</option>
+                  <option value={12}>12 teams</option>
+                  <option value={14}>14 teams</option>
+                </select>
+                <select
+                  className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                  value={manualWeekCount}
+                  onChange={(e) => setManualWeekCount(Number(e.target.value))}
+                >
+                  <option value={13}>13 weeks</option>
+                  <option value={14}>14 weeks</option>
+                  <option value={15}>15 weeks</option>
+                </select>
+                <button
+                  className={cls.primaryBtn}
+                  onClick={handleManualStart}
+                  disabled={!manualLeagueName.trim()}
+                >
+                  Start
+                </button>
+              </div>
             </>
           ) : platform === "sleeper" && sleeperLeagues && sleeperLeagues.length > 1 ? (
             <>
