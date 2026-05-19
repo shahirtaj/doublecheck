@@ -886,8 +886,8 @@ export default function GeneratePage() {
             </>
           ) : platform === "manual" ? (
             <>
-              For leagues on platforms we don&apos;t import directly. Set your league
-              size now, then add past seasons in the next step to enable rotation.
+              For leagues on platforms without automatic import. Enter your league
+              info, then add past seasons manually in the next step.
             </>
           ) : (
             <>Sign in with Yahoo to import your fantasy leagues.</>
