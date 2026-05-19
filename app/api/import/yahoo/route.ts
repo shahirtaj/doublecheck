@@ -155,14 +155,7 @@ function parseLeaguesList(json: unknown): YahooLeagueMeta[] {
       });
     }
   }
-  const byName = new Map<string, YahooLeagueMeta>();
-  for (const league of result) {
-    const existing = byName.get(league.name);
-    if (!existing || Number(league.season) > Number(existing.season)) {
-      byName.set(league.name, league);
-    }
-  }
-  return Array.from(byName.values());
+  return result;
 }
 
 function parseLeagueDetails(json: unknown): YahooLeagueDetails | null {
