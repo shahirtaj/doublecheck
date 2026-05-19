@@ -199,7 +199,7 @@ Data shapes what to prioritize post-launch.
 
 ---
 
-### Phase 9: Reddit launch (wave 1 in progress)
+### Phase 9: Reddit launch (Wave 1 in progress)
 **Tool: Claude chat**
 
 Two waves, different audiences and timing:
