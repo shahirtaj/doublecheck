@@ -1480,7 +1480,7 @@ export default function GeneratePage() {
               </div>
               <div className="overflow-x-auto -mx-3.5 px-3.5">
                 <div className="inline-block min-w-fit">
-                  <div className="flex">
+                  <div className="flex sticky top-0 z-20">
                     <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
                     {teams.map((t, i) => (
                       <div
@@ -1555,7 +1555,7 @@ export default function GeneratePage() {
           {/* Matrix grid (horizontal scroll on mobile) */}
           <div className="overflow-x-auto -mx-2 px-2 mt-2">
             <div className="inline-block min-w-fit">
-              <div className="flex">
+              <div className="flex sticky top-0 z-20">
                 <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
                 {teams.map((t, i) => (
                   <div
