@@ -956,12 +956,13 @@ export default function GeneratePage() {
           ) : platform === "manual" ? (
             <>
               <input
-                className="w-full bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                className={cls.leagueInput}
                 value={manualLeagueName}
                 onChange={(e) => setManualLeagueName(e.target.value)}
                 placeholder="League name"
                 maxLength={48}
               />
+              <div className="basis-full h-0" aria-hidden="true" />
               <select
                 className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
                 value={manualTeamCount}
