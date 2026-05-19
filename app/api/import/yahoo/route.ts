@@ -35,7 +35,13 @@ const TOKEN_MAX_AGE = 60 * 60 * 24 * 30;
 const YAHOO_BASE = "https://fantasysports.yahooapis.com/fantasy/v2";
 const MAX_SEASONS = 5;
 const MAX_CHAIN_DEPTH = 5;
-const NFL_SEASONS = "2020,2021,2022,2023,2024,2025,2026";
+// Seven seasons ending at the current year (e.g. in 2026: 2020–2026). Derived
+// at module load so we don't need a yearly hand-edit; the chain traversal
+// further down still caps the final return at MAX_SEASONS.
+const NFL_SEASONS = Array.from(
+  { length: 7 },
+  (_, i) => new Date().getFullYear() - 6 + i,
+).join(",");
 
 type YahooLeagueMeta = {
   leagueKey: string;

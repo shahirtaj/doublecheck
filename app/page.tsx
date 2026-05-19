@@ -26,7 +26,13 @@ import {
 // ── Format constants ──────────────────────────────────────
 const STORAGE_KEY = "ff-rotational-scheduler";
 const STEP_ORDER = ["teams", "doubles", "schedule"] as const;
-const PAST_SEASON_YEARS = [2020, 2021, 2022, 2023, 2024, 2025] as const;
+// Derived at module load so the "Add Past Season" dropdown doesn't need a
+// manual bump each year. Five entries ending at the current year (e.g. in
+// 2026: 2022, 2023, 2024, 2025, 2026), ascending so the latest sits last —
+// `handleStartAddSeason` defaults to that slot.
+const CURRENT_YEAR = new Date().getFullYear();
+const CURRENT_YEAR_STR = String(CURRENT_YEAR);
+const PAST_SEASON_YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 4 + i);
 
 type SelectedFormat = { teamCount: number; weekCount: number };
 
@@ -190,7 +196,7 @@ export default function GeneratePage() {
   const [manualTeamCount, setManualTeamCount] = useState<number>(12);
   const [manualWeekCount, setManualWeekCount] = useState<number>(14);
   const [addingPastSeason, setAddingPastSeason] = useState<boolean>(false);
-  const [pastSeasonYear, setPastSeasonYear] = useState<string>("2025");
+  const [pastSeasonYear, setPastSeasonYear] = useState<string>(CURRENT_YEAR_STR);
   const [pastSeasonDoubles, setPastSeasonDoubles] = useState<Set<PairKey>>(() => new Set());
   // null when adding a new season; otherwise the index in `history` we're editing.
   const [editingSeasonIndex, setEditingSeasonIndex] = useState<number | null>(null);
@@ -840,14 +846,14 @@ export default function GeneratePage() {
     }
     setHistory(nextHistory);
     saveToStorage({ history: nextHistory });
-    setPastSeasonYear("2025");
+    setPastSeasonYear(CURRENT_YEAR_STR);
     setPastSeasonDoubles(new Set());
     setAddingPastSeason(false);
     setEditingSeasonIndex(null);
   }
 
   function handleCancelPastSeason() {
-    setPastSeasonYear("2025");
+    setPastSeasonYear(CURRENT_YEAR_STR);
     setPastSeasonDoubles(new Set());
     setAddingPastSeason(false);
     setEditingSeasonIndex(null);
@@ -941,7 +947,7 @@ export default function GeneratePage() {
     setManualTeamCount(12);
     setManualWeekCount(14);
     setAddingPastSeason(false);
-    setPastSeasonYear("2025");
+    setPastSeasonYear(CURRENT_YEAR_STR);
     setPastSeasonDoubles(new Set());
     setEditingSeasonIndex(null);
     setStep("teams");
