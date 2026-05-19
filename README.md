@@ -52,10 +52,11 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 
 ## Quick start
 
-1. Visit [DoubleCheck](https://doublecheckff.com).
-2. Pick your platform and enter your league ID (or, for Sleeper, your username - DoubleCheck will list your leagues to pick from). For platforms without automatic import (NFL.com, CBS, etc.), choose Manual and enter your league info directly.
-3. Review the avoidance matrix and generate this year's schedule.
-4. Click **Save & Share** to save the season (its doubles automatically feed next year's lookback) and get a read-only `/s/{slug}` link your league members can open from any device. Links expire after 365 days; re-share to refresh.
+The tool is a three-step flow at [doublecheckff.com](https://doublecheckff.com):
+
+1. **Import.** Pick your platform and enter your league ID (or, for Sleeper, your username - DoubleCheck lists your leagues to pick from). For platforms without automatic import (NFL.com, CBS, etc.), choose **Manual** and enter your league info directly. League format is auto-detected from imported data.
+2. **Review.** See the avoidance matrix, scan past season history, and (optionally) override the lookback window if you want to weight more or fewer prior seasons.
+3. **Schedule.** Browse the generated schedule week-by-week, click **Save & Share** to save the season (its doubles automatically feed next year's lookback) and get a read-only `/s/{slug}` link your league members can open from any device, or click **Copy Full Schedule as Text** for a plain-text dump. Links expire after 365 days.
 
 No platform exposes a write API for league schedules, so commissioners enter the generated matchups into their platform's commissioner tools by hand. It's a one-time ~10-minute annual task per league.
 
