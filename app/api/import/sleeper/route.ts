@@ -12,8 +12,12 @@ import type { PairKey } from "@/lib/algorithm";
 import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
 
 const BASE = "https://api.sleeper.app/v1";
-const MAX_SEASONS = 5;
-const MAX_CHAIN_DEPTH = 5;
+// Fallback when the client doesn't specify ?seasons=N. Matches the previous
+// hardcoded cap so existing callers see no change.
+const DEFAULT_SEASONS = 5;
+// Hard cap on how many seasons one request can pull, regardless of input.
+// Bounds chain depth + per-season API calls + response size.
+const MAX_SEASONS_CAP = 10;
 const MAX_USERNAME_LENGTH = 50;
 
 type SleeperLeague = {
@@ -138,11 +142,14 @@ async function fetchUserLeaguesForYear(
     }));
 }
 
-async function discoverChain(leagueId: string): Promise<DiscoveredSeason[]> {
+async function discoverChain(
+  leagueId: string,
+  chainDepth: number,
+): Promise<DiscoveredSeason[]> {
   const seasons: DiscoveredSeason[] = [];
   let currentId: string | null = leagueId;
 
-  for (let depth = 0; depth < MAX_CHAIN_DEPTH && currentId; depth++) {
+  for (let depth = 0; depth < chainDepth && currentId; depth++) {
     let league: SleeperLeague | null = null;
     try {
       league = await fetchJson<SleeperLeague>(`${BASE}/league/${currentId}`);
@@ -259,6 +266,18 @@ export async function POST(req: Request) {
       );
     }
 
+    // Optional ?seasons=N lets the client right-size the fetch to the
+    // format's recommended lookback. Falls back to DEFAULT_SEASONS when
+    // missing/invalid and is clamped to MAX_SEASONS_CAP.
+    const requestedSeasons = parseInt(
+      new URL(req.url).searchParams.get("seasons") || "",
+      10,
+    );
+    const seasonsCount =
+      Number.isFinite(requestedSeasons) && requestedSeasons > 0
+        ? Math.min(requestedSeasons, MAX_SEASONS_CAP)
+        : DEFAULT_SEASONS;
+
     let body: { leagueId?: string; username?: string };
     try {
       body = (await req.json()) as { leagueId?: string; username?: string };
@@ -317,7 +336,7 @@ export async function POST(req: Request) {
 
     let chain: DiscoveredSeason[];
     try {
-      chain = await discoverChain(leagueId);
+      chain = await discoverChain(leagueId, seasonsCount);
     } catch (e) {
       if (e instanceof LeagueNotFoundError) {
         return NextResponse.json({ error: e.message }, { status: 404 });
@@ -337,7 +356,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const toFetch = completed.slice(0, MAX_SEASONS);
+    const toFetch = completed.slice(0, seasonsCount);
     const results = [];
     for (const target of toFetch) {
       const data = await fetchSeason(target.leagueId, target.settings);

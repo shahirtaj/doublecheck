@@ -33,11 +33,13 @@ export const runtime = "nodejs";
 const TOKEN_COOKIE = "yahoo_tokens";
 const TOKEN_MAX_AGE = 60 * 60 * 24 * 30;
 const YAHOO_BASE = "https://fantasysports.yahooapis.com/fantasy/v2";
-const MAX_SEASONS = 5;
-const MAX_CHAIN_DEPTH = 5;
+// Fallback when the client doesn't specify ?seasons=N.
+const DEFAULT_SEASONS = 5;
+// Hard cap so a misbehaving client can't blow up our chain walk.
+const MAX_SEASONS_CAP = 10;
 // Seven seasons ending at the current year (e.g. in 2026: 2020–2026). Derived
 // at module load so we don't need a yearly hand-edit; the chain traversal
-// further down still caps the final return at MAX_SEASONS.
+// further down still caps the final return at the request's seasonsCount.
 const NFL_SEASONS = Array.from(
   { length: 7 },
   (_, i) => new Date().getFullYear() - 6 + i,
@@ -366,6 +368,7 @@ async function fetchSeasonRecord(
 async function fetchSeasonChain(
   startKey: string,
   accessToken: string,
+  seasonsCount: number,
 ): Promise<ImportedSeasonRecord[]> {
   const records: ImportedSeasonRecord[] = [];
   let currentKey: string | null = startKey;
@@ -373,7 +376,7 @@ async function fetchSeasonChain(
 
   for (
     let depth = 0;
-    depth < MAX_CHAIN_DEPTH && currentKey && records.length < MAX_SEASONS;
+    depth < seasonsCount && currentKey && records.length < seasonsCount;
     depth++
   ) {
     if (seen.has(currentKey)) break;
@@ -421,6 +424,18 @@ export async function POST(req: Request) {
       );
     }
 
+    // Optional ?seasons=N lets the client right-size the fetch to the
+    // format's recommended lookback. Falls back to DEFAULT_SEASONS when
+    // missing/invalid and is clamped to MAX_SEASONS_CAP.
+    const requestedSeasons = parseInt(
+      new URL(req.url).searchParams.get("seasons") || "",
+      10,
+    );
+    const seasonsCount =
+      Number.isFinite(requestedSeasons) && requestedSeasons > 0
+        ? Math.min(requestedSeasons, MAX_SEASONS_CAP)
+        : DEFAULT_SEASONS;
+
     const body = await readBody(req);
     const leagueKey = body.leagueKey?.trim();
 
@@ -463,7 +478,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const records = await fetchSeasonChain(leagueKey, tokens.accessToken);
+      const records = await fetchSeasonChain(leagueKey, tokens.accessToken, seasonsCount);
       if (records.length === 0) {
         return NextResponse.json(
           { error: "No completed seasons found in this Yahoo league's history." },

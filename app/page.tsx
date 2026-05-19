@@ -549,11 +549,14 @@ export default function GeneratePage() {
     setImportStatus("loading");
     setImportMsg(`Fetching from ${platformLabel}…`);
     try {
-      const res = await fetch(`/api/import/${platform}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leagueId: input }),
-      });
+      const res = await fetch(
+        `/api/import/${platform}?seasons=${recommendedLookbackTotal}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ leagueId: input }),
+        },
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       const seasons = data as ImportedSeasonRecord[];
@@ -580,11 +583,14 @@ export default function GeneratePage() {
     setImportMsg("Fetching season data from Sleeper…");
     setImportPreview(null);
     try {
-      const res = await fetch("/api/import/sleeper", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leagueId: specificLeagueId }),
-      });
+      const res = await fetch(
+        `/api/import/sleeper?seasons=${recommendedLookbackTotal}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ leagueId: specificLeagueId }),
+        },
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       const seasons = data as ImportedSeasonRecord[];
@@ -616,11 +622,14 @@ export default function GeneratePage() {
     setImportMsg("Fetching season data from Yahoo…");
     setImportPreview(null);
     try {
-      const res = await fetch("/api/import/yahoo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leagueKey }),
-      });
+      const res = await fetch(
+        `/api/import/yahoo?seasons=${recommendedLookbackTotal}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ leagueKey }),
+        },
+      );
       if (platformRef.current !== "yahoo") return;
       const data = await res.json();
       if (platformRef.current !== "yahoo") return;

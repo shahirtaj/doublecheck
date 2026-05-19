@@ -11,7 +11,10 @@ import type { PairKey } from "@/lib/algorithm";
 import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
 
 const BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
-const MAX_SEASONS = 5;
+// Fallback when the client doesn't specify ?seasons=N.
+const DEFAULT_SEASONS = 5;
+// Hard cap so a misbehaving client can't blow up our per-season API calls.
+const MAX_SEASONS_CAP = 10;
 
 type EspnTeam = {
   id: number;
@@ -215,6 +218,18 @@ export async function POST(req: Request) {
       );
     }
 
+    // Optional ?seasons=N lets the client right-size the fetch to the
+    // format's recommended lookback. Falls back to DEFAULT_SEASONS when
+    // missing/invalid and is clamped to MAX_SEASONS_CAP.
+    const requestedSeasons = parseInt(
+      new URL(req.url).searchParams.get("seasons") || "",
+      10,
+    );
+    const seasonsCount =
+      Number.isFinite(requestedSeasons) && requestedSeasons > 0
+        ? Math.min(requestedSeasons, MAX_SEASONS_CAP)
+        : DEFAULT_SEASONS;
+
     let body: { leagueId?: string; seasonId?: number };
     try {
       body = (await req.json()) as { leagueId?: string; seasonId?: number };
@@ -239,7 +254,7 @@ export async function POST(req: Request) {
     const errors: string[] = [];
     let allPrivate = true;
 
-    for (let i = 0; i < MAX_SEASONS; i++) {
+    for (let i = 0; i < seasonsCount; i++) {
       const year = startSeason - i;
       try {
         const data = await fetchEspnSeason(leagueId, year);
