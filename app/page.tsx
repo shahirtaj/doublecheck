@@ -241,6 +241,7 @@ export default function GeneratePage() {
           d.format.teamCount >= 2 &&
           d.format.teamCount % 2 === 0
         ) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from localStorage on mount
           setSelectedFormat({ teamCount: d.format.teamCount, weekCount: d.format.weekCount });
           storedTeamCount = d.format.teamCount;
         }
@@ -275,6 +276,7 @@ export default function GeneratePage() {
     url.searchParams.delete("reason");
     window.history.replaceState({}, "", url.toString());
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- handles Yahoo OAuth redirect-back hand-off on mount
     setPlatform("yahoo");
     if (status === "connected") {
       void fetchYahooLeagues();
