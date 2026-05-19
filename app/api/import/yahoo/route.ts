@@ -35,6 +35,10 @@ const TOKEN_MAX_AGE = 60 * 60 * 24 * 30;
 const YAHOO_BASE = "https://fantasysports.yahooapis.com/fantasy/v2";
 const MAX_SEASONS = 5;
 const MAX_CHAIN_DEPTH = 5;
+// "nfl" alias covers the current season; numeric keys cover prior seasons
+// (2020=399, 2021=406, 2022=414, 2023=423, 2024=449) so users whose leagues
+// haven't renewed yet still see them in the picker.
+const NFL_GAME_KEYS = "nfl,399,406,414,423,449";
 
 type YahooLeagueMeta = {
   leagueKey: string;
@@ -433,7 +437,7 @@ export async function POST(req: Request) {
     try {
       if (!leagueKey) {
         const json = await fetchYahooJson(
-          `${YAHOO_BASE}/users;use_login=1/games;game_keys=nfl/leagues`,
+          `${YAHOO_BASE}/users;use_login=1/games;game_keys=${NFL_GAME_KEYS}/leagues`,
           tokens.accessToken,
         );
         const leagues = parseLeaguesList(json);
