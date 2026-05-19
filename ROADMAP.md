@@ -105,7 +105,7 @@ Next.js (App Router) with Tailwind CSS. Tool is the homepage (`app/page.tsx`). R
 ### Phase 3: Platform integrations ✅
 **Tool: Claude Code**
 
-Server-side API routes at `/api/import/sleeper` and `/api/import/espn`. Walk the season-history chain, fetch all completed seasons (up to 5), normalize doubled pairs into `ImportedSeasonRecord` shape. IP-based rate limiting via `lib/api/rate-limit.ts`.
+Server-side API routes at `/api/import/sleeper` and `/api/import/espn`. Walk the season-history chain and fetch up to the format's recommended lookback (clamped to `MAX_SEASONS_CAP = 13` to bound the chain walk on long-running leagues), normalize doubled pairs into `ImportedSeasonRecord` shape. IP-based rate limiting via `lib/api/rate-limit.ts`.
 
 **Sleeper username lookup** lets users enter their Sleeper username instead of a league ID; the route lists all NFL leagues for the user so they can pick from a dropdown - no league-ID hunting.
 
@@ -139,7 +139,7 @@ Deployed on Vercel with auto-deploy from `main`. Custom domain `doublecheckff.co
 - Generic tagline: "Fair schedules for fantasy football leagues"
 - Inline SVG favicon: dark slate rounded square with two emerald checkmarks ("double check")
 - Open Graph + Twitter meta tags for social sharing
-- SEO title: "DoubleCheck - Fair Fantasy Football Schedule Generator"
+- SEO title: "DoubleCheck - Fair Fantasy Football Schedules"
 - League format auto-detected from imported data (teamCount from roster size, weekCount from regWeeks) - no manual format selector
 - Before import: "Import a league to get started" prompt with Sleeper/ESPN options
 - Edge-case detection: pure round-robin and complete double round-robin show explanatory messages
@@ -176,12 +176,12 @@ Yahoo's official Fantasy Sports API requires a registered developer app and a fu
 
 Upstash Redis backs shareable read-only league links - the viral loop. 11 managers see the tool, some are commissioners in other leagues, they use it for theirs. No auth, no accounts, no Postgres - the share link itself is the identifier.
 
-- "Share" button in Step 3 serializes the current league state (format, teams, userIds, history, manualDoubles, schedule) and POSTs to `/api/share`, which writes to Upstash Redis under an 8-char alphanumeric slug and returns `/s/{slug}`
-- `/s/[slug]` server-renders a read-only view from KV: league format, manager list, week navigator, matchup list, and double-matchup summary - no edit, save, or import controls
-- 365-day TTL on KV entries; expired or missing slugs render a "Link expired or not found" message
+- "Save & Share" button in Step 3 serializes the current league state (format, teams, userIds, history, manualDoubles, schedule) and POSTs to `/api/share`, which writes to Upstash Redis under an 8-char alphanumeric slug and returns `/s/{slug}`
+- `/s/[slug]` server-renders a read-only view from Upstash Redis: league format, manager list, week navigator, matchup list, and double-matchup summary - no edit, save, or import controls
+- 365-day TTL on Upstash Redis entries; expired or missing slugs render a "Link expired or not found" message
 - IP-based rate limit of 5 shares per hour, namespaced separately from the import quota
 
-Local-first usage stays on localStorage. KV is opt-in per share.
+Local-first usage stays on localStorage. Upstash Redis is opt-in per share.
 
 **Deliverable:** Shareable league links that work cross-device without sign-in.
 
