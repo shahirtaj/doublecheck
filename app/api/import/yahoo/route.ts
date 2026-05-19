@@ -372,7 +372,6 @@ async function fetchSeasonChain(
     );
     const details = parseLeagueDetails(detailsJson);
     if (!details) break;
-    console.log("[yahoo chain]", details.leagueKey, details.season, "renew:", details.renew);
 
     if (details.isFinished) {
       const record = await fetchSeasonRecord(details, accessToken);
