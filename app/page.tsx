@@ -1719,31 +1719,34 @@ export default function GeneratePage() {
             </summary>
             <div className="mt-2 flex flex-col gap-1">
               {teams.map((t, i) => {
-                const partners: { name: string; tone: string }[] = [];
+                const partners: { name: string; tone: string; sortKey: number }[] = [];
                 for (let j = 0; j < teamCount; j++) {
                   if (j === i) continue;
                   const at = cellAvoidType(i, j);
                   const isManual = manualDoubles.has(pairKey(i, j));
                   if (isManual) {
-                    partners.push({ name: teams[j]!, tone: "text-emerald-400" });
+                    partners.push({ name: teams[j]!, tone: "text-emerald-400", sortKey: 0 });
                   } else if (at === "hard") {
-                    partners.push({ name: teams[j]!, tone: "text-red-400" });
+                    partners.push({ name: teams[j]!, tone: "text-red-400", sortKey: 1 });
                   } else if (at === "soft") {
-                    partners.push({ name: teams[j]!, tone: "text-amber-400" });
+                    partners.push({ name: teams[j]!, tone: "text-amber-400", sortKey: 2 });
                   }
                 }
                 if (partners.length === 0) return null;
+                partners.sort(
+                  (a, b) => a.sortKey - b.sortKey || a.name.localeCompare(b.name),
+                );
                 return (
-                  <div
-                    key={i}
-                    className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs px-2 py-1 bg-slate-900 rounded"
-                  >
-                    <span className="text-slate-200 font-semibold min-w-[5rem]">{t}</span>
-                    {partners.map((p, k) => (
-                      <span key={k} className={p.tone}>
-                        {p.name}
-                      </span>
-                    ))}
+                  <div key={i} className="text-xs px-2 py-1 bg-slate-900 rounded">
+                    <div className="text-slate-200 font-semibold">{t}</div>
+                    <div>
+                      {partners.map((p, k) => (
+                        <span key={k}>
+                          {k > 0 ? ", " : ""}
+                          <span className={p.tone}>{p.name}</span>
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 );
               })}
@@ -1852,12 +1855,16 @@ export default function GeneratePage() {
                   if (b === i) partners.push(teams[a]!);
                 });
                 return (
-                  <div
-                    key={i}
-                    className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs px-2 py-1 bg-slate-900 rounded"
-                  >
-                    <span className="text-slate-200 font-semibold min-w-[6.25rem]">{t}</span>
-                    <span className="text-red-400">{partners.join(", ")}</span>
+                  <div key={i} className="text-xs px-2 py-1 bg-slate-900 rounded">
+                    <div className="text-slate-200 font-semibold">{t}</div>
+                    <div>
+                      {partners.map((p, k) => (
+                        <span key={k}>
+                          {k > 0 ? ", " : ""}
+                          <span className="text-red-400">{p}</span>
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 );
               })}
