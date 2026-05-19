@@ -46,6 +46,7 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 - **Sleeper** - fully public API. Enter your Sleeper username (pick from your leagues) or paste a league ID directly.
 - **ESPN** - public leagues by league ID. Private league support follows ESPN's undocumented API quirks.
 - **Yahoo** - sign in with Yahoo (OAuth 2.0). Tokens are stored in an encrypted httpOnly cookie - no database, no account needed.
+- **Manual entry** - for unsupported platforms (NFL.com, CBS, etc.). Pick your league format, name your teams, and click the doubled matchups from each past season on an interactive grid.
 
 ## Quick start
 
@@ -57,8 +58,10 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 
 ## Tech stack
 
-- **Next.js 14** (App Router) with TypeScript
+- **Next.js 16** (App Router, Turbopack) with TypeScript
+- **React 19**
 - **Tailwind CSS** for styling
+- **ESLint 9** with flat config (`eslint.config.mjs`)
 - **Vitest** for the algorithm test suite (92 tests across 7 supported formats)
 - **Vercel** for deployment
 

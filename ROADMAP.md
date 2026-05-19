@@ -65,15 +65,17 @@ No write APIs exist on any platform for schedule input. Commissioners enter the 
 
 | Layer | Choice | Rationale |
 |-------|--------|-----------|
-| Framework | Next.js 14 (App Router) | SSR for SEO landing page, API routes for proxy, React for app |
+| Framework | Next.js 16 (App Router, Turbopack default) | SSR for SEO landing page, API routes for proxy, React for app |
+| UI | React 19 | Latest stable React runtime |
 | Language | TypeScript | Type safety for the algorithm and API integrations |
 | Styling | Tailwind CSS | Standard for Next.js, rapid responsive development |
+| Linting | ESLint 9 (flat config in `eslint.config.mjs`) | Enforced in CI; `next lint` was removed in Next 16 so we call ESLint directly |
 | Deployment | Vercel | Native Next.js support, serverless functions, free tier |
 | Domain | doublecheckff.com | Purchased via Vercel |
 | Storage (v2) | Vercel KV (Redis) | Stores share-link payloads keyed by short slug; no auth or user accounts needed |
 | Analytics | Vercel Web Analytics | Free tier, zero-config on Vercel, privacy-friendly (no cookies, no PII) |
 | Testing | Vitest | Fast, TypeScript-native |
-| CI | GitHub Actions | Typecheck + test + build on push/PR to main |
+| CI | GitHub Actions | Typecheck + lint + test + build on push/PR to main |
 | License | MIT | Maximizes credibility, community signal |
 
 localStorage for local state. Vercel KV for shareable links.
@@ -94,7 +96,7 @@ Parameterized the core algorithm by `(teamCount, weekCount)`. Covers all 7 suppo
 ### Phase 2: Next.js Project ✅
 **Tool: Claude Code**
 
-Next.js 14 App Router with Tailwind CSS. Tool is the homepage (`app/page.tsx`). Responsive UI - matrix grid scrolls horizontally on mobile, week navigator wraps. localStorage for persistence.
+Next.js (App Router) with Tailwind CSS. Tool is the homepage (`app/page.tsx`). Responsive UI - matrix grid scrolls horizontally on mobile, week navigator wraps. localStorage for persistence. Originally shipped on Next.js 14; later upgraded through 15 to **Next.js 16** (Turbopack default for both dev and build, React 19). Lint moved to ESLint 9 flat config (`eslint.config.mjs`) because Next 16 removed `next lint`.
 
 **Deliverable:** Full app running locally and deployed.
 
@@ -105,7 +107,11 @@ Next.js 14 App Router with Tailwind CSS. Tool is the homepage (`app/page.tsx`). 
 
 Server-side API routes at `/api/import/sleeper` and `/api/import/espn`. Walk the season-history chain, fetch all completed seasons (up to 5), normalize doubled pairs into `ImportedSeasonRecord` shape. IP-based rate limiting via `lib/api/rate-limit.ts`.
 
-**Deliverable:** Unified import UI - enter league ID, fetch, apply.
+**Sleeper username lookup** lets users enter their Sleeper username instead of a league ID; the route lists all NFL leagues for the user so they can pick from a dropdown - no league-ID hunting.
+
+**Manual entry mode** covers unsupported platforms (NFL.com, CBS, etc.): the commissioner picks the league format, names the teams, and clicks each past season's doubled matchups on an interactive grid. Same downstream pipeline as a platform import once the data is in.
+
+**Deliverable:** Unified import UI - enter league ID or Sleeper username, pick a platform or click into manual entry, fetch, apply.
 
 ---
 
@@ -202,9 +208,10 @@ Two waves, different audiences and timing:
 - **r/FFCommish:** Posted ✅ - 12 upvotes, 6 comments, 3.4K views. Positive reception.
 - **r/DynastyNerds:** Posted ✅ - Live with link in comments (inline links filtered by spam). 1.6K views.
 - **r/SleeperApp:** Posted ✅ - Live with link in comments (inline links filtered by spam). 743 views. Messaged mods for fresh post approval, awaiting response.
+- **r/fantasyfootball:** Posted ✅ - 527 upvotes, 118 comments, 88% upvote ratio on a 3.4M subscriber subreddit. Top comment (164 pts) requested rivalry weeks; Sleeper username lookup was shipped live in the thread. Manual entry shipped in response to NFL.com/CBS requests in the same thread.
 - **r/DynastyFF:** Rule 11 restricts tools to the Friday megathread. Standalone post denied by mods - deferred to Wave 2 megathread.
 
-**Wave 2 (late July/August 2026):** r/DynastyFF (megathread), r/FFCommish, r/DynastyNerds, r/SleeperApp, r/fantasyfootball, r/Fantasy_Football. Redraft league setup season. Fresh angle for the second round.
+**Wave 2 (late July/August 2026):** r/DynastyFF (megathread), r/FFCommish, r/DynastyNerds, r/SleeperApp, r/Fantasy_Football. Redraft league setup season. Fresh angle for the second round.
 
 **Deliverable:** Reddit reach across the dynasty + commissioner + Sleeper communities, with redraft-season follow-up in Wave 2.
 
@@ -225,15 +232,15 @@ Phases 1–8 completed across two days. Phase 9 Wave 1 in progress; Wave 2 plann
 Phases 1–8 are complete. Phase 9 Wave 1 is in progress. The tool is live at [doublecheckff.com](https://doublecheckff.com).
 
 - **Phase 1 - Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 92 Vitest tests prove constraints hold across every format.
-- **Phase 2 - Next.js 14 App Router.** Tool is the homepage with Tailwind CSS and responsive UI. localStorage persistence.
-- **Phase 3 - Server-side platform integrations.** `/api/import/sleeper` and `/api/import/espn` walk the season-history chain, fetch all completed seasons, and apply IP-based rate limiting.
+- **Phase 2 - Next.js 16 App Router.** Tool is the homepage with Tailwind CSS and responsive UI. localStorage persistence. Originally built on Next.js 14; upgraded through 15 to 16 (Turbopack default, React 19). Linting moved to ESLint 9 flat config in `eslint.config.mjs` since `next lint` was removed in Next 16. `postcss` and `glob` `overrides` from `package.json` were dropped because Next 15+ already resolves both cleanly.
+- **Phase 3 - Server-side platform integrations.** `/api/import/sleeper` and `/api/import/espn` walk the season-history chain, fetch all completed seasons, and apply IP-based rate limiting. Sleeper also supports username lookup: enter a Sleeper username and DoubleCheck lists your leagues to pick from (no need to remember the league ID). For platforms without an API (NFL.com, CBS, etc.), a **manual entry** mode lets commissioners pick the format, name their teams, and click each past season's doubled matchups on an interactive grid.
 - **Phase 4 - GitHub.** Public repo with README, MIT license, and GitHub Actions CI (92/92 tests passing).
 - **Phase 5 - Deployed.** Live on Vercel at doublecheckff.com with auto-deploy from main.
 - **Phase 6 - SEO + polish.** Favicon (double checkmark SVG), OG/Twitter meta tags, auto-detected league format from import data, lookback window override control, edge-case format detection. No manual format selector - format is derived from imported seasons.
 - **Phase 6.5 - Yahoo OAuth 2.0 import.** `/api/auth/yahoo/start` + `/api/auth/yahoo/callback` handle the OAuth dance with a CSRF state cookie. Access + refresh tokens encrypted with AES-256-GCM and stored in an httpOnly cookie - no database, no user accounts. `/api/import/yahoo` lists the user's NFL leagues for a picker, then walks the renew chain on selection to return `ImportedSeasonRecord[]`. Auto-refreshes expired tokens.
 - **Phase 7 - Shareable read-only links via Vercel KV.** `/api/share` accepts the current league state, generates an 8-char alphanumeric slug, and writes the payload to Vercel KV with a 365-day TTL. `/s/[slug]` server-renders a read-only schedule view (week navigator, matchup list, double-matchup summary). Step 3 has a "Share" button that returns the URL with a "Copy link" affordance. IP rate limit of 5 shares per hour, namespaced separately from the import quota.
 - **Phase 8 - Vercel Web Analytics.** `@vercel/analytics/next` `<Analytics />` mounted in `app/layout.tsx` so every route (homepage + share views) reports pageviews on the free tier. No cookies, no PII, zero-config when deployed on Vercel.
-- **Phase 9 Wave 1 - Reddit launch in progress.** Posted to r/FFCommish (12 upvotes, 6 comments, 3.4K views), r/DynastyNerds (1.6K views, link in comments after spam filter blocked the inline link), and r/SleeperApp (743 views, link in comments, modmail open for a fresh post). r/DynastyFF Rule 11 restricts tools to the Friday megathread - standalone post denied; deferred to Wave 2 megathread. Wave 2 (late July/August 2026) will hit r/DynastyFF (megathread), r/FFCommish, r/DynastyNerds, r/SleeperApp, r/fantasyfootball, and r/Fantasy_Football for redraft setup season.
+- **Phase 9 Wave 1 - Reddit launch in progress.** Posted to r/FFCommish (12 upvotes, 6 comments, 3.4K views), r/DynastyNerds (1.6K views, link in comments after spam filter blocked the inline link), r/SleeperApp (743 views, link in comments, modmail open for a fresh post), and r/fantasyfootball (**527 upvotes, 118 comments, 88% upvote ratio** on a 3.4M-subscriber subreddit — top comment, 164 pts, requested rivalry weeks; **Sleeper username lookup shipped live in the thread**, and **manual entry shipped in response to NFL.com/CBS requests in the same thread**). r/DynastyFF Rule 11 restricts tools to the Friday megathread - standalone post denied; deferred to Wave 2 megathread. Wave 2 (late July/August 2026) will hit r/DynastyFF (megathread), r/FFCommish, r/DynastyNerds, r/SleeperApp, and r/Fantasy_Football for redraft setup season.
 
 ### Production fixes
 - **Sleeper import 502 on single-season leagues** (commit `f67c65a`). Sleeper returns `previous_league_id: "0"` for leagues with no prior season; `"0"` is truthy in JS, so the chain walker fetched `league/0`, got a 404, and crashed the route with a 502. Fix: `nextChainId()` now treats `"0"` (alongside `null`/`undefined`/`""`) as end-of-chain. Added a typed `LeagueNotFoundError`, an outer try/catch with `console.error` logging, and response validation. The same defensive fixes were applied to the ESPN and Yahoo routes so a single bad upstream response can't take down the import endpoints.
