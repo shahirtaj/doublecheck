@@ -26,6 +26,7 @@ import {
 // ── Format constants ──────────────────────────────────────
 const STORAGE_KEY = "ff-rotational-scheduler";
 const STEP_ORDER = ["teams", "doubles", "schedule"] as const;
+const PAST_SEASON_YEARS = [2020, 2021, 2022, 2023, 2024, 2025] as const;
 
 type SelectedFormat = { teamCount: number; weekCount: number };
 
@@ -191,6 +192,8 @@ export default function GeneratePage() {
   const [addingPastSeason, setAddingPastSeason] = useState<boolean>(false);
   const [pastSeasonYear, setPastSeasonYear] = useState<string>("2025");
   const [pastSeasonDoubles, setPastSeasonDoubles] = useState<Set<PairKey>>(() => new Set());
+  // null when adding a new season; otherwise the index in `history` we're editing.
+  const [editingSeasonIndex, setEditingSeasonIndex] = useState<number | null>(null);
 
   // Hydrate from localStorage on mount.
   useEffect(() => {
@@ -769,28 +772,98 @@ export default function GeneratePage() {
   function handleApplyPastSeason() {
     const year = pastSeasonYear.trim();
     if (!year) return;
-    const entry: SeasonHistory = {
-      season: year,
-      doubles: [...pastSeasonDoubles],
-      format: "index",
-    };
-    const nextHistory = [...history, entry].sort((a, b) => {
-      const aN = Number(a.season);
-      const bN = Number(b.season);
-      if (Number.isNaN(aN) || Number.isNaN(bN)) return 0;
-      return aN - bN;
-    });
+    let nextHistory: SeasonHistory[];
+    if (editingSeasonIndex !== null) {
+      const original = history[editingSeasonIndex];
+      if (!original) return;
+      let doubles: PairKey[] = [...pastSeasonDoubles];
+      let format: "userid" | "index" = "index";
+      // Preserve userid format when editing an imported season, but only if
+      // every selected pair maps to a known userId. Otherwise fall back to
+      // index format so we don't write keys that reference missing users.
+      const allHaveUserIds = [...pastSeasonDoubles].every((key) => {
+        const [a, b] = unpackPairKey(key);
+        return userIds[a] != null && userIds[b] != null;
+      });
+      if (original.format === "userid" && allHaveUserIds) {
+        doubles = [...pastSeasonDoubles].map((key) => {
+          const [a, b] = unpackPairKey(key);
+          return [userIds[a], userIds[b]].sort().join(":");
+        });
+        format = "userid";
+      }
+      const updated: SeasonHistory = { season: year, doubles, format };
+      nextHistory = history.map((h, i) => (i === editingSeasonIndex ? updated : h));
+    } else {
+      const entry: SeasonHistory = {
+        season: year,
+        doubles: [...pastSeasonDoubles],
+        format: "index",
+      };
+      nextHistory = [...history, entry].sort((a, b) => {
+        const aN = Number(a.season);
+        const bN = Number(b.season);
+        if (Number.isNaN(aN) || Number.isNaN(bN)) return 0;
+        return aN - bN;
+      });
+    }
     setHistory(nextHistory);
     saveToStorage({ history: nextHistory });
     setPastSeasonYear("2025");
     setPastSeasonDoubles(new Set());
     setAddingPastSeason(false);
+    setEditingSeasonIndex(null);
   }
 
   function handleCancelPastSeason() {
     setPastSeasonYear("2025");
     setPastSeasonDoubles(new Set());
     setAddingPastSeason(false);
+    setEditingSeasonIndex(null);
+  }
+
+  function handleStartAddSeason() {
+    const used = new Set(history.map((h) => h.season));
+    const available = PAST_SEASON_YEARS.filter((y) => !used.has(String(y)));
+    if (available.length === 0) return;
+    const defaultYear = String(available[available.length - 1]);
+    setPastSeasonYear(defaultYear);
+    setPastSeasonDoubles(new Set());
+    setEditingSeasonIndex(null);
+    setAddingPastSeason(true);
+  }
+
+  function handleStartEditSeason(index: number) {
+    const entry = history[index];
+    if (!entry) return;
+    // Convert userid-format doubles back to index pair keys against the
+    // current roster so the matrix can render and toggle them. Pairs that
+    // reference users no longer in the league are silently dropped.
+    const indexPairs = new Set<PairKey>();
+    for (const key of entry.doubles ?? []) {
+      if (entry.format === "userid") {
+        const colon = key.indexOf(":");
+        if (colon < 0) continue;
+        const uid1 = key.slice(0, colon);
+        const uid2 = key.slice(colon + 1);
+        const i1 = userIds.indexOf(uid1);
+        const i2 = userIds.indexOf(uid2);
+        if (i1 < 0 || i2 < 0) continue;
+        indexPairs.add(pairKey(i1, i2));
+      } else {
+        indexPairs.add(key);
+      }
+    }
+    setPastSeasonYear(entry.season);
+    setPastSeasonDoubles(indexPairs);
+    setEditingSeasonIndex(index);
+    setAddingPastSeason(true);
+  }
+
+  function handleDeleteSeason(index: number) {
+    const nextHistory = history.filter((_, i) => i !== index);
+    setHistory(nextHistory);
+    saveToStorage({ history: nextHistory });
   }
 
   // ── Derived helpers ──
@@ -839,6 +912,7 @@ export default function GeneratePage() {
     setAddingPastSeason(false);
     setPastSeasonYear("2025");
     setPastSeasonDoubles(new Set());
+    setEditingSeasonIndex(null);
     setStep("teams");
     setFurthestStep("teams");
     setConfirmReset(false);
@@ -859,6 +933,10 @@ export default function GeneratePage() {
 
   const avoidInfo = getAvoidDisplay();
   const importBusy = importStatus === "loading";
+  const usedSeasonYears = new Set(history.map((h) => h.season));
+  const availablePastSeasonYears = PAST_SEASON_YEARS.filter(
+    (y) => !usedSeasonYears.has(String(y)),
+  );
 
   // ── Tailwind class atoms (mirrors the prototype's S object) ──
 
@@ -1432,33 +1510,32 @@ export default function GeneratePage() {
             </div>
           </details>
 
-          {!addingPastSeason ? (
-            <div className="mt-4">
-              <button
-                className={cls.secondaryBtn}
-                onClick={() => setAddingPastSeason(true)}
-              >
-                + Add Past Season
-              </button>
-            </div>
-          ) : (
+          {addingPastSeason ? (
             <div className={`${cls.subSection} mt-4`}>
-              <h3 className={cls.sectionTitle}>Add Past Season</h3>
+              <h3 className={cls.sectionTitle}>
+                {editingSeasonIndex !== null ? "Edit Past Season" : "Add Past Season"}
+              </h3>
               <p className={cls.hint}>
-                Enter the season year and click each doubled matchup from that
-                season&apos;s schedule.
+                {editingSeasonIndex !== null
+                  ? "Adjust the doubled matchups for this season."
+                  : "Select the season year and click each doubled matchup from that season's schedule."}
               </p>
               <div className="flex flex-wrap gap-2 items-center mb-3">
                 <select
-                  className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                  className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500 disabled:opacity-60 disabled:cursor-not-allowed"
                   value={pastSeasonYear}
                   onChange={(e) => setPastSeasonYear(e.target.value)}
+                  disabled={editingSeasonIndex !== null}
                 >
-                  {[2020, 2021, 2022, 2023, 2024, 2025].map((y) => (
-                    <option key={y} value={String(y)}>
-                      {y}
-                    </option>
-                  ))}
+                  {editingSeasonIndex !== null ? (
+                    <option value={pastSeasonYear}>{pastSeasonYear}</option>
+                  ) : (
+                    availablePastSeasonYears.map((y) => (
+                      <option key={y} value={String(y)}>
+                        {y}
+                      </option>
+                    ))
+                  )}
                 </select>
                 <span className="text-[10px] text-slate-500">
                   {pastSeasonDoubles.size} pair{pastSeasonDoubles.size === 1 ? "" : "s"} selected
@@ -1521,14 +1598,20 @@ export default function GeneratePage() {
                   onClick={handleApplyPastSeason}
                   disabled={!pastSeasonYear.trim()}
                 >
-                  Add Season
+                  {editingSeasonIndex !== null ? "Update Season" : "Add Season"}
                 </button>
                 <button className={cls.secondaryBtn} onClick={handleCancelPastSeason}>
                   Cancel
                 </button>
               </div>
             </div>
-          )}
+          ) : availablePastSeasonYears.length > 0 ? (
+            <div className="mt-4">
+              <button className={cls.secondaryBtn} onClick={handleStartAddSeason}>
+                + Add Past Season
+              </button>
+            </div>
+          ) : null}
 
           <div className="flex gap-3 mt-5 flex-wrap">
             <button
@@ -1736,13 +1819,31 @@ export default function GeneratePage() {
             return (
               <div
                 key={si}
-                className="px-2 py-1.5 border-b border-slate-700 text-xs flex flex-wrap gap-2"
+                className="px-2 py-1.5 border-b border-slate-700 text-xs flex flex-wrap gap-2 items-center"
               >
                 <strong className="text-slate-200">{h.season}</strong>
                 <span className="text-slate-400">
                   {(h.doubles || []).length} doubled pairs
                 </span>
                 <span className={`text-[10px] ${tone}`}>{label}</span>
+                <span className="ml-auto flex gap-1">
+                  <button
+                    type="button"
+                    className="text-[10px] text-slate-400 hover:text-emerald-400 px-1.5 py-0.5 border border-slate-700 rounded hover:border-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                    onClick={() => handleStartEditSeason(si)}
+                    disabled={addingPastSeason}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="text-[10px] text-slate-400 hover:text-red-400 px-1.5 py-0.5 border border-slate-700 rounded hover:border-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                    onClick={() => handleDeleteSeason(si)}
+                    disabled={addingPastSeason}
+                  >
+                    Delete
+                  </button>
+                </span>
               </div>
             );
           })}
