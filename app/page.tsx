@@ -1946,8 +1946,7 @@ export default function GeneratePage() {
           <p className="text-[11px] text-slate-300 mt-4">
             {platform === "sleeper" ? (
               <>
-                To apply this schedule, go to Settings &gt; Commissioner Control &gt; Edit Schedule
-                Matchups and update each week&apos;s matchups (
+                To apply this schedule, edit your matchups in Sleeper&apos;s League Settings (
                 <a
                   href="https://support.sleeper.com/en/articles/1955931-can-i-randomize-my-league-s-schedule"
                   target="_blank"
