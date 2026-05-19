@@ -1827,10 +1827,10 @@ export default function GeneratePage() {
                 </span>
                 <span className={`text-[10px] ${tone}`}>{label}</span>
                 {h.format !== "userid" && (
-                  <span className="ml-auto flex gap-1">
+                  <span className="ml-auto flex gap-3">
                     <button
                       type="button"
-                      className="text-[10px] text-slate-400 hover:text-emerald-400 px-1.5 py-0.5 border border-slate-700 rounded hover:border-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="bg-transparent border-0 p-0 text-[10px] text-amber-400 hover:text-amber-300 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       onClick={() => handleStartEditSeason(si)}
                       disabled={addingPastSeason}
                     >
@@ -1838,7 +1838,7 @@ export default function GeneratePage() {
                     </button>
                     <button
                       type="button"
-                      className="text-[10px] text-slate-400 hover:text-red-400 px-1.5 py-0.5 border border-slate-700 rounded hover:border-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="bg-transparent border-0 p-0 text-[10px] text-red-400 hover:text-red-300 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       onClick={() => handleDeleteSeason(si)}
                       disabled={addingPastSeason}
                     >
