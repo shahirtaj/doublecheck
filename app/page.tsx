@@ -1441,6 +1441,61 @@ export default function GeneratePage() {
             </div>
           )}
 
+          {history.length > 0 && (
+            <details className="mt-4">
+              <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
+                Season History ({history.length} saved)
+              </summary>
+              {history.map((h, si) => {
+                const age = history.length - si;
+                const tone =
+                  age <= effectiveLookback.hard
+                    ? "text-red-400"
+                    : age <= effectiveLookback.hard + effectiveLookback.soft
+                      ? "text-amber-400"
+                      : "text-slate-600";
+                const label =
+                  age <= effectiveLookback.hard
+                    ? "HARD AVOID"
+                    : age <= effectiveLookback.hard + effectiveLookback.soft
+                      ? "SOFT AVOID"
+                      : "ROTATED OUT";
+                return (
+                  <div
+                    key={si}
+                    className="px-2 py-1.5 border-b border-slate-700 text-xs flex flex-wrap gap-2 items-center"
+                  >
+                    <strong className="text-slate-200">{h.season}</strong>
+                    <span className="text-slate-400">
+                      {(h.doubles || []).length} doubled pairs
+                    </span>
+                    <span className={`text-[10px] ${tone}`}>{label}</span>
+                    {h.format !== "userid" && (
+                      <span className="ml-auto flex gap-1">
+                        <button
+                          type="button"
+                          className="bg-transparent text-[10px] text-amber-400 hover:text-amber-300 px-1.5 py-0.5 border border-amber-700 hover:border-amber-600 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          onClick={() => handleStartEditSeason(si)}
+                          disabled={addingPastSeason}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="bg-transparent text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 border border-red-700 hover:border-red-600 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          onClick={() => handleDeleteSeason(si)}
+                          disabled={addingPastSeason}
+                        >
+                          Delete
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </details>
+          )}
+
           {addingPastSeason ? (
             <div className={`${cls.subSection} mt-4`}>
               {showLookbackNote && (
@@ -1648,61 +1703,6 @@ export default function GeneratePage() {
             season{effectiveLookback.hard !== 1 ? "s" : ""}){"  "}
             <span className="text-amber-400">S</span> soft avoid (older)
           </p>
-
-          {history.length > 0 && (
-            <details className="mt-6">
-              <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
-                Season History ({history.length} saved)
-              </summary>
-              {history.map((h, si) => {
-                const age = history.length - si;
-                const tone =
-                  age <= effectiveLookback.hard
-                    ? "text-red-400"
-                    : age <= effectiveLookback.hard + effectiveLookback.soft
-                      ? "text-amber-400"
-                      : "text-slate-600";
-                const label =
-                  age <= effectiveLookback.hard
-                    ? "HARD AVOID"
-                    : age <= effectiveLookback.hard + effectiveLookback.soft
-                      ? "SOFT AVOID"
-                      : "ROTATED OUT";
-                return (
-                  <div
-                    key={si}
-                    className="px-2 py-1.5 border-b border-slate-700 text-xs flex flex-wrap gap-2 items-center"
-                  >
-                    <strong className="text-slate-200">{h.season}</strong>
-                    <span className="text-slate-400">
-                      {(h.doubles || []).length} doubled pairs
-                    </span>
-                    <span className={`text-[10px] ${tone}`}>{label}</span>
-                    {h.format !== "userid" && (
-                      <span className="ml-auto flex gap-1">
-                        <button
-                          type="button"
-                          className="bg-transparent text-[10px] text-amber-400 hover:text-amber-300 px-1.5 py-0.5 border border-amber-700 hover:border-amber-600 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                          onClick={() => handleStartEditSeason(si)}
-                          disabled={addingPastSeason}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="bg-transparent text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 border border-red-700 hover:border-red-600 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                          onClick={() => handleDeleteSeason(si)}
-                          disabled={addingPastSeason}
-                        >
-                          Delete
-                        </button>
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </details>
-          )}
 
           {/* Mobile-friendly per-team summary */}
           <details className="mt-3">
