@@ -937,6 +937,14 @@ export default function GeneratePage() {
   const availablePastSeasonYears = PAST_SEASON_YEARS.filter(
     (y) => !usedSeasonYears.has(String(y)),
   );
+  // When the user opens the add form with a history already filling (or
+  // exceeding) the recommended lookback window, surface a heads-up that
+  // further seasons won't influence schedule generation. Informational only —
+  // doesn't block the add.
+  const showLookbackNote =
+    addingPastSeason &&
+    editingSeasonIndex === null &&
+    history.length >= recommendedLookbackTotal;
 
   // ── Tailwind class atoms (mirrors the prototype's S object) ──
 
@@ -1512,6 +1520,12 @@ export default function GeneratePage() {
 
           {addingPastSeason ? (
             <div className={`${cls.subSection} mt-4`}>
+              {showLookbackNote && (
+                <p className="text-[11px] text-amber-400 mb-2">
+                  Additional seasons beyond the lookback window won&apos;t affect schedule
+                  generation.
+                </p>
+              )}
               <h3 className={cls.sectionTitle}>
                 {editingSeasonIndex !== null ? "Edit Past Season" : "Add Past Season"}
               </h3>
