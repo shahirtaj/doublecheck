@@ -1521,7 +1521,7 @@ export default function GeneratePage() {
                   onClick={handleApplyPastSeason}
                   disabled={!pastSeasonYear.trim()}
                 >
-                  Apply
+                  Add Season
                 </button>
                 <button className={cls.secondaryBtn} onClick={handleCancelPastSeason}>
                   Cancel
