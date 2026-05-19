@@ -1071,6 +1071,10 @@ export default function GeneratePage() {
               const next = e.target.value as ImportPlatform;
               if (next === platform) return;
               setPlatform(next);
+              setLeagueId("");
+              setManualLeagueName("");
+              setManualTeamCount(12);
+              setManualWeekCount(14);
               setImportPreview(null);
               setImportStatus("");
               setImportMsg("");
