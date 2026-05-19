@@ -1429,8 +1429,8 @@ export default function GeneratePage() {
                     {teams.map((t, i) => (
                       <div
                         key={i}
-                        title={t}
-                        className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
+                        data-tooltip={t}
+                        className="relative w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
                       >
                         {abbrev(t)}
                       </div>
@@ -1439,7 +1439,7 @@ export default function GeneratePage() {
                   {teams.map((t, i) => (
                     <div key={i} className="flex">
                       <div
-                        title={t}
+                        data-tooltip={t}
                         className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap"
                       >
                         {abbrev(t)}
@@ -1502,8 +1502,8 @@ export default function GeneratePage() {
                 {teams.map((t, i) => (
                   <div
                     key={i}
-                    title={t}
-                    className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
+                    data-tooltip={t}
+                    className="relative w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
                   >
                     {abbrev(t)}
                   </div>
@@ -1512,7 +1512,7 @@ export default function GeneratePage() {
               {teams.map((t, i) => (
                 <div key={i} className="flex">
                   <div
-                    title={t}
+                    data-tooltip={t}
                     className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap"
                   >
                     {abbrev(t)}

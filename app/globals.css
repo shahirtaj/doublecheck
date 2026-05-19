@@ -9,3 +9,33 @@ body {
   color: #e2e8f0;
   font-family: "JetBrains Mono", "SF Mono", "Fira Code", ui-monospace, monospace;
 }
+
+/* CSS-only hover tooltip for any element carrying a [data-tooltip="..."]
+   attribute. `:where()` keeps the position rule at zero specificity so
+   Tailwind's `.sticky` on matrix row headers continues to win and the
+   left-edge stickiness on the avoidance grid stays intact. */
+:where([data-tooltip]) {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 4px;
+  background: #334155;
+  color: #e2e8f0;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease 0.2s;
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
+}
