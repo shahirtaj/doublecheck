@@ -315,10 +315,13 @@ export default function GeneratePage() {
   const recommendedLookbackTotal = format ? format.lookback.hard + format.lookback.soft : 0;
   // Override may only dial the lookback down. Anything higher than the per-format
   // recommendation gets clamped so an over-constrained avoid set can't sneak in
-  // from stale localStorage either.
+  // from stale localStorage either. The window is also capped at the number of
+  // seasons we actually have, so the display and the dropdown's controlled value
+  // never claim more lookback than history can supply.
   const effectiveLookbackTotal = Math.min(
     lookbackOverride ?? recommendedLookbackTotal,
     recommendedLookbackTotal,
+    history.length,
   );
   const effectiveLookback = useMemo<LookbackWindow>(
     () => (format ? deriveLookback(effectiveLookbackTotal, format.lookback) : { hard: 0, soft: 0 }),
