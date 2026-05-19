@@ -1826,24 +1826,26 @@ export default function GeneratePage() {
                   {(h.doubles || []).length} doubled pairs
                 </span>
                 <span className={`text-[10px] ${tone}`}>{label}</span>
-                <span className="ml-auto flex gap-1">
-                  <button
-                    type="button"
-                    className="text-[10px] text-slate-400 hover:text-emerald-400 px-1.5 py-0.5 border border-slate-700 rounded hover:border-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                    onClick={() => handleStartEditSeason(si)}
-                    disabled={addingPastSeason}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="text-[10px] text-slate-400 hover:text-red-400 px-1.5 py-0.5 border border-slate-700 rounded hover:border-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                    onClick={() => handleDeleteSeason(si)}
-                    disabled={addingPastSeason}
-                  >
-                    Delete
-                  </button>
-                </span>
+                {h.format !== "userid" && (
+                  <span className="ml-auto flex gap-1">
+                    <button
+                      type="button"
+                      className="text-[10px] text-slate-400 hover:text-emerald-400 px-1.5 py-0.5 border border-slate-700 rounded hover:border-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                      onClick={() => handleStartEditSeason(si)}
+                      disabled={addingPastSeason}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-[10px] text-slate-400 hover:text-red-400 px-1.5 py-0.5 border border-slate-700 rounded hover:border-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                      onClick={() => handleDeleteSeason(si)}
+                      disabled={addingPastSeason}
+                    >
+                      Delete
+                    </button>
+                  </span>
+                )}
               </div>
             );
           })}
