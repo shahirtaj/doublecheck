@@ -1,4 +1,4 @@
-# DoubleCheck - Product Roadmap
+# DoubleCheck - Product roadmap
 
 ## What it is
 
@@ -9,13 +9,13 @@ A web tool that generates fair rotational schedules for fantasy football leagues
 
 ---
 
-## The Problem
+## The problem
 
 In a 12-team, 14-week fantasy football league, each team plays 3 opponents twice and 8 once. With random scheduling, some pairs get doubled year after year - creating a measurable competitive imbalance. The probability that any specific pair repeats across 3+ of 4 seasons is ~6.5%, but with 66 total pairs, ~4 pairs will experience this in any league. It's a near-certainty someone is getting a raw deal.
 
 ---
 
-## The Algorithm
+## The algorithm
 
 - Weeks 1–N: doubled opponents (first game)
 - Weeks N+1 through W-N: single opponents (shuffled)
@@ -27,7 +27,7 @@ In a 12-team, 14-week fantasy football league, each team plays 3 opponents twice
 
 ---
 
-## Supported Formats
+## Supported formats
 
 | Format | Doubles/team | Singles/team | Rotation cycle | Notes |
 |--------|-------------|-------------|----------------|-------|
@@ -47,7 +47,7 @@ Odd-number leagues and 16+ team leagues are out of scope.
 
 ---
 
-## Platform Landscape
+## Platform landscape
 
 | Platform | Users | API | Auth | Status |
 |----------|-------|-----|------|--------|
@@ -61,7 +61,7 @@ No write APIs exist on any platform for schedule input. Commissioners enter the 
 
 ---
 
-## Tech Stack
+## Tech stack
 
 | Layer | Choice | Rationale |
 |-------|--------|-----------|
@@ -84,7 +84,7 @@ localStorage for local state. Upstash Redis for shareable links.
 
 ## Phases
 
-### Phase 1: Generalize the Algorithm ✅
+### Phase 1: Generalize the algorithm ✅
 **Tool: Claude Code**
 
 Parameterized the core algorithm by `(teamCount, weekCount)`. Covers all 7 supported formats with derived double counts, rotation cycles, lookback windows, spacing constraints, and decomposition proofs.
@@ -93,7 +93,7 @@ Parameterized the core algorithm by `(teamCount, weekCount)`. Covers all 7 suppo
 
 ---
 
-### Phase 2: Next.js Project ✅
+### Phase 2: Next.js project ✅
 **Tool: Claude Code**
 
 Next.js (App Router) with Tailwind CSS. Tool is the homepage (`app/page.tsx`). Responsive UI - matrix grid scrolls horizontally on mobile, week navigator wraps. localStorage for persistence. Originally shipped on Next.js 14; later upgraded through 15 to **Next.js 16** (Turbopack default for both dev and build, React 19). Lint moved to ESLint 9 flat config (`eslint.config.mjs`) because Next 16 removed `next lint`.
@@ -102,7 +102,7 @@ Next.js (App Router) with Tailwind CSS. Tool is the homepage (`app/page.tsx`). R
 
 ---
 
-### Phase 3: Platform Integrations ✅
+### Phase 3: Platform integrations ✅
 **Tool: Claude Code**
 
 Server-side API routes at `/api/import/sleeper` and `/api/import/espn`. Walk the season-history chain, fetch all completed seasons (up to 5), normalize doubled pairs into `ImportedSeasonRecord` shape. IP-based rate limiting via `lib/api/rate-limit.ts`.
@@ -133,7 +133,7 @@ Deployed on Vercel with auto-deploy from `main`. Custom domain `doublecheckff.co
 
 ---
 
-### Phase 6: SEO, Auto-Detection, Lookback Override, Favicon ✅
+### Phase 6: SEO, auto-detection, lookback override, favicon ✅
 **Tool: Claude Code**
 
 - Generic tagline: "Fair schedules for fantasy football leagues"
@@ -156,7 +156,7 @@ Deployed on Vercel with auto-deploy from `main`. Custom domain `doublecheckff.co
 
 ---
 
-### Phase 6.5: Yahoo Integration ✅
+### Phase 6.5: Yahoo integration ✅
 **Tool: Claude Code**
 
 Yahoo's official Fantasy Sports API requires a registered developer app and a full OAuth 2.0 user-consent flow.
@@ -171,7 +171,7 @@ Yahoo's official Fantasy Sports API requires a registered developer app and a fu
 
 ---
 
-### Phase 7: Shareable Links ✅
+### Phase 7: Shareable links ✅
 **Tool: Claude Code**
 
 Upstash Redis backs shareable read-only league links - the viral loop. 11 managers see the tool, some are commissioners in other leagues, they use it for theirs. No auth, no accounts, no Postgres - the share link itself is the identifier.
@@ -199,7 +199,7 @@ Data shapes what to prioritize post-launch.
 
 ---
 
-### Phase 9: Reddit Launch (Wave 1 in progress)
+### Phase 9: Reddit launch (wave 1 in progress)
 **Tool: Claude chat**
 
 Two waves, different audiences and timing:
@@ -217,17 +217,17 @@ Two waves, different audiences and timing:
 
 ---
 
-## Priority Order
+## Priority order
 
 Phases 1–8 are done. Phase 9 Wave 1 is in progress (3 of 4 target subreddits posted; r/DynastyFF deferred to Wave 2 megathread).
 
-## Estimated Effort
+## Estimated effort
 
 Phases 1–8 completed across two days. Phase 9 Wave 1 in progress; Wave 2 planned for late July/August 2026.
 
 ---
 
-## Current State
+## Current state
 
 Phases 1–8 are complete. Phase 9 Wave 1 is in progress. The tool is live at [doublecheckff.com](https://doublecheckff.com).
 
