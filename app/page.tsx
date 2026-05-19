@@ -173,6 +173,14 @@ export default function GeneratePage() {
   const [leagueId, setLeagueId] = useState("");
   const [importStatus, setImportStatus] = useState<ImportStatus>("");
   const [importMsg, setImportMsg] = useState("");
+  // Captured from import error responses (e.g. ESPN private-league 403) so the
+  // UI can render a "See instructions" link alongside the error text. Auto-
+  // clears whenever importStatus transitions away from "error".
+  const [importHelpUrl, setImportHelpUrl] = useState<string | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clears derived help link when the source status leaves the error state
+    if (importStatus !== "error") setImportHelpUrl(null);
+  }, [importStatus]);
 
   // Shared preview - Fetch populates this; Apply commits it.
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
@@ -561,7 +569,10 @@ export default function GeneratePage() {
         },
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      if (!res.ok) {
+        if (typeof data?.helpUrl === "string") setImportHelpUrl(data.helpUrl);
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
       const seasons = data as ImportedSeasonRecord[];
       if (!Array.isArray(seasons) || seasons.length === 0) {
         throw new Error("No seasons returned.");
@@ -1223,6 +1234,18 @@ export default function GeneratePage() {
 
         {importMsg && (
           <p className={`text-[11px] mt-2 ${statusToneClass(importStatus)}`}>{importMsg}</p>
+        )}
+        {importStatus === "error" && importHelpUrl && (
+          <p className="text-[11px] mt-1">
+            <a
+              href={importHelpUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-300 underline hover:text-slate-200"
+            >
+              See instructions
+            </a>
+          </p>
         )}
       </div>
 
