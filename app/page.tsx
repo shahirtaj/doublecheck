@@ -1943,6 +1943,54 @@ export default function GeneratePage() {
             <p className={cls.error}>{shareError}</p>
           )}
 
+          <p className="text-[11px] text-slate-400 mt-4">
+            {platform === "sleeper" ? (
+              <>
+                To apply this schedule, go to Settings &gt; Commissioner Control &gt; Edit Schedule
+                Matchups and update each week&apos;s matchups (
+                <a
+                  href="https://support.sleeper.com/en/articles/1955931-can-i-randomize-my-league-s-schedule"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-300 underline hover:text-slate-200"
+                >
+                  see instructions
+                </a>
+                ).
+              </>
+            ) : platform === "espn" ? (
+              <>
+                To apply this schedule, go to LM Tools &gt; Edit Head-to-Head Schedule and update
+                each week&apos;s matchups (
+                <a
+                  href="https://support.espn.com/hc/en-us/articles/115003914792-Change-League-Schedule-and-or-Head-to-Head-Matchups-LM-Leagues"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-300 underline hover:text-slate-200"
+                >
+                  see instructions
+                </a>
+                ).
+              </>
+            ) : platform === "yahoo" ? (
+              <>
+                To apply this schedule, go to Commissioner &gt; Schedules &amp; Playoffs &gt; Edit
+                Schedules and drag teams to match (
+                <a
+                  href="https://help.yahoo.com/kb/edit-season-schedules-head-to-head-leagues-sln6320.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-300 underline hover:text-slate-200"
+                >
+                  see instructions
+                </a>
+                ).
+              </>
+            ) : (
+              <>Apply these matchups in your platform&apos;s commissioner tools before the season starts.</>
+            )}
+          </p>
+
           <details className="mt-4">
             <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
               Copy Full Schedule as Text
