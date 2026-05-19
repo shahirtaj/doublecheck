@@ -1974,7 +1974,7 @@ export default function GeneratePage() {
             ) : platform === "yahoo" ? (
               <>
                 To apply this schedule, go to Commissioner &gt; Schedules &amp; Playoffs &gt; Edit
-                Schedules and drag teams to match (
+                Schedules and update each week&apos;s matchups (
                 <a
                   href="https://help.yahoo.com/kb/edit-season-schedules-head-to-head-leagues-sln6320.html"
                   target="_blank"
