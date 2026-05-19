@@ -1820,7 +1820,7 @@ export default function GeneratePage() {
                       {teams[a]}
                     </span>
                     <span
-                      className={`text-[11px] font-bold ${isDouble ? "text-emerald-400" : "text-slate-600"}`}
+                      className={`text-[11px] font-bold ${isDouble ? "text-red-400" : "text-emerald-400"}`}
                     >
                       vs
                     </span>
@@ -1852,7 +1852,7 @@ export default function GeneratePage() {
                     className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs px-2 py-1 bg-slate-900 rounded"
                   >
                     <span className="text-slate-200 font-semibold min-w-[6.25rem]">{t}</span>
-                    <span className="text-emerald-400">{partners.join(", ")}</span>
+                    <span className="text-red-400">{partners.join(", ")}</span>
                   </div>
                 );
               })}
