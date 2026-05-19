@@ -1232,20 +1232,28 @@ export default function GeneratePage() {
           )}
         </div>
 
-        {importMsg && (
-          <p className={`text-[11px] mt-2 ${statusToneClass(importStatus)}`}>{importMsg}</p>
-        )}
-        {importStatus === "error" && importHelpUrl && (
-          <p className="text-[11px] mt-1">
-            <a
-              href={importHelpUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-slate-300 underline hover:text-slate-200"
-            >
-              See instructions
-            </a>
-          </p>
+        {importStatus === "error" && importHelpUrl ? (
+          <>
+            <p className={`text-[11px] mt-2 ${statusToneClass(importStatus)}`}>
+              This ESPN league is private. Ask your commissioner to make it public (
+              <a
+                href={importHelpUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-300 underline hover:text-slate-200"
+              >
+                see instructions
+              </a>
+              ), then try again.
+            </p>
+            <p className={`text-[11px] mt-1 ${statusToneClass(importStatus)}`}>
+              Or, choose Manual entry to import without changing any ESPN settings.
+            </p>
+          </>
+        ) : (
+          importMsg && (
+            <p className={`text-[11px] mt-2 ${statusToneClass(importStatus)}`}>{importMsg}</p>
+          )
         )}
       </div>
 
