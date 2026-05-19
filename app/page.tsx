@@ -1238,7 +1238,7 @@ export default function GeneratePage() {
 
         {importStatus === "error" && importHelpUrl ? (
           <p className={`text-[11px] mt-2 ${statusToneClass(importStatus)}`}>
-            This ESPN league is private. Ask your commissioner to make it public (
+            This ESPN league is private. Ask your commissioner to temporarily make it public (
             <a
               href={importHelpUrl}
               target="_blank"
