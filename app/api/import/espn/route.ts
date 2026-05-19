@@ -14,7 +14,9 @@ const BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
 // Fallback when the client doesn't specify ?seasons=N.
 const DEFAULT_SEASONS = 5;
 // Hard cap so a misbehaving client can't blow up our per-season API calls.
-const MAX_SEASONS_CAP = 10;
+// Set to 13 to cover the largest recommended lookback across supported
+// formats (14-team / 14-week needs 13).
+const MAX_SEASONS_CAP = 13;
 
 type EspnTeam = {
   id: number;

@@ -35,8 +35,10 @@ const TOKEN_MAX_AGE = 60 * 60 * 24 * 30;
 const YAHOO_BASE = "https://fantasysports.yahooapis.com/fantasy/v2";
 // Fallback when the client doesn't specify ?seasons=N.
 const DEFAULT_SEASONS = 5;
-// Hard cap so a misbehaving client can't blow up our chain walk.
-const MAX_SEASONS_CAP = 10;
+// Hard cap so a misbehaving client can't blow up our chain walk. Set to 13
+// to cover the largest recommended lookback across supported formats
+// (14-team / 14-week needs 13).
+const MAX_SEASONS_CAP = 13;
 // Seven seasons ending at the current year (e.g. in 2026: 2020–2026). Derived
 // at module load so we don't need a yearly hand-edit; the chain traversal
 // further down still caps the final return at the request's seasonsCount.
