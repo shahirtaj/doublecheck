@@ -1446,7 +1446,8 @@ export default function GeneratePage() {
               <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
                 Season History ({history.length} saved)
               </summary>
-              {history.map((h, si) => {
+              {[...history].reverse().map((h, displayIdx) => {
+                const si = history.length - 1 - displayIdx;
                 const age = history.length - si;
                 const tone =
                   age <= effectiveLookback.hard
