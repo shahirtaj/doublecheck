@@ -277,7 +277,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error:
-              "This ESPN league is private. Ask your commissioner to temporarily make it public, then try again. Or, choose Manual entry to import without changing any ESPN settings.",
+              "This ESPN league is private. Temporarily make your league public (see instructions), then try again. Or, choose Manual entry to import without changing any ESPN settings.",
             helpUrl:
               "https://support.espn.com/hc/en-us/articles/47160849553940-Making-a-Private-League-Public-LM-Only",
           },
