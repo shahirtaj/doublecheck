@@ -1456,13 +1456,13 @@ export default function GeneratePage() {
               <div className="overflow-x-auto -mx-2 px-2">
                 <div className="inline-block min-w-fit">
                   <div className="flex">
-                    <div className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
+                    <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
                     {teams.map((t, i) => (
                       <div
                         key={i}
                         onMouseEnter={(e) => showHeaderTooltip(t, e.currentTarget)}
                         onMouseLeave={hideHeaderTooltip}
-                        className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
+                        className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
                       >
                         {abbrev(t)}
                       </div>
@@ -1473,7 +1473,7 @@ export default function GeneratePage() {
                       <div
                         onMouseEnter={(e) => showHeaderTooltip(t, e.currentTarget)}
                         onMouseLeave={hideHeaderTooltip}
-                        className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap"
+                        className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap"
                       >
                         {abbrev(t)}
                       </div>
@@ -1482,7 +1482,7 @@ export default function GeneratePage() {
                           return (
                             <div
                               key={j}
-                              className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 bg-slate-900 border border-slate-800 box-border"
+                              className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 bg-slate-900 border border-slate-800 box-border"
                             />
                           );
                         }
@@ -1492,7 +1492,7 @@ export default function GeneratePage() {
                             key={j}
                             type="button"
                             onClick={() => togglePastSeasonDouble(i, j)}
-                            className={`w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none cursor-pointer ${
+                            className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none cursor-pointer ${
                               selected
                                 ? "bg-emerald-900 text-emerald-400 font-bold"
                                 : "bg-slate-800 text-slate-500 hover:bg-slate-700"
@@ -1531,13 +1531,13 @@ export default function GeneratePage() {
           <div className="overflow-x-auto -mx-2 px-2 mt-2">
             <div className="inline-block min-w-fit">
               <div className="flex">
-                <div className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
+                <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
                 {teams.map((t, i) => (
                   <div
                     key={i}
                     onMouseEnter={(e) => showHeaderTooltip(t, e.currentTarget)}
                     onMouseLeave={hideHeaderTooltip}
-                    className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
+                    className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
                   >
                     {abbrev(t)}
                   </div>
@@ -1548,7 +1548,7 @@ export default function GeneratePage() {
                   <div
                     onMouseEnter={(e) => showHeaderTooltip(t, e.currentTarget)}
                     onMouseLeave={hideHeaderTooltip}
-                    className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap"
+                    className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap"
                   >
                     {abbrev(t)}
                   </div>
@@ -1557,7 +1557,7 @@ export default function GeneratePage() {
                       return (
                         <div
                           key={j}
-                          className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 bg-slate-900 border border-slate-800 box-border"
+                          className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 bg-slate-900 border border-slate-800 box-border"
                         />
                       );
                     }
@@ -1583,7 +1583,7 @@ export default function GeneratePage() {
                         type="button"
                         onClick={() => toggleDouble(i, j)}
                         disabled={cellDisabled}
-                        className={`w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none ${cellDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${cellTone}`}
+                        className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none ${cellDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${cellTone}`}
                       >
                         {glyph}
                       </button>
@@ -1593,13 +1593,13 @@ export default function GeneratePage() {
               ))}
               {manualDoubles.size > 0 && (
                 <div className="flex">
-                  <div className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10">
+                  <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10">
                     CT
                   </div>
                   {doublesPerTeam().map((c, i) => (
                     <div
                       key={i}
-                      className={`w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-[8px] font-semibold border border-slate-800 box-border ${
+                      className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-[8px] font-semibold border border-slate-800 box-border ${
                         c === format.doublesPerTeam
                           ? "text-emerald-400"
                           : c > format.doublesPerTeam
