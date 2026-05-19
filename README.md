@@ -51,7 +51,7 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 ## Quick start
 
 1. Visit [DoubleCheck](https://doublecheckff.com).
-2. Pick your platform and enter your league ID (or, for Sleeper, your username — DoubleCheck will list your leagues to pick from). For platforms without automatic import (NFL.com, CBS, etc.), choose Manual and enter your league info directly.
+2. Pick your platform and enter your league ID (or, for Sleeper, your username - DoubleCheck will list your leagues to pick from). For platforms without automatic import (NFL.com, CBS, etc.), choose Manual and enter your league info directly.
 3. Review the avoidance matrix and generate this year's schedule.
 4. Save the season - its doubles automatically feed next year's lookback.
 5. Click **Share** to get a read-only `/s/{slug}` link your league members can open from any device. Links expire after 365 days; re-share to refresh.

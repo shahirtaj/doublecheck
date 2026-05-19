@@ -540,7 +540,7 @@ export default function GeneratePage() {
         }
         setSleeperLeagues(leagues);
         setImportStatus("");
-        setImportMsg(`Found ${leagues.length} Sleeper leagues — pick one.`);
+        setImportMsg(`Found ${leagues.length} Sleeper leagues - pick one.`);
       } catch (e) {
         setImportStatus("error");
         setImportMsg((e as Error).message || "Sleeper username lookup failed.");
@@ -694,7 +694,7 @@ export default function GeneratePage() {
         return;
       }
       setImportStatus("");
-      setImportMsg(`Found ${leagues.length} Yahoo leagues — pick one.`);
+      setImportMsg(`Found ${leagues.length} Yahoo leagues - pick one.`);
     } catch (e) {
       if (platformRef.current !== "yahoo") return;
       setImportStatus("error");
@@ -1085,10 +1085,10 @@ export default function GeneratePage() {
                   value={selectedYahooLeague}
                   onChange={(e) => setSelectedYahooLeague(e.target.value)}
                 >
-                  <option value="">— pick a league —</option>
+                  <option value="">- pick a league -</option>
                   {yahooLeagues.map((l) => (
                     <option key={l.leagueKey} value={l.leagueKey}>
-                      {l.season ? `${l.season} — ` : ""}
+                      {l.season ? `${l.season} - ` : ""}
                       {l.name}
                     </option>
                   ))}
@@ -1156,10 +1156,10 @@ export default function GeneratePage() {
                 value={selectedSleeperLeague}
                 onChange={(e) => setSelectedSleeperLeague(e.target.value)}
               >
-                <option value="">— pick a league —</option>
+                <option value="">- pick a league -</option>
                 {sleeperLeagues.map((l) => (
                   <option key={l.leagueId} value={l.leagueId}>
-                    {l.season ? `${l.season} — ` : ""}
+                    {l.season ? `${l.season} - ` : ""}
                     {l.name}
                   </option>
                 ))}
