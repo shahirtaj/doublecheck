@@ -189,7 +189,7 @@ export default function GeneratePage() {
   const [manualTeamCount, setManualTeamCount] = useState<number>(12);
   const [manualWeekCount, setManualWeekCount] = useState<number>(14);
   const [addingPastSeason, setAddingPastSeason] = useState<boolean>(false);
-  const [pastSeasonYear, setPastSeasonYear] = useState<string>("");
+  const [pastSeasonYear, setPastSeasonYear] = useState<string>("2025");
   const [pastSeasonDoubles, setPastSeasonDoubles] = useState<Set<PairKey>>(() => new Set());
 
   // Hydrate from localStorage on mount.
@@ -782,13 +782,13 @@ export default function GeneratePage() {
     });
     setHistory(nextHistory);
     saveToStorage({ history: nextHistory });
-    setPastSeasonYear("");
+    setPastSeasonYear("2025");
     setPastSeasonDoubles(new Set());
     setAddingPastSeason(false);
   }
 
   function handleCancelPastSeason() {
-    setPastSeasonYear("");
+    setPastSeasonYear("2025");
     setPastSeasonDoubles(new Set());
     setAddingPastSeason(false);
   }
@@ -806,7 +806,7 @@ export default function GeneratePage() {
   }
 
   function abbrev(name: string) {
-    return name.length > 5 ? name.slice(0, 5) : name;
+    return name.length > 7 ? name.slice(0, 7) : name;
   }
 
   function cellAvoidType(i: number, j: number): "manual" | "hard" | "soft" | "none" {
@@ -837,7 +837,7 @@ export default function GeneratePage() {
     setManualTeamCount(12);
     setManualWeekCount(14);
     setAddingPastSeason(false);
-    setPastSeasonYear("");
+    setPastSeasonYear("2025");
     setPastSeasonDoubles(new Set());
     setStep("teams");
     setFurthestStep("teams");
@@ -1302,11 +1302,12 @@ export default function GeneratePage() {
           <div className="overflow-x-auto -mx-2 px-2 mt-2">
             <div className="inline-block min-w-fit">
               <div className="flex">
-                <div className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
+                <div className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
                 {teams.map((t, i) => (
                   <div
                     key={i}
-                    className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
+                    title={t}
+                    className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
                   >
                     {abbrev(t)}
                   </div>
@@ -1314,7 +1315,10 @@ export default function GeneratePage() {
               </div>
               {teams.map((t, i) => (
                 <div key={i} className="flex">
-                  <div className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap">
+                  <div
+                    title={t}
+                    className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap"
+                  >
                     {abbrev(t)}
                   </div>
                   {teams.map((_, j) => {
@@ -1322,7 +1326,7 @@ export default function GeneratePage() {
                       return (
                         <div
                           key={j}
-                          className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 bg-slate-900 border border-slate-800 box-border"
+                          className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 bg-slate-900 border border-slate-800 box-border"
                         />
                       );
                     }
@@ -1341,13 +1345,14 @@ export default function GeneratePage() {
                       cellTone = "bg-amber-950 text-amber-400 font-semibold";
                       glyph = "S";
                     }
+                    const cellDisabled = isLocked || addingPastSeason;
                     return (
                       <button
                         key={j}
                         type="button"
                         onClick={() => toggleDouble(i, j)}
-                        disabled={isLocked}
-                        className={`w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none ${isLocked ? "cursor-not-allowed" : "cursor-pointer"} ${cellTone}`}
+                        disabled={cellDisabled}
+                        className={`w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none ${cellDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${cellTone}`}
                       >
                         {glyph}
                       </button>
@@ -1357,13 +1362,13 @@ export default function GeneratePage() {
               ))}
               {manualDoubles.size > 0 && (
                 <div className="flex">
-                  <div className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10">
+                  <div className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10">
                     CT
                   </div>
                   {doublesPerTeam().map((c, i) => (
                     <div
                       key={i}
-                      className={`w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-[8px] font-semibold border border-slate-800 box-border ${
+                      className={`w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-[8px] font-semibold border border-slate-800 box-border ${
                         c === format.doublesPerTeam
                           ? "text-emerald-400"
                           : c > format.doublesPerTeam
@@ -1443,15 +1448,17 @@ export default function GeneratePage() {
                 season&apos;s schedule.
               </p>
               <div className="flex flex-wrap gap-2 items-center mb-3">
-                <input
-                  className={cls.leagueInput}
-                  type="text"
-                  inputMode="numeric"
+                <select
+                  className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
                   value={pastSeasonYear}
                   onChange={(e) => setPastSeasonYear(e.target.value)}
-                  placeholder="e.g. 2024"
-                  maxLength={4}
-                />
+                >
+                  {[2020, 2021, 2022, 2023, 2024, 2025].map((y) => (
+                    <option key={y} value={String(y)}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
                 <span className="text-[10px] text-slate-500">
                   {pastSeasonDoubles.size} pair{pastSeasonDoubles.size === 1 ? "" : "s"} selected
                 </span>
@@ -1459,11 +1466,12 @@ export default function GeneratePage() {
               <div className="overflow-x-auto -mx-2 px-2">
                 <div className="inline-block min-w-fit">
                   <div className="flex">
-                    <div className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
+                    <div className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
                     {teams.map((t, i) => (
                       <div
                         key={i}
-                        className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
+                        title={t}
+                        className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
                       >
                         {abbrev(t)}
                       </div>
@@ -1471,7 +1479,10 @@ export default function GeneratePage() {
                   </div>
                   {teams.map((t, i) => (
                     <div key={i} className="flex">
-                      <div className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap">
+                      <div
+                        title={t}
+                        className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap"
+                      >
                         {abbrev(t)}
                       </div>
                       {teams.map((_, j) => {
@@ -1479,7 +1490,7 @@ export default function GeneratePage() {
                           return (
                             <div
                               key={j}
-                              className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 bg-slate-900 border border-slate-800 box-border"
+                              className="w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 bg-slate-900 border border-slate-800 box-border"
                             />
                           );
                         }
@@ -1489,7 +1500,7 @@ export default function GeneratePage() {
                             key={j}
                             type="button"
                             onClick={() => togglePastSeasonDouble(i, j)}
-                            className={`w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none cursor-pointer ${
+                            className={`w-12 sm:w-[52px] min-w-[3rem] sm:min-w-[52px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none cursor-pointer ${
                               selected
                                 ? "bg-emerald-900 text-emerald-400 font-bold"
                                 : "bg-slate-800 text-slate-500 hover:bg-slate-700"
@@ -1526,11 +1537,15 @@ export default function GeneratePage() {
                   : "bg-transparent text-amber-400 border border-amber-700 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:text-amber-300 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
               }
               onClick={() => setManualDoubles(new Set())}
-              disabled={manualDoubles.size === 0}
+              disabled={manualDoubles.size === 0 || addingPastSeason}
             >
               Clear Manual Overrides
             </button>
-            <button className={cls.primaryBtn} onClick={handleGenerate}>
+            <button
+              className={cls.primaryBtn}
+              onClick={handleGenerate}
+              disabled={addingPastSeason}
+            >
               Generate Schedule →
             </button>
           </div>
