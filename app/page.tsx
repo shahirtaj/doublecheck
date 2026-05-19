@@ -1986,7 +1986,7 @@ export default function GeneratePage() {
                 ).
               </>
             ) : (
-              <>Apply these matchups in your platform&apos;s commissioner tools before the season starts.</>
+              <>To apply this schedule, enter these matchups in your league settings.</>
             )}
           </p>
 
