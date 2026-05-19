@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
   type MouseEvent,
@@ -156,6 +157,13 @@ export default function GeneratePage() {
 
   // League import (server-side via /api/import/<platform>)
   const [platform, setPlatform] = useState<ImportPlatform>("sleeper");
+  // Mirrors `platform` so in-flight Yahoo fetches can detect when the user
+  // has switched platforms mid-request and bail out instead of stomping on
+  // the new platform's state.
+  const platformRef = useRef<ImportPlatform>("sleeper");
+  useEffect(() => {
+    platformRef.current = platform;
+  }, [platform]);
   const [leagueId, setLeagueId] = useState("");
   const [importStatus, setImportStatus] = useState<ImportStatus>("");
   const [importMsg, setImportMsg] = useState("");
@@ -563,7 +571,9 @@ export default function GeneratePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ leagueKey }),
       });
+      if (platformRef.current !== "yahoo") return;
       const data = await res.json();
+      if (platformRef.current !== "yahoo") return;
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       const seasons = data as ImportedSeasonRecord[];
       if (!Array.isArray(seasons) || seasons.length === 0) {
@@ -579,6 +589,7 @@ export default function GeneratePage() {
       setImportStatus("ready");
       setImportMsg(formatImportSuccess(detected.seasons, detected.detected));
     } catch (e) {
+      if (platformRef.current !== "yahoo") return;
       setImportStatus("error");
       setImportMsg((e as Error).message || "Fetch failed.");
     }
@@ -596,6 +607,7 @@ export default function GeneratePage() {
         headers: { "Content-Type": "application/json" },
         body: "{}",
       });
+      if (platformRef.current !== "yahoo") return;
       if (res.status === 401) {
         // Treated as "not connected" — clear status so the Connect Yahoo
         // button shows. The user will run through OAuth to get a token.
@@ -605,6 +617,7 @@ export default function GeneratePage() {
         return;
       }
       const data = await res.json();
+      if (platformRef.current !== "yahoo") return;
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       const leagues = (data?.leagues || []) as YahooLeagueOption[];
       setYahooLeagues(leagues);
@@ -621,6 +634,7 @@ export default function GeneratePage() {
       setImportStatus("");
       setImportMsg(`Found ${leagues.length} Yahoo leagues — pick one.`);
     } catch (e) {
+      if (platformRef.current !== "yahoo") return;
       setImportStatus("error");
       setImportMsg((e as Error).message || "Failed to load Yahoo leagues.");
     }
