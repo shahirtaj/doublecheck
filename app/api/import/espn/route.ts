@@ -277,7 +277,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error:
-              "This ESPN league is private. To import, set your league and its previous seasons to public in ESPN's Settings > Basic Settings, then try again.",
+              "This ESPN league is private. To import it, go to ESPN League Settings > Basic Settings and set 'Make League Viewable to Public' to Yes for this season and any previous seasons, then try again.",
           },
           { status: 403 },
         );
