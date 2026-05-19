@@ -91,7 +91,7 @@ type ImportedSeasonRecord = {
   regWeeks?: number;
 };
 
-type ImportPlatform = "sleeper" | "espn" | "yahoo";
+type ImportPlatform = "sleeper" | "espn" | "yahoo" | "manual";
 
 type ImportPreview = {
   platform: ImportPlatform;
@@ -172,6 +172,16 @@ export default function GeneratePage() {
   // result auto-fetches its chain.
   const [sleeperLeagues, setSleeperLeagues] = useState<SleeperLeagueOption[] | null>(null);
   const [selectedSleeperLeague, setSelectedSleeperLeague] = useState<string>("");
+
+  // Manual flow: for leagues on unsupported platforms (NFL.com, CBS, etc.).
+  // User picks format and league name up-front, then enters past doubled pairs
+  // by clicking a matrix grid in Step 2.
+  const [manualLeagueName, setManualLeagueName] = useState<string>("");
+  const [manualTeamCount, setManualTeamCount] = useState<number>(10);
+  const [manualWeekCount, setManualWeekCount] = useState<number>(14);
+  const [addingPastSeason, setAddingPastSeason] = useState<boolean>(false);
+  const [pastSeasonYear, setPastSeasonYear] = useState<string>("");
+  const [pastSeasonDoubles, setPastSeasonDoubles] = useState<Set<PairKey>>(() => new Set());
 
   // Hydrate from localStorage on mount.
   useEffect(() => {
@@ -704,6 +714,70 @@ export default function GeneratePage() {
     setSelectedSleeperLeague("");
   }
 
+  function handleManualStart() {
+    const tc = manualTeamCount;
+    const wc = manualWeekCount;
+    const name = manualLeagueName.trim();
+    const nextTeams = Array.from({ length: tc }, (_, i) => `Team ${i + 1}`);
+    const nextUserIds = Array.from({ length: tc }, () => null) as (string | null)[];
+    setSelectedFormat({ teamCount: tc, weekCount: wc });
+    setTeams(nextTeams);
+    setUserIds(nextUserIds);
+    setLeagueName(name);
+    setHistory([]);
+    setManualDoubles(new Set());
+    setSchedule(null);
+    setSaved(false);
+    setLookbackOverride(null);
+    setStep("teams");
+    setFurthestStep("teams");
+    resetImportUi();
+    saveToStorage({
+      format: { teamCount: tc, weekCount: wc },
+      teams: nextTeams,
+      userIds: nextUserIds,
+      leagueName: name,
+      history: [],
+      manualDoubles: [],
+      lookbackOverride: null,
+    });
+  }
+
+  function togglePastSeasonDouble(i: number, j: number) {
+    const key = pairKey(i, j);
+    const next = new Set(pastSeasonDoubles);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setPastSeasonDoubles(next);
+  }
+
+  function handleApplyPastSeason() {
+    const year = pastSeasonYear.trim();
+    if (!year) return;
+    const entry: SeasonHistory = {
+      season: year,
+      doubles: [...pastSeasonDoubles],
+      format: "index",
+    };
+    const nextHistory = [...history, entry].sort((a, b) => {
+      const aN = Number(a.season);
+      const bN = Number(b.season);
+      if (Number.isNaN(aN) || Number.isNaN(bN)) return 0;
+      return aN - bN;
+    });
+    setHistory(nextHistory);
+    saveToStorage({ history: nextHistory });
+    setPastSeasonYear("");
+    setPastSeasonDoubles(new Set());
+    setAddingPastSeason(false);
+  }
+
+  function handleCancelPastSeason() {
+    setPastSeasonYear("");
+    setPastSeasonDoubles(new Set());
+    setAddingPastSeason(false);
+  }
+
   // ── Derived helpers ──
 
   function doublesPerTeam() {
@@ -744,6 +818,12 @@ export default function GeneratePage() {
     setPlatform("sleeper");
     setYahooLeagues(null);
     setSelectedYahooLeague("");
+    setManualLeagueName("");
+    setManualTeamCount(10);
+    setManualWeekCount(14);
+    setAddingPastSeason(false);
+    setPastSeasonYear("");
+    setPastSeasonDoubles(new Set());
     setStep("teams");
     setFurthestStep("teams");
     setConfirmReset(false);
@@ -804,6 +884,11 @@ export default function GeneratePage() {
               Enter your league ID from fantasy.espn.com/football/league?leagueId=
               <strong>YOUR_ID</strong> (public leagues only).
             </>
+          ) : platform === "manual" ? (
+            <>
+              For leagues on platforms we don&apos;t import directly. Set your league
+              size now, then add past seasons in the next step to enable rotation.
+            </>
           ) : (
             <>Sign in with Yahoo to import your fantasy leagues.</>
           )}
@@ -831,6 +916,7 @@ export default function GeneratePage() {
             <option value="sleeper">Sleeper</option>
             <option value="espn">ESPN</option>
             <option value="yahoo">Yahoo</option>
+            <option value="manual">Manual (NFL.com, CBS, other)</option>
           </select>
           {platform === "yahoo" ? (
             yahooLeagues && yahooLeagues.length > 1 ? (
@@ -867,6 +953,42 @@ export default function GeneratePage() {
                 {importStatus === "loading" ? "Loading…" : "Connect Yahoo"}
               </button>
             )
+          ) : platform === "manual" ? (
+            <>
+              <input
+                className={cls.leagueInput}
+                value={manualLeagueName}
+                onChange={(e) => setManualLeagueName(e.target.value)}
+                placeholder="League name"
+                maxLength={48}
+              />
+              <select
+                className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                value={manualTeamCount}
+                onChange={(e) => setManualTeamCount(Number(e.target.value))}
+              >
+                <option value={8}>8 teams</option>
+                <option value={10}>10 teams</option>
+                <option value={12}>12 teams</option>
+                <option value={14}>14 teams</option>
+              </select>
+              <select
+                className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                value={manualWeekCount}
+                onChange={(e) => setManualWeekCount(Number(e.target.value))}
+              >
+                <option value={13}>13 weeks</option>
+                <option value={14}>14 weeks</option>
+                <option value={15}>15 weeks</option>
+              </select>
+              <button
+                className={cls.primaryBtn}
+                onClick={handleManualStart}
+                disabled={!manualLeagueName.trim()}
+              >
+                Start
+              </button>
+            </>
           ) : platform === "sleeper" && sleeperLeagues && sleeperLeagues.length > 1 ? (
             <>
               <select
@@ -1287,6 +1409,98 @@ export default function GeneratePage() {
               })}
             </div>
           </details>
+
+          {!addingPastSeason ? (
+            <div className="mt-4">
+              <button
+                className={cls.secondaryBtn}
+                onClick={() => setAddingPastSeason(true)}
+              >
+                + Add Past Season
+              </button>
+            </div>
+          ) : (
+            <div className={`${cls.subSection} mt-4`}>
+              <h3 className={cls.sectionTitle}>Add Past Season</h3>
+              <p className={cls.hint}>
+                Enter the season year and click each doubled matchup from that
+                season&apos;s schedule.
+              </p>
+              <div className="flex flex-wrap gap-2 items-center mb-3">
+                <input
+                  className={cls.leagueInput}
+                  type="text"
+                  inputMode="numeric"
+                  value={pastSeasonYear}
+                  onChange={(e) => setPastSeasonYear(e.target.value)}
+                  placeholder="e.g. 2024"
+                  maxLength={4}
+                />
+                <span className="text-[10px] text-slate-500">
+                  {pastSeasonDoubles.size} pair{pastSeasonDoubles.size === 1 ? "" : "s"} selected
+                </span>
+              </div>
+              <div className="overflow-x-auto -mx-2 px-2">
+                <div className="inline-block min-w-fit">
+                  <div className="flex">
+                    <div className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
+                    {teams.map((t, i) => (
+                      <div
+                        key={i}
+                        className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
+                      >
+                        {abbrev(t)}
+                      </div>
+                    ))}
+                  </div>
+                  {teams.map((t, i) => (
+                    <div key={i} className="flex">
+                      <div className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap">
+                        {abbrev(t)}
+                      </div>
+                      {teams.map((_, j) => {
+                        if (j <= i) {
+                          return (
+                            <div
+                              key={j}
+                              className="w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 bg-slate-900 border border-slate-800 box-border"
+                            />
+                          );
+                        }
+                        const selected = pastSeasonDoubles.has(pairKey(i, j));
+                        return (
+                          <button
+                            key={j}
+                            type="button"
+                            onClick={() => togglePastSeasonDouble(i, j)}
+                            className={`w-10 sm:w-[42px] min-w-[2.5rem] sm:min-w-[42px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none cursor-pointer ${
+                              selected
+                                ? "bg-emerald-900 text-emerald-400 font-bold"
+                                : "bg-slate-800 text-slate-500 hover:bg-slate-700"
+                            }`}
+                          >
+                            {selected ? "✕" : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2 mt-3 flex-wrap">
+                <button
+                  className={cls.primaryBtn}
+                  onClick={handleApplyPastSeason}
+                  disabled={!pastSeasonYear.trim()}
+                >
+                  Apply
+                </button>
+                <button className={cls.secondaryBtn} onClick={handleCancelPastSeason}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3 mt-5 flex-wrap">
             <button
