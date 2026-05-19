@@ -1020,6 +1020,7 @@ export default function GeneratePage() {
                   </option>
                 ))}
               </select>
+              <div className="basis-full h-0" aria-hidden="true" />
               <button
                 className={cls.primaryBtn}
                 onClick={() => fetchSleeperLeagueSeasons(selectedSleeperLeague)}
