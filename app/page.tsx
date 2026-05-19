@@ -26,13 +26,11 @@ import {
 // ── Format constants ──────────────────────────────────────
 const STORAGE_KEY = "ff-rotational-scheduler";
 const STEP_ORDER = ["teams", "doubles", "schedule"] as const;
-// Derived at module load so the "Add Past Season" dropdown doesn't need a
-// manual bump each year. Five entries ending at the current year (e.g. in
-// 2026: 2022, 2023, 2024, 2025, 2026), ascending so the latest sits last —
-// `handleStartAddSeason` defaults to that slot.
+// Captured once at module load and reused for every "current year" default
+// and reset throughout the component (`PAST_SEASON_YEARS` is derived from
+// these inside the component so it can size itself to the active format).
 const CURRENT_YEAR = new Date().getFullYear();
 const CURRENT_YEAR_STR = String(CURRENT_YEAR);
-const PAST_SEASON_YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 4 + i);
 
 type SelectedFormat = { teamCount: number; weekCount: number };
 
@@ -319,6 +317,17 @@ export default function GeneratePage() {
   );
 
   const recommendedLookbackTotal = format ? format.lookback.hard + format.lookback.soft : 0;
+  // Years offered by the "Add Past Season" dropdown, sized to the format's
+  // recommended lookback so we don't surface seasons that can't influence
+  // schedule generation. Empty until a format is selected. Existing entries
+  // older than this window still appear in the Season History list — this
+  // only narrows which years are addable.
+  const PAST_SEASON_YEARS = format
+    ? Array.from(
+        { length: recommendedLookbackTotal },
+        (_, i) => CURRENT_YEAR - (recommendedLookbackTotal - 1) + i,
+      )
+    : [];
   // Override may only dial the lookback down. Anything higher than the per-format
   // recommendation gets clamped so an over-constrained avoid set can't sneak in
   // from stale localStorage either. The window is also capped at the number of
