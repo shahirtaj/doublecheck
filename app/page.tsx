@@ -9,6 +9,7 @@ import {
   type ChangeEvent,
   type MouseEvent,
 } from "react";
+import Link from "next/link";
 import {
   buildAvoidMap,
   buildSchedule,
@@ -1121,7 +1122,7 @@ export default function GeneratePage() {
     <div className="min-h-screen px-4 py-6 text-slate-200 font-mono">
       <div className="text-center mb-7">
         <h1 className="text-xl sm:text-2xl font-extrabold text-emerald-50 uppercase tracking-tight">
-          DoubleCheck
+          <Link href="/">DoubleCheck</Link>
         </h1>
         <p className="text-[11px] text-emerald-400 mt-1 tracking-wider">
           Fair schedules for fantasy football leagues

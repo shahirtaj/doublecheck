@@ -5,6 +5,7 @@
 import { kv } from "@vercel/kv";
 import { cache } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { SharedScheduleView } from "./SharedScheduleView";
 
 type SharedPayload = {
@@ -127,7 +128,7 @@ export default async function SharePage({
     <div className="min-h-screen px-4 py-6 text-slate-200 font-mono">
       <div className="text-center mb-7">
         <h1 className="text-xl sm:text-2xl font-extrabold text-emerald-50 uppercase tracking-tight">
-          DoubleCheck
+          <Link href="/">DoubleCheck</Link>
         </h1>
         <p className="text-[11px] text-emerald-400 mt-1 tracking-wider">
           Fair schedules for fantasy football leagues

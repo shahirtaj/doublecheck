@@ -7,6 +7,7 @@
 // the share page is read-only and doesn't write to local state.
 
 import { useEffect } from "react";
+import Link from "next/link";
 
 export default function SharedScheduleError({
   error,
@@ -23,7 +24,7 @@ export default function SharedScheduleError({
     <div className="min-h-screen px-4 py-6 text-slate-200 font-mono">
       <div className="text-center mb-7">
         <h1 className="text-xl sm:text-2xl font-extrabold text-emerald-50 uppercase tracking-tight">
-          DoubleCheck
+          <Link href="/">DoubleCheck</Link>
         </h1>
         <p className="text-[11px] text-emerald-400 mt-1 tracking-wider">
           Fair schedules for fantasy football leagues
