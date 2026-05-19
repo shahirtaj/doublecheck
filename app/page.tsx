@@ -186,7 +186,7 @@ export default function GeneratePage() {
   // User picks format and league name up-front, then enters past doubled pairs
   // by clicking a matrix grid in Step 2.
   const [manualLeagueName, setManualLeagueName] = useState<string>("");
-  const [manualTeamCount, setManualTeamCount] = useState<number>(10);
+  const [manualTeamCount, setManualTeamCount] = useState<number>(12);
   const [manualWeekCount, setManualWeekCount] = useState<number>(14);
   const [addingPastSeason, setAddingPastSeason] = useState<boolean>(false);
   const [pastSeasonYear, setPastSeasonYear] = useState<string>("");
@@ -834,7 +834,7 @@ export default function GeneratePage() {
     setYahooLeagues(null);
     setSelectedYahooLeague("");
     setManualLeagueName("");
-    setManualTeamCount(10);
+    setManualTeamCount(12);
     setManualWeekCount(14);
     setAddingPastSeason(false);
     setPastSeasonYear("");
