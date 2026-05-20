@@ -966,6 +966,123 @@ describe("buildSchedule rivalry pins", () => {
       }
     });
   });
+
+  // Non-partner rivalry pins exercise the per-week matching path, which
+  // builds two independent matchings sharing only the explicitly pinned edge
+  // (instead of mirroring the entire matching across two non-partner weeks).
+  describe("non-partner rivalry pins (independent matchings)", () => {
+    function pairAt(r: ScheduleSuccess, W: number): Set<PairKey> {
+      const out = new Set<PairKey>();
+      for (const [a, b] of r.weeks[W - 1]!) out.add(pairKey(a, b));
+      return out;
+    }
+
+    it("pair pinned to two non-partner weeks: both weeks contain the pin, other 5 matchups differ", () => {
+      // 12/14 separation = 11; (3, 6) is non-partner. The two matchings must
+      // share only (0,1) — any overlap on another pair is the original bug.
+      const r = buildSchedule({
+        teamCount: 12,
+        weekCount: 14,
+        rivalryPins: [pinTo(3, 0, 1), pinTo(6, 0, 1)],
+        random: mulberry32(0x3a6),
+      });
+      assertSuccess(r);
+      const w3 = pairAt(r, 3);
+      const w6 = pairAt(r, 6);
+      const sharedKey = pairKey(0, 1);
+      expect(w3.has(sharedKey)).toBe(true);
+      expect(w6.has(sharedKey)).toBe(true);
+      const intersection: PairKey[] = [];
+      for (const k of w3) if (w6.has(k)) intersection.push(k);
+      expect(intersection).toEqual([sharedKey]);
+      expect(r.doubledPairs.has(sharedKey)).toBe(true);
+    });
+
+    it("two non-partner pinned pairs at distinct week pairs each generate independent matchings", () => {
+      const r = buildSchedule({
+        teamCount: 12,
+        weekCount: 14,
+        rivalryPins: [
+          pinTo(3, 0, 1),
+          pinTo(6, 0, 1),
+          pinTo(4, 2, 3),
+          pinTo(7, 2, 3),
+        ],
+        random: mulberry32(0x4a7),
+      });
+      assertSuccess(r);
+      const w3 = pairAt(r, 3);
+      const w6 = pairAt(r, 6);
+      const w4 = pairAt(r, 4);
+      const w7 = pairAt(r, 7);
+      const k01 = pairKey(0, 1);
+      const k23 = pairKey(2, 3);
+      expect(w3.has(k01) && w6.has(k01)).toBe(true);
+      expect(w4.has(k23) && w7.has(k23)).toBe(true);
+      // Independence: M3 ∩ M6 = {(0,1)} only, M4 ∩ M7 = {(2,3)} only.
+      const w36: PairKey[] = [];
+      for (const k of w3) if (w6.has(k)) w36.push(k);
+      expect(w36).toEqual([k01]);
+      const w47: PairKey[] = [];
+      for (const k of w4) if (w7.has(k)) w47.push(k);
+      expect(w47).toEqual([k23]);
+    });
+
+    it("any-week pin for a pair with an existing specific pin prefers the natural partner week", () => {
+      // (0, 1) pinned to Week 3 (block area, partner = Week 14). The "any
+      // week" second pin should land at Week 14, keeping the pair in the
+      // standard shared D slot rather than triggering independent matchings.
+      const r = buildSchedule({
+        teamCount: 12,
+        weekCount: 14,
+        rivalryPins: [pinTo(3, 0, 1), pinTo(null, 0, 1)],
+        random: mulberry32(0x3a14),
+      });
+      assertSuccess(r);
+      const anyPlacement = r.rivalryPlacements.find((p) => p.pinnedWeek === null);
+      expect(anyPlacement).toBeDefined();
+      expect(anyPlacement!.placedWeek).toBe(14);
+      // Week 3 and Week 14 share the entire matching (standard partner-pair
+      // behaviour), so the intersection has 6 pairs not 1.
+      const w3 = pairAt(r, 3);
+      const w14 = pairAt(r, 14);
+      let overlap = 0;
+      for (const k of w3) if (w14.has(k)) overlap++;
+      expect(overlap).toBe(6);
+    });
+
+    it("partial week 3 pin plus a non-partner second pin: W3 carries all pinned matchups, W6 carries only (0,1)", () => {
+      const r = buildSchedule({
+        teamCount: 12,
+        weekCount: 14,
+        rivalryPins: [
+          pinTo(3, 0, 1),
+          pinTo(3, 2, 3),
+          pinTo(3, 4, 5),
+          pinTo(6, 0, 1),
+        ],
+        random: mulberry32(0xa103),
+      });
+      assertSuccess(r);
+      const w3 = pairAt(r, 3);
+      const w6 = pairAt(r, 6);
+      const k01 = pairKey(0, 1);
+      const k23 = pairKey(2, 3);
+      const k45 = pairKey(4, 5);
+      expect(w3.has(k01)).toBe(true);
+      expect(w3.has(k23)).toBe(true);
+      expect(w3.has(k45)).toBe(true);
+      expect(w3.size).toBe(6);
+      expect(w6.has(k01)).toBe(true);
+      expect(w6.size).toBe(6);
+      // The non-(0,1) matchups at W6 must not repeat W3's non-pinned pairs.
+      // The independence constraint excludes everything in M3 except (0,1)
+      // from M6; check explicitly.
+      const overlap: PairKey[] = [];
+      for (const k of w3) if (w6.has(k)) overlap.push(k);
+      expect(overlap).toEqual([k01]);
+    });
+  });
 });
 
 describe("buildSchedule edge cases", () => {

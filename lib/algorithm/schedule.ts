@@ -1,6 +1,6 @@
 import { describeFormat } from "./format";
 import { decomposeComplement, tryGenerateMatchings } from "./matching";
-import { makeShuffler, pairKey } from "./pair";
+import { makeShuffler, pairKey, unpackPairKey, type Shuffler } from "./pair";
 import type {
   FormatProperties,
   Matching,
@@ -62,6 +62,23 @@ export function buildSchedule(config: ScheduleConfig): ScheduleResult {
         "No fairness issue — no rotational schedule needed.",
       format,
     };
+  }
+
+  // Detect 2-pin pairs whose weeks are not the natural double-partner pair
+  // (W, W±separation). Such pins force the same matching to be at two
+  // non-partner weeks under the slot-based architecture, which mirrors every
+  // other pair across those two weeks. We branch to a per-week generator
+  // that builds two independent matchings sharing only the pinned edge.
+  if (hasNonPartnerTwoPin(rivalryPins, format)) {
+    return buildScheduleWeekByWeek(
+      teamCount,
+      weekCount,
+      format,
+      hardAvoid,
+      softAvoid,
+      rivalryPins,
+      shuffle,
+    );
   }
 
   const resolved = resolvePins(rivalryPins, format, hardAvoid);
@@ -631,4 +648,521 @@ function arrangeWeeks(
     weeks[W - 1] = singleMatchings[i] as Matching;
   }
   return weeks as Matching[];
+}
+
+// True if any 2-pin rivalry pair has specific weeks that aren't natural
+// double partners (|W2 - W1| !== separation). The slot-based generator
+// reuses one matching at both pinned weeks, which mirrors every other pair
+// across those two weeks. For those cases we switch to a per-week generator
+// below that produces independent matchings sharing only the pinned edge.
+function hasNonPartnerTwoPin(
+  pins: ReadonlyArray<RivalryPin>,
+  format: FormatProperties,
+): boolean {
+  const { separation } = format;
+  const groups = new Map<PairKey, number[]>();
+  for (const pin of pins) {
+    if (pin.week === null) continue;
+    const k = pairKey(pin.teamA, pin.teamB);
+    let list = groups.get(k);
+    if (!list) {
+      list = [];
+      groups.set(k, list);
+    }
+    list.push(pin.week);
+  }
+  for (const [, weeks] of groups) {
+    if (weeks.length !== 2) continue;
+    if (Math.abs(weeks[0]! - weeks[1]!) !== separation) return true;
+  }
+  return false;
+}
+
+type WeeklyPinClassification = {
+  forcedDoubled: Set<PairKey>;
+  forcedSingle: Set<PairKey>;
+  weekMustInclude: Map<number, Pair[]>;
+  placements: RivalryPlacement[];
+  // For each pinned week W, the set of partner weeks pinned by the same
+  // 2-pin pair where (W, partner) is not a natural double partner pair. Used
+  // by the per-week generator to forbid algorithm-chosen pairs at W from
+  // recurring at the partner week (independence constraint).
+  nonPartnerPartners: Map<number, Set<number>>;
+};
+
+function classifyPinsForWeekly(
+  pins: ReadonlyArray<RivalryPin>,
+  format: FormatProperties,
+  hardAvoid: ReadonlySet<PairKey>,
+): WeeklyPinClassification | { error: string } {
+  const { teamCount, weekCount, doublesPerTeam: dp, separation } = format;
+  const maxPinsPerPair = Math.ceil(weekCount / (teamCount - 1));
+
+  type PinGroup = { pair: Pair; pins: RivalryPin[] };
+  const groups = new Map<PairKey, PinGroup>();
+  for (const pin of pins) {
+    if (!isValidTeamPair(pin, teamCount)) {
+      return { error: "Invalid rivalry pin: team indices out of range or identical." };
+    }
+    if (
+      pin.week !== null &&
+      (!Number.isInteger(pin.week) || pin.week < 1 || pin.week > weekCount)
+    ) {
+      return { error: `Invalid rivalry pin week: must be between 1 and ${weekCount}.` };
+    }
+    const k = pairKey(pin.teamA, pin.teamB);
+    let g = groups.get(k);
+    if (!g) {
+      const a = Math.min(pin.teamA, pin.teamB);
+      const b = Math.max(pin.teamA, pin.teamB);
+      g = { pair: [a, b], pins: [] };
+      groups.set(k, g);
+    }
+    g.pins.push(pin);
+  }
+
+  for (const [, g] of groups) {
+    if (g.pins.length > maxPinsPerPair) return { error: PIN_FAIL_MESSAGE };
+    if (g.pins.length === 2) {
+      const [p1, p2] = g.pins as [RivalryPin, RivalryPin];
+      if (p1.week !== null && p2.week !== null && p1.week === p2.week) {
+        return { error: PIN_FAIL_MESSAGE };
+      }
+    }
+  }
+
+  const teamsInWeek = new Map<number, Set<number>>();
+  const claimWeek = (W: number, a: number, b: number): boolean => {
+    let s = teamsInWeek.get(W);
+    if (!s) {
+      s = new Set<number>();
+      teamsInWeek.set(W, s);
+    }
+    if (s.has(a) || s.has(b)) return false;
+    s.add(a);
+    s.add(b);
+    return true;
+  };
+
+  const forcedDoubled = new Set<PairKey>();
+  const forcedSingle = new Set<PairKey>();
+  const weekMustInclude = new Map<number, Pair[]>();
+  const placements: RivalryPlacement[] = [];
+  const nonPartnerPartners = new Map<number, Set<number>>();
+
+  const addMust = (W: number, pair: Pair): void => {
+    let list = weekMustInclude.get(W);
+    if (!list) {
+      list = [];
+      weekMustInclude.set(W, list);
+    }
+    list.push(pair);
+  };
+  const recordNonPartner = (w1: number, w2: number): void => {
+    let s1 = nonPartnerPartners.get(w1);
+    if (!s1) {
+      s1 = new Set();
+      nonPartnerPartners.set(w1, s1);
+    }
+    s1.add(w2);
+    let s2 = nonPartnerPartners.get(w2);
+    if (!s2) {
+      s2 = new Set();
+      nonPartnerPartners.set(w2, s2);
+    }
+    s2.add(w1);
+  };
+
+  // Pass A: 2-pin both specific.
+  for (const [key, g] of groups) {
+    if (g.pins.length !== 2) continue;
+    const [p1, p2] = g.pins as [RivalryPin, RivalryPin];
+    if (p1.week === null || p2.week === null) continue;
+    const w1 = p1.week;
+    const w2 = p2.week;
+    const [a, b] = g.pair;
+    if (!claimWeek(w1, a, b) || !claimWeek(w2, a, b)) {
+      return { error: PIN_FAIL_MESSAGE };
+    }
+    forcedDoubled.add(key);
+    addMust(w1, g.pair);
+    addMust(w2, g.pair);
+    placements.push({ teamA: a, teamB: b, pinnedWeek: w1, placedWeek: w1 });
+    placements.push({ teamA: a, teamB: b, pinnedWeek: w2, placedWeek: w2 });
+    if (Math.abs(w2 - w1) !== separation) recordNonPartner(w1, w2);
+  }
+
+  // Pass B: 1-pin specific.
+  for (const [key, g] of groups) {
+    if (g.pins.length !== 1) continue;
+    const [p] = g.pins as [RivalryPin];
+    if (p.week === null) continue;
+    const [a, b] = g.pair;
+    if (!claimWeek(p.week, a, b)) return { error: PIN_FAIL_MESSAGE };
+    addMust(p.week, g.pair);
+    placements.push({ teamA: a, teamB: b, pinnedWeek: p.week, placedWeek: p.week });
+    if (hardAvoid.has(key)) forcedSingle.add(key);
+  }
+
+  // Pass C: 2-pin with any-week.
+  for (const [key, g] of groups) {
+    if (g.pins.length !== 2) continue;
+    const [p1, p2] = g.pins as [RivalryPin, RivalryPin];
+    if (p1.week !== null && p2.week !== null) continue;
+    const [a, b] = g.pair;
+    let W1: number | null = null;
+    let W2: number | null = null;
+    let pinnedW1: number | null = null;
+    let pinnedW2: number | null = null;
+
+    if (p1.week !== null) {
+      W1 = p1.week;
+      pinnedW1 = p1.week;
+    } else if (p2.week !== null) {
+      W1 = p2.week;
+      pinnedW1 = p2.week;
+    }
+    if (W1 !== null && !claimWeek(W1, a, b)) return { error: PIN_FAIL_MESSAGE };
+
+    const candidates = enumerateCandidateWeeks(
+      a, b, W1, teamsInWeek, weekCount, dp, separation, "double",
+    );
+    let placed = false;
+    for (const W of candidates) {
+      if (W1 !== null && W === W1) continue;
+      if (claimWeek(W, a, b)) {
+        W2 = W;
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) return { error: PIN_FAIL_MESSAGE };
+
+    if (W1 === null) {
+      const w1Candidates = enumerateCandidateWeeks(
+        a, b, W2, teamsInWeek, weekCount, dp, separation, "double",
+      );
+      let firstPlaced = false;
+      for (const W of w1Candidates) {
+        if (W === W2) continue;
+        if (claimWeek(W, a, b)) {
+          W1 = W;
+          firstPlaced = true;
+          break;
+        }
+      }
+      if (!firstPlaced) return { error: PIN_FAIL_MESSAGE };
+    }
+
+    forcedDoubled.add(key);
+    addMust(W1!, g.pair);
+    addMust(W2!, g.pair);
+    const earliest = Math.min(W1!, W2!);
+    const latest = Math.max(W1!, W2!);
+    const earliestPinned = W1! < W2! ? pinnedW1 : pinnedW2;
+    const latestPinned = W1! < W2! ? pinnedW2 : pinnedW1;
+    placements.push({ teamA: a, teamB: b, pinnedWeek: earliestPinned, placedWeek: earliest });
+    placements.push({ teamA: a, teamB: b, pinnedWeek: latestPinned, placedWeek: latest });
+    if (Math.abs(W2! - W1!) !== separation) recordNonPartner(W1!, W2!);
+  }
+
+  // Pass D: 1-pin any-week.
+  for (const [key, g] of groups) {
+    if (g.pins.length !== 1) continue;
+    const [p] = g.pins as [RivalryPin];
+    if (p.week !== null) continue;
+    const [a, b] = g.pair;
+    const candidates = enumerateCandidateWeeks(
+      a, b, null, teamsInWeek, weekCount, dp, separation, "single",
+    );
+    let placed = false;
+    for (const W of candidates) {
+      const tw = teamsInWeek.get(W);
+      if (tw && (tw.has(a) || tw.has(b))) continue;
+      if (claimWeek(W, a, b)) {
+        addMust(W, g.pair);
+        placements.push({ teamA: a, teamB: b, pinnedWeek: null, placedWeek: W });
+        if (hardAvoid.has(key)) forcedSingle.add(key);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) return { error: PIN_FAIL_MESSAGE };
+  }
+
+  return { forcedDoubled, forcedSingle, weekMustInclude, placements, nonPartnerPartners };
+}
+
+// Choose a `target`-sized set of pairs forming a `dp`-regular subgraph of
+// K_n, including all forced doubles and excluding forced singles + hardAvoid.
+// Greedy with retry — usually finds a valid set quickly for typical inputs.
+function pickDoubledSet(
+  n: number,
+  dp: number,
+  forcedDoubled: ReadonlySet<PairKey>,
+  forcedSingle: ReadonlySet<PairKey>,
+  hardAvoid: ReadonlySet<PairKey>,
+  softAvoid: ReadonlySet<PairKey>,
+  shuffle: Shuffler,
+  target: number,
+): Set<PairKey> | null {
+  const tier1: PairKey[] = [];
+  const tier2: PairKey[] = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const k = pairKey(i, j);
+      if (forcedDoubled.has(k) || hardAvoid.has(k) || forcedSingle.has(k)) continue;
+      if (softAvoid.has(k)) tier2.push(k);
+      else tier1.push(k);
+    }
+  }
+
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const doubled = new Set<PairKey>(forcedDoubled);
+    const degree = new Array<number>(n).fill(0);
+    for (const k of doubled) {
+      const [a, b] = unpackPairKey(k);
+      degree[a]!++;
+      degree[b]!++;
+    }
+    let exceeded = false;
+    for (let i = 0; i < n; i++) {
+      if (degree[i]! > dp) {
+        exceeded = true;
+        break;
+      }
+    }
+    if (exceeded) return null;
+    if (doubled.size > target) return null;
+
+    const ordered = [...shuffle(tier1), ...shuffle(tier2)];
+    for (const k of ordered) {
+      if (doubled.size === target) break;
+      const [a, b] = unpackPairKey(k);
+      if (degree[a]! < dp && degree[b]! < dp) {
+        doubled.add(k);
+        degree[a]!++;
+        degree[b]!++;
+      }
+    }
+    if (doubled.size === target) {
+      // Also verify all degrees are exactly dp.
+      let allDp = true;
+      for (let i = 0; i < n; i++) {
+        if (degree[i]! !== dp) {
+          allDp = false;
+          break;
+        }
+      }
+      if (allDp) return doubled;
+    }
+  }
+  return null;
+}
+
+// Find a perfect matching for one week. mustInclude pairs are pre-placed;
+// the rest are filled by backtracking, restricted to edges with remaining
+// budget > 0 and not in `excluded` (which carries the independence
+// constraint from non-partner pinned partner weeks).
+function findMatchingForWeek(
+  n: number,
+  mustInclude: ReadonlyArray<Pair>,
+  remaining: ReadonlyMap<PairKey, number>,
+  excluded: ReadonlySet<PairKey>,
+  shuffle: Shuffler,
+): Matching | null {
+  const matching: Matching = [];
+  const paired = new Set<number>();
+  for (const [a, b] of mustInclude) {
+    if (a === b || paired.has(a) || paired.has(b)) return null;
+    const k = pairKey(a, b);
+    if ((remaining.get(k) ?? 0) <= 0) return null;
+    paired.add(a);
+    paired.add(b);
+    matching.push([Math.min(a, b), Math.max(a, b)]);
+  }
+  const pickFirstUnpaired = (): number => {
+    for (let i = 0; i < n; i++) if (!paired.has(i)) return i;
+    return -1;
+  };
+  const backtrack = (): boolean => {
+    if (paired.size === n) return true;
+    const team = pickFirstUnpaired();
+    const partners: number[] = [];
+    for (let j = 0; j < n; j++) {
+      if (j === team || paired.has(j)) continue;
+      const k = pairKey(team, j);
+      if ((remaining.get(k) ?? 0) > 0 && !excluded.has(k)) partners.push(j);
+    }
+    for (const p of shuffle(partners)) {
+      paired.add(team);
+      paired.add(p);
+      matching.push([Math.min(team, p), Math.max(team, p)]);
+      if (backtrack()) return true;
+      paired.delete(team);
+      paired.delete(p);
+      matching.pop();
+    }
+    return false;
+  };
+  return backtrack() ? matching : null;
+}
+
+function buildMatchingsByWeek(
+  n: number,
+  weekCount: number,
+  target: ReadonlyMap<PairKey, number>,
+  weekMustInclude: ReadonlyMap<number, Pair[]>,
+  nonPartnerPartners: ReadonlyMap<number, Set<number>>,
+  shuffle: Shuffler,
+): Matching[] | null {
+  const pinnedWeeks: number[] = [];
+  const unpinnedWeeks: number[] = [];
+  for (let W = 1; W <= weekCount; W++) {
+    if (weekMustInclude.has(W)) pinnedWeeks.push(W);
+    else unpinnedWeeks.push(W);
+  }
+  // Pinned weeks first in numerical order so the exclude logic for the second
+  // pinned week of a non-partner pair has the first week's matching available.
+  pinnedWeeks.sort((a, b) => a - b);
+
+  for (let outer = 0; outer < 50; outer++) {
+    const remaining = new Map<PairKey, number>(target);
+    const matchings: (Matching | null)[] = new Array(weekCount).fill(null);
+    const matchingPairs = new Map<number, Set<PairKey>>();
+    const order = [...pinnedWeeks, ...shuffle(unpinnedWeeks)];
+    let ok = true;
+    for (const W of order) {
+      const must = weekMustInclude.get(W) ?? [];
+      const exclude = new Set<PairKey>();
+      const partners = nonPartnerPartners.get(W);
+      if (partners) {
+        const mustSet = new Set<PairKey>();
+        for (const [a, b] of must) mustSet.add(pairKey(a, b));
+        for (const pw of partners) {
+          const pPairs = matchingPairs.get(pw);
+          if (!pPairs) continue;
+          for (const k of pPairs) {
+            if (!mustSet.has(k)) exclude.add(k);
+          }
+        }
+      }
+      const m = findMatchingForWeek(n, must, remaining, exclude, shuffle);
+      if (!m) {
+        ok = false;
+        break;
+      }
+      matchings[W - 1] = m;
+      const pSet = new Set<PairKey>();
+      for (const [a, b] of m) {
+        const k = pairKey(a, b);
+        remaining.set(k, (remaining.get(k) ?? 0) - 1);
+        pSet.add(k);
+      }
+      matchingPairs.set(W, pSet);
+    }
+    if (ok) {
+      let allZero = true;
+      for (const [, r] of remaining) {
+        if (r !== 0) {
+          allZero = false;
+          break;
+        }
+      }
+      if (allZero) return matchings as Matching[];
+    }
+  }
+  return null;
+}
+
+function buildScheduleWeekByWeek(
+  teamCount: number,
+  weekCount: number,
+  format: FormatProperties,
+  hardAvoid: ReadonlySet<PairKey>,
+  softAvoid: ReadonlySet<PairKey>,
+  pins: ReadonlyArray<RivalryPin>,
+  shuffle: Shuffler,
+): ScheduleResult {
+  const dp = format.doublesPerTeam;
+  const totalDoubled = (dp * teamCount) / 2;
+
+  const pinResult = classifyPinsForWeekly(pins, format, hardAvoid);
+  if ("error" in pinResult) {
+    return { ok: false, reason: "generation-failed", message: pinResult.error };
+  }
+  const { forcedDoubled, forcedSingle, weekMustInclude, placements, nonPartnerPartners } =
+    pinResult;
+
+  const forcedDegree = new Array<number>(teamCount).fill(0);
+  for (const k of forcedDoubled) {
+    const [a, b] = unpackPairKey(k);
+    forcedDegree[a]!++;
+    forcedDegree[b]!++;
+  }
+  for (let i = 0; i < teamCount; i++) {
+    if (forcedDegree[i]! > dp) {
+      return { ok: false, reason: "generation-failed", message: PIN_FAIL_MESSAGE };
+    }
+  }
+
+  for (let outerAttempt = 0; outerAttempt < 30; outerAttempt++) {
+    let usingSoft = false;
+    let doubled = pickDoubledSet(
+      teamCount, dp, forcedDoubled, forcedSingle, hardAvoid, softAvoid, shuffle, totalDoubled,
+    );
+    if (!doubled) {
+      doubled = pickDoubledSet(
+        teamCount, dp, forcedDoubled, forcedSingle, hardAvoid, new Set(), shuffle, totalDoubled,
+      );
+      usingSoft = true;
+      if (!doubled) continue;
+    }
+
+    const target = new Map<PairKey, number>();
+    for (let i = 0; i < teamCount; i++) {
+      for (let j = i + 1; j < teamCount; j++) {
+        const k = pairKey(i, j);
+        target.set(k, doubled.has(k) ? 2 : 1);
+      }
+    }
+
+    const matchings = buildMatchingsByWeek(
+      teamCount, weekCount, target, weekMustInclude, nonPartnerPartners, shuffle,
+    );
+    if (!matchings) continue;
+
+    const doubledPairs = new Set<PairKey>();
+    const counts = new Map<PairKey, number>();
+    for (const week of matchings) {
+      for (const [a, b] of week) {
+        const k = pairKey(a, b);
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+      }
+    }
+    for (const [k, c] of counts) {
+      if (c >= 2) doubledPairs.add(k);
+    }
+    const rivalryPinnedPairs = new Set<PairKey>();
+    for (const p of placements) rivalryPinnedPairs.add(pairKey(p.teamA, p.teamB));
+    const softRepeated: PairKey[] = [];
+    const hardRepeated: PairKey[] = [];
+    for (const k of doubledPairs) {
+      if (rivalryPinnedPairs.has(k)) continue;
+      if (softAvoid.has(k)) softRepeated.push(k);
+      if (hardAvoid.has(k)) hardRepeated.push(k);
+    }
+
+    return {
+      ok: true,
+      weeks: matchings,
+      doubledPairs,
+      softRepeated,
+      hardRepeated,
+      clean: !usingSoft,
+      format,
+      rivalryPlacements: placements,
+    };
+  }
+  return { ok: false, reason: "generation-failed", message: PIN_FAIL_MESSAGE };
 }
