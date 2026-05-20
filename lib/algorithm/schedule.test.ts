@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildSchedule, describeFormat, pairKey } from "./index";
-import type { ScheduleSuccess } from "./types";
+import type { RivalryPin, ScheduleSuccess } from "./types";
 
 // Mulberry32: small, fast, deterministic PRNG. Each test that needs random
 // scheduling gets a fresh seed so failures are reproducible and tests don't
@@ -239,6 +239,255 @@ describe("describeFormat", () => {
     const f = describeFormat(8, 14);
     expect(f.variant).toBe("complete-double-round-robin");
     expect(f.singlesPerTeam).toBe(0);
+  });
+});
+
+describe("buildSchedule rivalry pins", () => {
+  function pinTo(week: number | null, a: number, b: number): RivalryPin {
+    return { teamA: a, teamB: b, week };
+  }
+
+  it("places a specific-week pin at the requested first-block double week", () => {
+    // 12 teams / 14 weeks: 3 doubles per team, separation = 11. Week 2 is a
+    // first-block double slot (slot 1), so the pair shows at weeks 2 and 13.
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(2, 0, 1)],
+      random: mulberry32(0x1111),
+    });
+    assertSuccess(r);
+    expect(r.weeks[1]!.some(([a, b]) => (a === 0 && b === 1) || (a === 1 && b === 0))).toBe(true);
+    expect(r.weeks[12]!.some(([a, b]) => (a === 0 && b === 1) || (a === 1 && b === 0))).toBe(true);
+    expect(r.doubledPairs.has(pairKey(0, 1))).toBe(true);
+    expect(r.rivalryPlacements).toHaveLength(1);
+    expect(r.rivalryPlacements[0]).toMatchObject({
+      teamA: 0,
+      teamB: 1,
+      pinnedWeek: 2,
+      placedWeek: 2,
+    });
+  });
+
+  it("places a specific-week pin at the requested last-block double week", () => {
+    // 12/14: last-block double weeks are 12..14. Pin to week 13 → slot 1 →
+    // pair shows at weeks 2 and 13.
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(13, 2, 3)],
+      random: mulberry32(0x2222),
+    });
+    assertSuccess(r);
+    expect(r.weeks[12]!.some(([a, b]) => (a === 2 && b === 3) || (a === 3 && b === 2))).toBe(true);
+    expect(r.doubledPairs.has(pairKey(2, 3))).toBe(true);
+    expect(r.rivalryPlacements[0]!.placedWeek).toBe(13);
+  });
+
+  it("places a specific-week pin at a middle single week without doubling it", () => {
+    // 12/14: middle weeks 4..11. Pin to week 6 → single slot 2.
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(6, 4, 5)],
+      random: mulberry32(0x3333),
+    });
+    assertSuccess(r);
+    expect(r.weeks[5]!.some(([a, b]) => (a === 4 && b === 5) || (a === 5 && b === 4))).toBe(true);
+    expect(r.doubledPairs.has(pairKey(4, 5))).toBe(false);
+    expect(r.rivalryPlacements[0]).toMatchObject({
+      pinnedWeek: 6,
+      placedWeek: 6,
+    });
+  });
+
+  it("places multiple specific-week pins to the same week in the same matching", () => {
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(2, 0, 1), pinTo(2, 4, 5)],
+      random: mulberry32(0x4444),
+    });
+    assertSuccess(r);
+    const week2 = r.weeks[1]!;
+    expect(week2.some(([a, b]) => (a === 0 && b === 1) || (a === 1 && b === 0))).toBe(true);
+    expect(week2.some(([a, b]) => (a === 4 && b === 5) || (a === 5 && b === 4))).toBe(true);
+  });
+
+  it("rejects two pins that put the same team in the same week", () => {
+    // Team 0 pinned twice to week 2 with different partners → impossible.
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(2, 0, 1), pinTo(2, 0, 3)],
+      random: mulberry32(0x5555),
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toBe("generation-failed");
+  });
+
+  it("places an any-week pin and records the algorithm-chosen week", () => {
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(null, 0, 1)],
+      random: mulberry32(0x6666),
+    });
+    assertSuccess(r);
+    expect(r.rivalryPlacements).toHaveLength(1);
+    const p = r.rivalryPlacements[0]!;
+    expect(p.pinnedWeek).toBeNull();
+    expect(p.placedWeek).toBeGreaterThanOrEqual(1);
+    expect(p.placedWeek).toBeLessThanOrEqual(14);
+    // Any-week pins should prefer middle (single) weeks to spread matchups.
+    expect(p.placedWeek).toBeGreaterThanOrEqual(4);
+    expect(p.placedWeek).toBeLessThanOrEqual(11);
+    const placedIdx = p.placedWeek - 1;
+    expect(
+      r.weeks[placedIdx]!.some(
+        ([a, b]) => (a === 0 && b === 1) || (a === 1 && b === 0),
+      ),
+    ).toBe(true);
+  });
+
+  it("spreads multiple any-week pins across different weeks", () => {
+    const pins: RivalryPin[] = [
+      pinTo(null, 0, 1),
+      pinTo(null, 2, 3),
+      pinTo(null, 4, 5),
+    ];
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: pins,
+      random: mulberry32(0x7777),
+    });
+    assertSuccess(r);
+    const placedWeeks = r.rivalryPlacements.map((p) => p.placedWeek);
+    expect(new Set(placedWeeks).size).toBe(placedWeeks.length);
+  });
+
+  it("pin wins over a hard-avoid pair", () => {
+    const hardAvoid = new Set([pairKey(0, 1)]);
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      hardAvoid,
+      rivalryPins: [pinTo(2, 0, 1)],
+      random: mulberry32(0x8888),
+    });
+    assertSuccess(r);
+    expect(r.doubledPairs.has(pairKey(0, 1))).toBe(true);
+    expect(r.hardRepeated).toEqual([]);
+  });
+
+  it("reports failure cleanly when pins are unsolvable", () => {
+    // Pin every team's week-2 slot to a non-matching shape: pair (0,1), (0,2)
+    // — team 0 can't play two opponents in the same week.
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(2, 0, 1), pinTo(2, 0, 2)],
+      random: mulberry32(0x9999),
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toBe("generation-failed");
+    expect(r.message).toMatch(/rivalry pins/i);
+  });
+
+  it("handles pinning every double slot for a single team", () => {
+    // 12/14: team 0 has 3 doubles per season. Pin all 3 to weeks 1, 2, 3
+    // with three distinct opponents.
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(1, 0, 1), pinTo(2, 0, 2), pinTo(3, 0, 3)],
+      random: mulberry32(0xaaaa),
+    });
+    assertSuccess(r);
+    expect(r.doubledPairs.has(pairKey(0, 1))).toBe(true);
+    expect(r.doubledPairs.has(pairKey(0, 2))).toBe(true);
+    expect(r.doubledPairs.has(pairKey(0, 3))).toBe(true);
+    // Each pinned pair appears at its first-block week and the corresponding
+    // last-block week (separation = 11).
+    for (const [pinnedWeek, opp] of [
+      [1, 1],
+      [2, 2],
+      [3, 3],
+    ] as const) {
+      const firstIdx = pinnedWeek - 1;
+      const secondIdx = pinnedWeek - 1 + 11;
+      expect(
+        r.weeks[firstIdx]!.some(([a, b]) => (a === 0 && b === opp) || (a === opp && b === 0)),
+      ).toBe(true);
+      expect(
+        r.weeks[secondIdx]!.some(([a, b]) => (a === 0 && b === opp) || (a === opp && b === 0)),
+      ).toBe(true);
+    }
+  });
+
+  it("any-week pin works alongside specific-week pins", () => {
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(2, 0, 1), pinTo(null, 2, 3)],
+      random: mulberry32(0xbbbb),
+    });
+    assertSuccess(r);
+    expect(r.rivalryPlacements).toHaveLength(2);
+    const specific = r.rivalryPlacements.find((p) => p.pinnedWeek === 2)!;
+    const any = r.rivalryPlacements.find((p) => p.pinnedWeek === null)!;
+    expect(specific.placedWeek).toBe(2);
+    expect(any.placedWeek).toBeGreaterThanOrEqual(1);
+    expect(any.placedWeek).toBeLessThanOrEqual(14);
+  });
+
+  it("returns empty placements when no pins supplied", () => {
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      random: mulberry32(0xcccc),
+    });
+    assertSuccess(r);
+    expect(r.rivalryPlacements).toEqual([]);
+  });
+
+  it("rejects pins referencing invalid team indices", () => {
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [{ teamA: 0, teamB: 99, week: 2 }],
+      random: mulberry32(0xdddd),
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toBe("generation-failed");
+  });
+
+  it("rejects pins with the same team on both sides", () => {
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [{ teamA: 3, teamB: 3, week: 5 }],
+      random: mulberry32(0xeeee),
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toBe("generation-failed");
+  });
+
+  it("rejects pins with week out of range", () => {
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(99, 0, 1)],
+      random: mulberry32(0xffff),
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toBe("generation-failed");
   });
 });
 

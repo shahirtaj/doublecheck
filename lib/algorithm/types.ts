@@ -37,6 +37,27 @@ export type FormatProperties = {
   variant: FormatVariant;
 };
 
+// A commissioner-supplied "rivalry week" constraint: pin a specific matchup to
+// a specific week, or to any week (the algorithm picks). Team indices are
+// 0-based into the current roster; week is 1-indexed to match the UI, or null
+// for "any week".
+export type RivalryPin = {
+  teamA: number;
+  teamB: number;
+  week: number | null;
+};
+
+// Where a rivalry pin ended up. `pinnedWeek` is what the user specified
+// (null = "any"); `placedWeek` is the 1-indexed week the algorithm assigned
+// (equal to pinnedWeek for specific-week pins; chosen by the algorithm for
+// any-week pins).
+export type RivalryPlacement = {
+  teamA: number;
+  teamB: number;
+  pinnedWeek: number | null;
+  placedWeek: number;
+};
+
 export type ScheduleConfig = {
   teamCount: number;
   weekCount: number;
@@ -44,6 +65,8 @@ export type ScheduleConfig = {
   hardAvoid?: ReadonlySet<PairKey>;
   // Pairs that should be doubled only if no alternative exists.
   softAvoid?: ReadonlySet<PairKey>;
+  // Commissioner-pinned matchups. Pinned pairs override hardAvoid/softAvoid.
+  rivalryPins?: ReadonlyArray<RivalryPin>;
   // Injectable RNG for deterministic tests. Defaults to Math.random.
   random?: () => number;
 };
@@ -62,6 +85,8 @@ export type ScheduleSuccess = {
   // True if we found doubles avoiding both hard AND soft sets.
   clean: boolean;
   format: FormatProperties;
+  // Where each commissioner pin landed (empty when no pins supplied).
+  rivalryPlacements: ReadonlyArray<RivalryPlacement>;
 };
 
 // Format does not need a generated schedule (pure RR or complete double RR).

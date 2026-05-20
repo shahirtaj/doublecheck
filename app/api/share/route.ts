@@ -77,6 +77,28 @@ function validatePayload(body: unknown): string | null {
     return "schedule.doubledPairs must be an array.";
   }
 
+  if (schedule.rivalryPlacements !== undefined) {
+    if (!Array.isArray(schedule.rivalryPlacements)) {
+      return "schedule.rivalryPlacements must be an array when provided.";
+    }
+    for (const p of schedule.rivalryPlacements) {
+      if (!isPlainObject(p)) return "Each rivalry placement must be an object.";
+      if (
+        typeof p.teamA !== "number" ||
+        typeof p.teamB !== "number" ||
+        !Number.isInteger(p.teamA) ||
+        !Number.isInteger(p.teamB) ||
+        typeof p.placedWeek !== "number" ||
+        !Number.isInteger(p.placedWeek)
+      ) {
+        return "Each rivalry placement must have integer teamA, teamB, placedWeek.";
+      }
+      if (p.pinnedWeek !== null && !(typeof p.pinnedWeek === "number" && Number.isInteger(p.pinnedWeek))) {
+        return "rivalryPlacement.pinnedWeek must be null or an integer.";
+      }
+    }
+  }
+
   return null;
 }
 

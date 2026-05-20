@@ -9,6 +9,8 @@ export type {
   Pair,
   Matching,
   PairKey,
+  RivalryPin,
+  RivalryPlacement,
   ScheduleConfig,
   ScheduleResult,
   ScheduleSuccess,

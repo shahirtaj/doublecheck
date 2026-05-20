@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { unpackPairKey } from "@/lib/algorithm";
+import { pairKey, unpackPairKey, type PairKey } from "@/lib/algorithm";
+
+type RivalryPlacement = {
+  teamA: number;
+  teamB: number;
+  pinnedWeek: number | null;
+  placedWeek: number;
+};
 
 type Props = {
   format: { teamCount: number; weekCount: number };
@@ -10,6 +17,7 @@ type Props = {
   teams: string[];
   weeks: [number, number][][];
   doubledPairs: string[];
+  rivalryPlacements: RivalryPlacement[];
 };
 
 export function SharedScheduleView({
@@ -19,9 +27,16 @@ export function SharedScheduleView({
   teams,
   weeks,
   doubledPairs,
+  rivalryPlacements,
 }: Props) {
   const [selectedWeek, setSelectedWeek] = useState(0);
   const doubledSet = new Set(doubledPairs);
+  const rivalryByKey = new Map<PairKey, RivalryPlacement>();
+  for (const p of rivalryPlacements) {
+    rivalryByKey.set(pairKey(p.teamA, p.teamB), p);
+  }
+  const summaryTitle = rivalryByKey.size > 0 ? "Doubles & Rivals" : "Double Matchups";
+
   const trimmedName = leagueName?.trim();
   const yearLabel = seasonYear ? `${seasonYear} ` : "";
   const heading = trimmedName
@@ -60,8 +75,14 @@ export function SharedScheduleView({
           <h3 className="text-sm font-bold text-emerald-50 mb-3">Week {selectedWeek + 1}</h3>
           <div className="flex flex-col gap-2">
             {weeks[selectedWeek]!.map(([a, b], gi) => {
-              const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+              const key = pairKey(a, b);
               const isDouble = doubledSet.has(key);
+              const isRivalry = rivalryByKey.has(key);
+              const vsTone = isRivalry
+                ? "text-sky-400"
+                : isDouble
+                  ? "text-red-400"
+                  : "text-emerald-400";
               return (
                 <div
                   key={gi}
@@ -70,11 +91,7 @@ export function SharedScheduleView({
                   <span className="flex-1 text-[13px] text-slate-200 text-center">
                     {teams[a]}
                   </span>
-                  <span
-                    className={`text-[11px] font-bold ${isDouble ? "text-emerald-400" : "text-slate-600"}`}
-                  >
-                    vs
-                  </span>
+                  <span className={`text-[11px] font-bold ${vsTone}`}>vs</span>
                   <span className="flex-1 text-[13px] text-slate-200 text-center">
                     {teams[b]}
                   </span>
@@ -86,23 +103,59 @@ export function SharedScheduleView({
 
         <details className="mt-2">
           <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
-            Double Matchup Summary
+            {summaryTitle}
           </summary>
           <div className="flex flex-col gap-1 mt-2">
             {teams.map((t, i) => {
-              const partners: string[] = [];
-              doubledSet.forEach((key) => {
+              type Entry = { name: string; tone: string; suffix: string; sortKey: number };
+              const entries: Entry[] = [];
+              const seen = new Set<PairKey>();
+              rivalryByKey.forEach((placement, key) => {
                 const [a, b] = unpackPairKey(key);
-                if (a === i) partners.push(teams[b]!);
-                if (b === i) partners.push(teams[a]!);
+                const other = a === i ? b : b === i ? a : null;
+                if (other === null) return;
+                seen.add(key);
+                const suffix =
+                  placement.pinnedWeek === null
+                    ? ` (any → Week ${placement.placedWeek})`
+                    : ` (Week ${placement.placedWeek})`;
+                entries.push({
+                  name: teams[other]!,
+                  tone: "text-sky-400",
+                  suffix,
+                  sortKey: 0,
+                });
               });
+              doubledSet.forEach((key) => {
+                if (seen.has(key)) return;
+                const [a, b] = unpackPairKey(key);
+                const other = a === i ? b : b === i ? a : null;
+                if (other === null) return;
+                entries.push({
+                  name: teams[other]!,
+                  tone: "text-red-400",
+                  suffix: "",
+                  sortKey: 1,
+                });
+              });
+              if (entries.length === 0) return null;
+              entries.sort(
+                (x, y) => x.sortKey - y.sortKey || x.name.localeCompare(y.name),
+              );
               return (
-                <div
-                  key={i}
-                  className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs px-2 py-1 bg-slate-900 rounded"
-                >
-                  <span className="text-slate-200 font-semibold min-w-[6.25rem]">{t}</span>
-                  <span className="text-emerald-400">{partners.join(", ")}</span>
+                <div key={i} className="text-xs px-2 py-1 bg-slate-900 rounded">
+                  <div className="text-slate-200 font-semibold">{t}</div>
+                  <div className="text-slate-500">
+                    {entries.map((e, k) => (
+                      <span key={k}>
+                        {k > 0 ? ", " : ""}
+                        <span className={e.tone}>
+                          {e.name}
+                          {e.suffix}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
                 </div>
               );
             })}

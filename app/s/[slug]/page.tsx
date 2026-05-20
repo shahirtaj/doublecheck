@@ -10,6 +10,13 @@ import { SharedScheduleView } from "./SharedScheduleView";
 
 const redis = Redis.fromEnv();
 
+type RivalryPlacement = {
+  teamA: number;
+  teamB: number;
+  pinnedWeek: number | null;
+  placedWeek: number;
+};
+
 type SharedPayload = {
   format: { teamCount: number; weekCount: number };
   leagueName?: string;
@@ -18,6 +25,8 @@ type SharedPayload = {
   schedule: {
     weeks: [number, number][][];
     doubledPairs: string[];
+    // Optional: pre-v2 share links don't include this; treated as empty.
+    rivalryPlacements?: RivalryPlacement[];
   };
 };
 
@@ -44,6 +53,9 @@ function isValidPayload(v: unknown): v is SharedPayload {
   if (!schedule) return false;
   if (!Array.isArray(schedule.weeks)) return false;
   if (!Array.isArray(schedule.doubledPairs)) return false;
+  if (schedule.rivalryPlacements !== undefined && !Array.isArray(schedule.rivalryPlacements)) {
+    return false;
+  }
   return true;
 }
 
@@ -147,6 +159,7 @@ export default async function SharePage({
           teams={data.teams}
           weeks={data.schedule.weeks}
           doubledPairs={data.schedule.doubledPairs}
+          rivalryPlacements={data.schedule.rivalryPlacements ?? []}
         />
       )}
     </div>
