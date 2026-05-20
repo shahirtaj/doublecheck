@@ -1976,7 +1976,7 @@ export default function GeneratePage() {
                       setPinWeek(null);
                     }}
                   >
-                    Add
+                    Pin
                   </button>
                 </div>
                 {pinError ? (
