@@ -1809,9 +1809,15 @@ export default function GeneratePage() {
           </details>
 
           {(() => {
-            const pinAKey = pairKey(pinTeamA, pinTeamB);
+            // Derive valid team indices. safeB is forced to differ from safeA
+            // so the dropdown can never silently render an invalid same-team
+            // pair; the Team B option matching safeA is also explicitly disabled.
             const safeA = pinTeamA < teamCount ? pinTeamA : 0;
-            const safeB = pinTeamB < teamCount ? pinTeamB : Math.min(1, teamCount - 1);
+            const safeBCandidate =
+              pinTeamB < teamCount ? pinTeamB : Math.min(1, Math.max(0, teamCount - 1));
+            const safeB =
+              safeBCandidate === safeA ? (safeA === 0 ? Math.min(1, teamCount - 1) : 0) : safeBCandidate;
+            const pinAKey = pairKey(safeA, safeB);
             const sameTeam = safeA === safeB;
             const maxPinsPerPair = Math.max(
               1,
@@ -1820,10 +1826,37 @@ export default function GeneratePage() {
             const existingPinsForPair = rivalryPins.filter(
               (p) => pairKey(p.teamA, p.teamB) === pinAKey,
             ).length;
+            const pairAtMax = existingPinsForPair >= maxPinsPerPair;
+
+            // Per-week option state. Order matters: an exact-pair duplicate
+            // takes priority over the generic team-conflict label.
+            const weekOptionState = (W: number): { disabled: boolean; suffix: string } => {
+              const exactDup = rivalryPins.some(
+                (p) => p.week === W && pairKey(p.teamA, p.teamB) === pinAKey,
+              );
+              if (exactDup) return { disabled: true, suffix: " (already pinned)" };
+              const teamConflict = rivalryPins.some(
+                (p) =>
+                  p.week === W &&
+                  (p.teamA === safeA ||
+                    p.teamB === safeA ||
+                    p.teamA === safeB ||
+                    p.teamB === safeB),
+              );
+              if (teamConflict) return { disabled: true, suffix: " (pinned)" };
+              return { disabled: false, suffix: "" };
+            };
+
+            const pinWeekDisabled =
+              pinWeek === null ? pairAtMax : weekOptionState(pinWeek).disabled;
+
+            // Fallback inline validation. The smart disabling above prevents
+            // most invalid selections from being made; this catches stale
+            // state (e.g., a week selected before the teams were changed).
             let pinError = "";
             if (sameTeam) {
               pinError = "Pick two different teams.";
-            } else if (existingPinsForPair >= maxPinsPerPair) {
+            } else if (pairAtMax) {
               pinError = `This pair can play at most ${maxPinsPerPair} time${
                 maxPinsPerPair === 1 ? "" : "s"
               } in this format.`;
@@ -1856,7 +1889,7 @@ export default function GeneratePage() {
                   "This pair is soft-avoided. This pin forces one game between them.";
               }
             }
-            const addDisabled = !!pinError || addingPastSeason;
+            const addDisabled = !!pinError || addingPastSeason || pinWeekDisabled;
             return (
               <div className={`${cls.subSection} mt-4`}>
                 <h3 className={cls.sectionTitle}>Rivalry Weeks</h3>
@@ -1870,7 +1903,14 @@ export default function GeneratePage() {
                     aria-label="First team"
                     className="flex-1 min-w-[8rem] bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
                     value={safeA}
-                    onChange={(e) => setPinTeamA(Number(e.target.value))}
+                    onChange={(e) => {
+                      const newA = Number(e.target.value);
+                      setPinTeamA(newA);
+                      // Auto-shift Team B if it would collide with the new A.
+                      if (pinTeamB === newA) {
+                        setPinTeamB(newA === 0 ? Math.min(1, teamCount - 1) : 0);
+                      }
+                    }}
                   >
                     {teams.map((t, i) => (
                       <option key={i} value={i}>
@@ -1882,10 +1922,13 @@ export default function GeneratePage() {
                     aria-label="Second team"
                     className="flex-1 min-w-[8rem] bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
                     value={safeB}
-                    onChange={(e) => setPinTeamB(Number(e.target.value))}
+                    onChange={(e) => {
+                      const newB = Number(e.target.value);
+                      if (newB !== safeA) setPinTeamB(newB);
+                    }}
                   >
                     {teams.map((t, i) => (
-                      <option key={i} value={i}>
+                      <option key={i} value={i} disabled={i === safeA}>
                         {t}
                       </option>
                     ))}
@@ -1899,12 +1942,19 @@ export default function GeneratePage() {
                       setPinWeek(v === "any" ? null : parseInt(v, 10));
                     }}
                   >
-                    <option value="any">Any week</option>
-                    {Array.from({ length: weekCount }, (_, i) => (
-                      <option key={i + 1} value={String(i + 1)}>
-                        Week {i + 1}
-                      </option>
-                    ))}
+                    <option value="any" disabled={pairAtMax}>
+                      Any week
+                    </option>
+                    {Array.from({ length: weekCount }, (_, i) => {
+                      const W = i + 1;
+                      const { disabled, suffix } = weekOptionState(W);
+                      return (
+                        <option key={W} value={String(W)} disabled={disabled}>
+                          Week {W}
+                          {suffix}
+                        </option>
+                      );
+                    })}
                   </select>
                   <button
                     type="button"
