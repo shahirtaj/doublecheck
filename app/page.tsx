@@ -1954,11 +1954,11 @@ export default function GeneratePage() {
               const maxDoubles = format.doublesPerTeam;
               const oppA = opponentsOf(safeA);
               if (!oppA.has(safeB) && oppA.size >= maxDoubles) {
-                pinError = `${teams[safeA]} already has ${oppA.size} pinned opponents — the max for this format is ${maxDoubles}.`;
+                pinError = `${teams[safeA]} is already pinned against ${oppA.size} different opponents — this format supports at most ${maxDoubles} repeat opponents per team.`;
               } else {
                 const oppB = opponentsOf(safeB);
                 if (!oppB.has(safeA) && oppB.size >= maxDoubles) {
-                  pinError = `${teams[safeB]} already has ${oppB.size} pinned opponents — the max for this format is ${maxDoubles}.`;
+                  pinError = `${teams[safeB]} is already pinned against ${oppB.size} different opponents — this format supports at most ${maxDoubles} repeat opponents per team.`;
                 }
               }
             }
@@ -2027,9 +2027,8 @@ export default function GeneratePage() {
               <div className={`${cls.subSection} mt-4`}>
                 <h3 className={cls.sectionTitle}>Rivalry Weeks</h3>
                 <p className={cls.hint}>
-                  Pin a matchup to a specific week (or any week) before generating. Pinned
-                  matchups render in blue. A single pin forces one game between the pair,
-                  despite any avoidance. Pin the same pair twice to force a rivalry double.
+                  Pin a matchup to a specific week (or any week) before generating. Pins
+                  override avoidance. Pinned matchups show in blue on the schedule.
                 </p>
                 <div className="flex flex-wrap gap-2 items-stretch">
                   <select
