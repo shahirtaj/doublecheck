@@ -254,8 +254,12 @@ function resolvePins(
     group.pins.push(pin);
   }
 
+  // A pair can appear at most ceil(weekCount / (teamCount - 1)) times in any
+  // valid season — same cap the UI enforces. For all currently supported
+  // formats this is 2, but compute it from the format so the limit tracks.
+  const maxPinsPerPair = Math.ceil(weekCount / (teamCount - 1));
   for (const [, group] of groupsByPair) {
-    if (group.pins.length > 2) return { error: PIN_FAIL_MESSAGE };
+    if (group.pins.length > maxPinsPerPair) return { error: PIN_FAIL_MESSAGE };
     if (group.pins.length === 2) {
       const [p1, p2] = group.pins as [RivalryPin, RivalryPin];
       if (p1.week !== null && p2.week !== null && p1.week === p2.week) {

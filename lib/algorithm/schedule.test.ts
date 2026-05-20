@@ -515,6 +515,135 @@ describe("buildSchedule rivalry pins", () => {
     if (r.ok) return;
     expect(r.reason).toBe("generation-failed");
   });
+
+  // Pin + manual "✕" in the matrix. Manual ✕ adds the pair to the hard-avoid
+  // set (it's the same code path), so this exercises the same override
+  // semantics as a history-derived hard avoid.
+  it("pin coexists with a manual hard-avoid (single appearance at pinned week)", () => {
+    const hardAvoid = new Set([pairKey(0, 1)]);
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      hardAvoid,
+      rivalryPins: [pinTo(3, 0, 1)],
+      random: mulberry32(0xabcd),
+    });
+    assertSuccess(r);
+    expect(pairAppearances(r, 0, 1)).toEqual([3]);
+    expect(r.doubledPairs.has(pairKey(0, 1))).toBe(false);
+  });
+
+  it("same pair pinned to a specific week and any-week forces a double with distinct weeks", () => {
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(1, 0, 1), pinTo(null, 0, 1)],
+      random: mulberry32(0x2233),
+    });
+    assertSuccess(r);
+    const appearances = pairAppearances(r, 0, 1);
+    expect(appearances).toHaveLength(2);
+    expect(appearances).toContain(1);
+    expect(appearances[0]).not.toBe(appearances[1]);
+    expect(r.doubledPairs.has(pairKey(0, 1))).toBe(true);
+  });
+
+  it("single pin works for a non-avoided pair (plays at the pinned week)", () => {
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(5, 0, 1)],
+      random: mulberry32(0x1234),
+    });
+    assertSuccess(r);
+    expect(pairAppearances(r, 0, 1)).toContain(5);
+  });
+
+  it("single pin works with a soft-avoided pair (plays at the pinned week)", () => {
+    const softAvoid = new Set([pairKey(0, 1)]);
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      softAvoid,
+      rivalryPins: [pinTo(5, 0, 1)],
+      random: mulberry32(0xa5a5),
+    });
+    assertSuccess(r);
+    expect(pairAppearances(r, 0, 1)).toContain(5);
+  });
+
+  it("places an any-week pin into a remaining week when one team is heavily pinned", () => {
+    // Lock team 0 into weeks 1-8 and 12-14 (11 of 14 weeks) — three forced
+    // doubles plus five singles. Team 0's free weeks are 9, 10, 11 (its third
+    // single double pair must come from opponents 10 and 11, placed by the
+    // algorithm). An any-week pin for (0, 9) should land in 9/10/11.
+    const pins: RivalryPin[] = [
+      pinTo(1, 0, 1),
+      pinTo(12, 0, 1),
+      pinTo(2, 0, 2),
+      pinTo(13, 0, 2),
+      pinTo(3, 0, 3),
+      pinTo(14, 0, 3),
+      pinTo(4, 0, 4),
+      pinTo(5, 0, 5),
+      pinTo(6, 0, 6),
+      pinTo(7, 0, 7),
+      pinTo(8, 0, 8),
+      pinTo(null, 0, 9),
+    ];
+
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: pins,
+      random: mulberry32(0x6666),
+    });
+    assertSuccess(r);
+    const placement = r.rivalryPlacements.find(
+      (p) => p.pinnedWeek === null && p.teamA === 0 && p.teamB === 9,
+    );
+    expect(placement).toBeDefined();
+    expect([9, 10, 11]).toContain(placement!.placedWeek);
+  });
+
+  it("errors cleanly when an any-week pin cannot fit a fully pinned team", () => {
+    // Pin team 0 to all 14 weeks: three forced doubles (6 pins) + 8 singles.
+    const pins: RivalryPin[] = [
+      pinTo(1, 0, 1),
+      pinTo(12, 0, 1),
+      pinTo(2, 0, 2),
+      pinTo(13, 0, 2),
+      pinTo(3, 0, 3),
+      pinTo(14, 0, 3),
+    ];
+    for (let opp = 4; opp <= 11; opp++) pins.push(pinTo(opp, 0, opp));
+    // Adding any-week pin for (0, 4) would make it a forced double — but team
+    // 0 has no free week left for the second appearance.
+    pins.push(pinTo(null, 0, 4));
+
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: pins,
+      random: mulberry32(0x7777),
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toBe("generation-failed");
+  });
+
+  it("rejects more than maxPinsPerPair pins for one pair", () => {
+    // 12/14 → max = ceil(14/11) = 2. A third pin for the same pair is invalid.
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(1, 0, 1), pinTo(10, 0, 1), pinTo(null, 0, 1)],
+      random: mulberry32(0x8888),
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toBe("generation-failed");
+  });
 });
 
 describe("buildSchedule edge cases", () => {

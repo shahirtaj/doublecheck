@@ -1813,9 +1813,20 @@ export default function GeneratePage() {
             const safeA = pinTeamA < teamCount ? pinTeamA : 0;
             const safeB = pinTeamB < teamCount ? pinTeamB : Math.min(1, teamCount - 1);
             const sameTeam = safeA === safeB;
+            const maxPinsPerPair = Math.max(
+              1,
+              Math.ceil(weekCount / Math.max(1, teamCount - 1)),
+            );
+            const existingPinsForPair = rivalryPins.filter(
+              (p) => pairKey(p.teamA, p.teamB) === pinAKey,
+            ).length;
             let pinError = "";
             if (sameTeam) {
               pinError = "Pick two different teams.";
+            } else if (existingPinsForPair >= maxPinsPerPair) {
+              pinError = `This pair can play at most ${maxPinsPerPair} time${
+                maxPinsPerPair === 1 ? "" : "s"
+              } in this format.`;
             } else if (pinWeek !== null) {
               for (const p of rivalryPins) {
                 if (p.week !== pinWeek) continue;
@@ -1837,9 +1848,12 @@ export default function GeneratePage() {
             let avoidWarning = "";
             if (!pinError) {
               const { hard, soft } = getAvoidSets();
-              if (hard.has(pinAKey) || soft.has(pinAKey)) {
+              if (hard.has(pinAKey)) {
                 avoidWarning =
-                  "This pair is currently avoided. This pin overrides the avoidance for this week only.";
+                  "This pair is hard-avoided. This pin forces one game between them - they won't play again.";
+              } else if (soft.has(pinAKey)) {
+                avoidWarning =
+                  "This pair is soft-avoided. This pin forces one game between them.";
               }
             }
             const addDisabled = !!pinError || addingPastSeason;
