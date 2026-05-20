@@ -2101,10 +2101,10 @@ export default function GeneratePage() {
                         { teamA: safeA, teamB: safeB, week: pinWeek },
                       ];
                       setRivalryPins(nextPins);
-                      // Pick defaults that wouldn't immediately fail validation
-                      // against the kept week. If team 0 is already busy that
-                      // week, or every other team is, dump the week back to
-                      // "Any" so the next pin has somewhere to fit.
+                      // Keep the week as-is and advance the team defaults:
+                      // Team A returns to 0, Team B picks the lowest other
+                      // team where neither team is already pinned in the
+                      // kept week. Falls back to 1 if nothing qualifies.
                       const isBusyInWeek = (t: number): boolean => {
                         if (pinWeek === null) return false;
                         return nextPins.some(
@@ -2113,7 +2113,7 @@ export default function GeneratePage() {
                             (p.teamA === t || p.teamB === t),
                         );
                       };
-                      let nextB: number | null = null;
+                      let nextB = 1;
                       if (!isBusyInWeek(0)) {
                         for (let i = 1; i < teamCount; i++) {
                           if (!isBusyInWeek(i)) {
@@ -2122,14 +2122,8 @@ export default function GeneratePage() {
                           }
                         }
                       }
-                      if (nextB === null) {
-                        setPinWeek(null);
-                        setPinTeamA(0);
-                        setPinTeamB(1);
-                      } else {
-                        setPinTeamA(0);
-                        setPinTeamB(nextB);
-                      }
+                      setPinTeamA(0);
+                      setPinTeamB(nextB);
                       setPinJustAdded(true);
                     }}
                   >
