@@ -2096,12 +2096,40 @@ export default function GeneratePage() {
                     disabled={addDisabled}
                     onClick={() => {
                       if (addDisabled) return;
-                      setRivalryPins([
+                      const nextPins = [
                         ...rivalryPins,
                         { teamA: safeA, teamB: safeB, week: pinWeek },
-                      ]);
-                      setPinTeamA(0);
-                      setPinTeamB(1);
+                      ];
+                      setRivalryPins(nextPins);
+                      // Pick defaults that wouldn't immediately fail validation
+                      // against the kept week. If team 0 is already busy that
+                      // week, or every other team is, dump the week back to
+                      // "Any" so the next pin has somewhere to fit.
+                      const isBusyInWeek = (t: number): boolean => {
+                        if (pinWeek === null) return false;
+                        return nextPins.some(
+                          (p) =>
+                            p.week === pinWeek &&
+                            (p.teamA === t || p.teamB === t),
+                        );
+                      };
+                      let nextB: number | null = null;
+                      if (!isBusyInWeek(0)) {
+                        for (let i = 1; i < teamCount; i++) {
+                          if (!isBusyInWeek(i)) {
+                            nextB = i;
+                            break;
+                          }
+                        }
+                      }
+                      if (nextB === null) {
+                        setPinWeek(null);
+                        setPinTeamA(0);
+                        setPinTeamB(1);
+                      } else {
+                        setPinTeamA(0);
+                        setPinTeamB(nextB);
+                      }
                       setPinJustAdded(true);
                     }}
                   >
