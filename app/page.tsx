@@ -1833,18 +1833,13 @@ export default function GeneratePage() {
                 );
                 if (dupExists) pinError = "This matchup is already pinned to this week.";
               }
-            } else {
-              const dupAny = rivalryPins.some(
-                (p) => p.week === null && pairKey(p.teamA, p.teamB) === pinAKey,
-              );
-              if (dupAny) pinError = "This matchup already has an any-week pin.";
             }
             let avoidWarning = "";
             if (!pinError) {
               const { hard, soft } = getAvoidSets();
               if (hard.has(pinAKey) || soft.has(pinAKey)) {
                 avoidWarning =
-                  "This pair is currently avoided - pinning will override the avoidance for this matchup.";
+                  "This pair is currently avoided. This pin overrides the avoidance for this week only.";
               }
             }
             const addDisabled = !!pinError || addingPastSeason;
@@ -1853,7 +1848,8 @@ export default function GeneratePage() {
                 <h3 className={cls.sectionTitle}>Rivalry Weeks</h3>
                 <p className={cls.hint}>
                   Pin a matchup to a specific week (or any week) before generating. Pinned
-                  matchups render in blue and override any avoidance for that pair.
+                  matchups render in blue. A single pin overrides avoidance for that week only.
+                  Pin the same pair twice to force a rivalry double.
                 </p>
                 <div className="flex flex-wrap gap-2 items-stretch">
                   <select
@@ -1906,6 +1902,7 @@ export default function GeneratePage() {
                         ...rivalryPins,
                         { teamA: safeA, teamB: safeB, week: pinWeek },
                       ]);
+                      setPinWeek(null);
                     }}
                   >
                     Add

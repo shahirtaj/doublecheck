@@ -247,9 +247,19 @@ describe("buildSchedule rivalry pins", () => {
     return { teamA: a, teamB: b, week };
   }
 
-  it("places a specific-week pin at the requested first-block double week", () => {
-    // 12 teams / 14 weeks: 3 doubles per team, separation = 11. Week 2 is a
-    // first-block double slot (slot 1), so the pair shows at weeks 2 and 13.
+  function pairAppearances(r: ScheduleSuccess, a: number, b: number): number[] {
+    const out: number[] = [];
+    r.weeks.forEach((week, wi) => {
+      for (const [x, y] of week) {
+        if ((x === a && y === b) || (x === b && y === a)) out.push(wi + 1);
+      }
+    });
+    return out;
+  }
+
+  it("places a one-pin pair as a single at the requested week (not doubled)", () => {
+    // 12 teams / 14 weeks. Week 2 would be a default double slot, but a single
+    // pin should NOT auto-double; the pair plays only week 2.
     const r = buildSchedule({
       teamCount: 12,
       weekCount: 14,
@@ -257,21 +267,14 @@ describe("buildSchedule rivalry pins", () => {
       random: mulberry32(0x1111),
     });
     assertSuccess(r);
-    expect(r.weeks[1]!.some(([a, b]) => (a === 0 && b === 1) || (a === 1 && b === 0))).toBe(true);
-    expect(r.weeks[12]!.some(([a, b]) => (a === 0 && b === 1) || (a === 1 && b === 0))).toBe(true);
-    expect(r.doubledPairs.has(pairKey(0, 1))).toBe(true);
-    expect(r.rivalryPlacements).toHaveLength(1);
-    expect(r.rivalryPlacements[0]).toMatchObject({
-      teamA: 0,
-      teamB: 1,
-      pinnedWeek: 2,
-      placedWeek: 2,
-    });
+    expect(pairAppearances(r, 0, 1)).toEqual([2]);
+    expect(r.doubledPairs.has(pairKey(0, 1))).toBe(false);
+    expect(r.rivalryPlacements).toEqual([
+      { teamA: 0, teamB: 1, pinnedWeek: 2, placedWeek: 2 },
+    ]);
   });
 
-  it("places a specific-week pin at the requested last-block double week", () => {
-    // 12/14: last-block double weeks are 12..14. Pin to week 13 → slot 1 →
-    // pair shows at weeks 2 and 13.
+  it("places a one-pin pair as a single at a last-block week (not doubled)", () => {
     const r = buildSchedule({
       teamCount: 12,
       weekCount: 14,
@@ -279,8 +282,8 @@ describe("buildSchedule rivalry pins", () => {
       random: mulberry32(0x2222),
     });
     assertSuccess(r);
-    expect(r.weeks[12]!.some(([a, b]) => (a === 2 && b === 3) || (a === 3 && b === 2))).toBe(true);
-    expect(r.doubledPairs.has(pairKey(2, 3))).toBe(true);
+    expect(pairAppearances(r, 2, 3)).toEqual([13]);
+    expect(r.doubledPairs.has(pairKey(2, 3))).toBe(false);
     expect(r.rivalryPlacements[0]!.placedWeek).toBe(13);
   });
 
@@ -368,7 +371,9 @@ describe("buildSchedule rivalry pins", () => {
     expect(new Set(placedWeeks).size).toBe(placedWeeks.length);
   });
 
-  it("pin wins over a hard-avoid pair", () => {
+  it("single pin overrides avoidance for the pinned week only (not doubled)", () => {
+    // (0,1) is hard-avoided. One pin to week 2 should let them play week 2
+    // but the avoidance should still prevent a second appearance.
     const hardAvoid = new Set([pairKey(0, 1)]);
     const r = buildSchedule({
       teamCount: 12,
@@ -378,8 +383,35 @@ describe("buildSchedule rivalry pins", () => {
       random: mulberry32(0x8888),
     });
     assertSuccess(r);
+    expect(pairAppearances(r, 0, 1)).toEqual([2]);
+    expect(r.doubledPairs.has(pairKey(0, 1))).toBe(false);
+    expect(r.hardRepeated).toEqual([]);
+  });
+
+  it("two pins for the same pair force a rivalry double and override avoidance fully", () => {
+    const hardAvoid = new Set([pairKey(0, 1)]);
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      hardAvoid,
+      rivalryPins: [pinTo(1, 0, 1), pinTo(10, 0, 1)],
+      random: mulberry32(0x10a10),
+    });
+    assertSuccess(r);
+    expect(pairAppearances(r, 0, 1)).toEqual([1, 10]);
     expect(r.doubledPairs.has(pairKey(0, 1))).toBe(true);
     expect(r.hardRepeated).toEqual([]);
+    expect(r.rivalryPlacements).toHaveLength(2);
+  });
+
+  it("rejects an exact duplicate pin (same pair, same week)", () => {
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(3, 0, 1), pinTo(3, 0, 1)],
+      random: mulberry32(0xd0c1),
+    });
+    expect(r.ok).toBe(false);
   });
 
   it("reports failure cleanly when pins are unsolvable", () => {
@@ -397,35 +429,29 @@ describe("buildSchedule rivalry pins", () => {
     expect(r.message).toMatch(/rivalry pins/i);
   });
 
-  it("handles pinning every double slot for a single team", () => {
-    // 12/14: team 0 has 3 doubles per season. Pin all 3 to weeks 1, 2, 3
-    // with three distinct opponents.
+  it("forces all three doubles for a single team via two-pin pairs", () => {
+    // 12/14: team 0 has 3 doubles per season. Pin three different opponents
+    // for doubles by pinning each pair to two weeks.
     const r = buildSchedule({
       teamCount: 12,
       weekCount: 14,
-      rivalryPins: [pinTo(1, 0, 1), pinTo(2, 0, 2), pinTo(3, 0, 3)],
+      rivalryPins: [
+        pinTo(1, 0, 1),
+        pinTo(12, 0, 1),
+        pinTo(2, 0, 2),
+        pinTo(13, 0, 2),
+        pinTo(3, 0, 3),
+        pinTo(14, 0, 3),
+      ],
       random: mulberry32(0xaaaa),
     });
     assertSuccess(r);
     expect(r.doubledPairs.has(pairKey(0, 1))).toBe(true);
     expect(r.doubledPairs.has(pairKey(0, 2))).toBe(true);
     expect(r.doubledPairs.has(pairKey(0, 3))).toBe(true);
-    // Each pinned pair appears at its first-block week and the corresponding
-    // last-block week (separation = 11).
-    for (const [pinnedWeek, opp] of [
-      [1, 1],
-      [2, 2],
-      [3, 3],
-    ] as const) {
-      const firstIdx = pinnedWeek - 1;
-      const secondIdx = pinnedWeek - 1 + 11;
-      expect(
-        r.weeks[firstIdx]!.some(([a, b]) => (a === 0 && b === opp) || (a === opp && b === 0)),
-      ).toBe(true);
-      expect(
-        r.weeks[secondIdx]!.some(([a, b]) => (a === 0 && b === opp) || (a === opp && b === 0)),
-      ).toBe(true);
-    }
+    expect(pairAppearances(r, 0, 1)).toEqual([1, 12]);
+    expect(pairAppearances(r, 0, 2)).toEqual([2, 13]);
+    expect(pairAppearances(r, 0, 3)).toEqual([3, 14]);
   });
 
   it("any-week pin works alongside specific-week pins", () => {
