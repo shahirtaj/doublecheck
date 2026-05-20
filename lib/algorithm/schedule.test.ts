@@ -724,6 +724,160 @@ describe("buildSchedule rivalry pins", () => {
       });
     }
   });
+
+  // Multi-week rivalry scenarios. The current algorithm assigns each pair to
+  // exactly one matching, so a pair can only repeat across two weeks when
+  // those weeks are the natural double-partner pair (W, W±separation) AND
+  // every other pair at those weeks also repeats — i.e., the two weeks share
+  // an entire partition. The deferred case (one specific pair repeating
+  // across two arbitrary weeks while everything else differs) would need a
+  // restructure where pairs can live in two different matchings.
+  describe("multiple full rivalry weeks", () => {
+    function partition(pairs: Array<[number, number]>, week: number): RivalryPin[] {
+      return pairs.map(([a, b]) => pinTo(week, a, b));
+    }
+    // Three disjoint perfect matchings of 12 teams. Picked so each team's
+    // partner differs across the three: e.g., team 0 paired with 1, 2, 3.
+    const PART_A: Array<[number, number]> = [
+      [0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11],
+    ];
+    const PART_B: Array<[number, number]> = [
+      [0, 2], [1, 3], [4, 6], [5, 7], [8, 10], [9, 11],
+    ];
+    const PART_C: Array<[number, number]> = [
+      [0, 3], [1, 2], [4, 7], [5, 6], [8, 11], [9, 10],
+    ];
+
+    it("two full rivalry weeks with different matchups (12/14, weeks 1 & 14)", () => {
+      const pins = [...partition(PART_A, 1), ...partition(PART_C, 14)];
+      const r = buildSchedule({
+        teamCount: 12, weekCount: 14, rivalryPins: pins,
+        random: mulberry32(0x2fa11),
+      });
+      assertSuccess(r);
+      for (const [a, b] of PART_A) {
+        expect(
+          r.weeks[0]!.some(
+            ([x, y]) => (x === a && y === b) || (x === b && y === a),
+          ),
+        ).toBe(true);
+      }
+      for (const [a, b] of PART_C) {
+        expect(
+          r.weeks[13]!.some(
+            ([x, y]) => (x === a && y === b) || (x === b && y === a),
+          ),
+        ).toBe(true);
+      }
+    });
+
+    it("three full rivalry weeks with different matchups (12/14, weeks 1, 7, 14)", () => {
+      // Week 7 sits in the middle area, so its pinned pairs are forced
+      // singles; weeks 1 and 14 trigger the natural-double placement.
+      const pins = [
+        ...partition(PART_A, 1),
+        ...partition(PART_B, 7),
+        ...partition(PART_C, 14),
+      ];
+      const r = buildSchedule({
+        teamCount: 12, weekCount: 14, rivalryPins: pins,
+        random: mulberry32(0x3fa11),
+      });
+      assertSuccess(r);
+      const weekChecks: Array<[number, Array<[number, number]>]> = [
+        [0, PART_A],
+        [6, PART_B],
+        [13, PART_C],
+      ];
+      for (const [wi, part] of weekChecks) {
+        for (const [a, b] of part) {
+          expect(
+            r.weeks[wi]!.some(
+              ([x, y]) => (x === a && y === b) || (x === b && y === a),
+            ),
+          ).toBe(true);
+        }
+      }
+    });
+
+    it("three full rivalry weeks, two at natural partners share a partition (cap=2)", () => {
+      // 12/14 separation = 11. Weeks 1 and 12 are natural double partners.
+      // Pinning the same partition at both means every pair has 2 pins
+      // (= forced double, max cap). Week 6 has its own partition.
+      const pins = [
+        ...partition(PART_A, 1),
+        ...partition(PART_A, 12),
+        ...partition(PART_B, 6),
+      ];
+      const r = buildSchedule({
+        teamCount: 12, weekCount: 14, rivalryPins: pins,
+        random: mulberry32(0x33333),
+      });
+      assertSuccess(r);
+      for (const [a, b] of PART_A) {
+        expect(r.doubledPairs.has(pairKey(a, b))).toBe(true);
+        expect(
+          r.weeks[0]!.some(
+            ([x, y]) => (x === a && y === b) || (x === b && y === a),
+          ),
+        ).toBe(true);
+        expect(
+          r.weeks[11]!.some(
+            ([x, y]) => (x === a && y === b) || (x === b && y === a),
+          ),
+        ).toBe(true);
+      }
+      for (const [a, b] of PART_B) {
+        expect(
+          r.weeks[5]!.some(
+            ([x, y]) => (x === a && y === b) || (x === b && y === a),
+          ),
+        ).toBe(true);
+      }
+    });
+
+    it("rejects a pin appearing in 3 full rivalry weeks (exceeds cap=2)", () => {
+      // (0, 1) appears in every partition, giving it 3 pins — over the
+      // 12/14 cap of ceil(14/11) = 2. The algorithm should refuse.
+      const overlap: Array<[number, number]> = [[0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11]];
+      const partTwo: Array<[number, number]> = [[0, 1], [2, 4], [3, 5], [6, 8], [7, 11], [9, 10]];
+      const partThree: Array<[number, number]> = [[0, 1], [2, 5], [3, 4], [6, 9], [7, 10], [8, 11]];
+      const pins = [
+        ...partition(overlap, 1),
+        ...partition(partTwo, 7),
+        ...partition(partThree, 14),
+      ];
+      const r = buildSchedule({
+        teamCount: 12, weekCount: 14, rivalryPins: pins,
+        random: mulberry32(0x55555),
+      });
+      expect(r.ok).toBe(false);
+    });
+
+    it("full rivalry week 1 plus a single pin at week 10 (12/14)", () => {
+      const pins: RivalryPin[] = [
+        ...partition(PART_A, 1),
+        pinTo(10, 0, 5),
+      ];
+      const r = buildSchedule({
+        teamCount: 12, weekCount: 14, rivalryPins: pins,
+        random: mulberry32(0x66666),
+      });
+      assertSuccess(r);
+      for (const [a, b] of PART_A) {
+        expect(
+          r.weeks[0]!.some(
+            ([x, y]) => (x === a && y === b) || (x === b && y === a),
+          ),
+        ).toBe(true);
+      }
+      expect(
+        r.weeks[9]!.some(
+          ([x, y]) => (x === 0 && y === 5) || (x === 5 && y === 0),
+        ),
+      ).toBe(true);
+    });
+  });
 });
 
 describe("buildSchedule edge cases", () => {
