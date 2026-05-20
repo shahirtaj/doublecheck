@@ -1053,13 +1053,15 @@ describe("buildSchedule rivalry pins", () => {
 
     it("unpinned doubled pairs stay near max separation across seeds (12/14, non-partner pin)", () => {
       // 12/14 separation = 11. The pinned (0,1) at non-partner weeks (3, 6)
-      // displaces a natural double slot, capping slot (3,14) below its
-      // full team capacity so backtrack at week 14 stays feasible. The
-      // remaining doubled pair the cap excludes degrades to a lower-sep
-      // partner slot. Empirically the worst case across these seeds is
-      // around sep 5; that's well above what arbitrary placement produced
-      // before this change (no bias at all). The floor sep >= 5 still
-      // demonstrates the partner-week bias is doing meaningful work.
+      // forces slot (3,14) below its full team capacity so backtrack at
+      // week 14 stays feasible; the pair excluded by the cap (its two free
+      // teams from {2..11}) becomes an "asym reserve" pair that must take
+      // a sep-10-or-lower slot. Even with slot-aware doubled-set selection
+      // anchoring most pairs at sep 11, that reserve pair's two free teams
+      // are also claimed by slots (1,12) and (2,13) at weeks 1,2,12,13, so
+      // its backtrack-only second appearance ends up in a middle week
+      // (4–11), bounding sep at <=8. Empirical floor across these seeds
+      // sits at sep 5; threshold here matches that floor.
       let globalMin = Infinity;
       const pinnedKey = pairKey(0, 1);
       for (let seed = 0; seed < 20; seed++) {

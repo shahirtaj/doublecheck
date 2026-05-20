@@ -960,6 +960,210 @@ function pickDoubledSet(
   return null;
 }
 
+// Slot-aware doubled set selection. Iterates natural partner-week slots in
+// max-separation order and fills each slot with a matching of "free" teams
+// (not pinned at the slot's weeks, not yet at degree dp), respecting the
+// same cap rules as assignPartnerWeeksForUnpinnedDoubled. The doubled set
+// emerges from slot availability rather than random pickDoubledSet — this
+// ties pair selection to placement feasibility, so partner-slot assignment
+// downstream can keep most pairs at the natural max separation.
+//
+// 1-pin doubled-candidate pairs at one of a slot's weeks (soft asym) are
+// promoted into the slot, becoming partner-slotted at that natural slot.
+// Returns the doubled set AND an augmented mustInclude with the slot pairs
+// already placed; the partner-slot phase only needs to handle leftover
+// pairs added by the dp-regular top-up.
+function pickDoubledSetSlotAware(
+  teamCount: number,
+  dp: number,
+  forcedDoubled: ReadonlySet<PairKey>,
+  forcedSingle: ReadonlySet<PairKey>,
+  hardAvoid: ReadonlySet<PairKey>,
+  baseWeekMustInclude: ReadonlyMap<number, Pair[]>,
+  separation: number,
+  weekCount: number,
+  shuffle: Shuffler,
+): { doubled: Set<PairKey>; augmented: Map<number, Pair[]> } | null {
+  const target = (dp * teamCount) / 2;
+  const doubled = new Set<PairKey>(forcedDoubled);
+  const degree = new Array<number>(teamCount).fill(0);
+  for (const k of doubled) {
+    const [a, b] = unpackPairKey(k);
+    degree[a]!++;
+    degree[b]!++;
+  }
+  for (let i = 0; i < teamCount; i++) {
+    if (degree[i]! > dp) return null;
+  }
+
+  const augmented = new Map<number, Pair[]>();
+  for (const [W, pairs] of baseWeekMustInclude) {
+    augmented.set(W, [...pairs]);
+  }
+
+  const totalPinCount = new Map<PairKey, number>();
+  for (const [, pairs] of baseWeekMustInclude) {
+    for (const [a, b] of pairs) {
+      const k = pairKey(a, b);
+      totalPinCount.set(k, (totalPinCount.get(k) ?? 0) + 1);
+    }
+  }
+
+  const isExcludedForNew = (k: PairKey): boolean =>
+    doubled.has(k) || hardAvoid.has(k) || forcedSingle.has(k);
+
+  const slots: Array<[number, number]> = [];
+  for (let W1 = 1; W1 + separation <= weekCount; W1++) {
+    slots.push([W1, W1 + separation]);
+  }
+
+  for (const [W1, W2] of shuffle(slots)) {
+    const pins1 = baseWeekMustInclude.get(W1) ?? [];
+    const pins2 = baseWeekMustInclude.get(W2) ?? [];
+    const keys1 = new Set(pins1.map(([a, b]) => pairKey(a, b)));
+    const keys2 = new Set(pins2.map(([a, b]) => pairKey(a, b)));
+
+    let symCount = 0;
+    for (const k of keys1) if (keys2.has(k)) symCount++;
+
+    const softAsymKeys: PairKey[] = [];
+    let hardAsymCount = 0;
+    const classifyAsym = (k: PairKey): void => {
+      const tc = totalPinCount.get(k) ?? 0;
+      if (tc === 1 && !hardAvoid.has(k) && !forcedSingle.has(k)) {
+        softAsymKeys.push(k);
+      } else {
+        hardAsymCount++;
+      }
+    };
+    for (const k of keys1) {
+      if (keys2.has(k)) continue;
+      classifyAsym(k);
+    }
+    for (const k of keys2) {
+      if (keys1.has(k)) continue;
+      classifyAsym(k);
+    }
+
+    const pinTeams = new Set<number>();
+    for (const [a, b] of pins1) {
+      pinTeams.add(a);
+      pinTeams.add(b);
+    }
+    for (const [a, b] of pins2) {
+      pinTeams.add(a);
+      pinTeams.add(b);
+    }
+    const uSize = teamCount - pinTeams.size;
+    const teamCapTotal =
+      Math.floor(uSize / 2) + symCount + softAsymKeys.length;
+    const weekCap = Math.floor(teamCount / 2) - hardAsymCount;
+    const reserve = hardAsymCount > 0 ? 1 : 0;
+    const totalCap = Math.max(0, Math.min(teamCapTotal, weekCap) - reserve);
+
+    // Promote soft-asym 1-pin pairs into doubled; they become partner-slot
+    // at this slot by extending into the OTHER pinned week.
+    for (const k of softAsymKeys) {
+      if (doubled.has(k)) continue;
+      const [a, b] = unpackPairKey(k);
+      if (degree[a]! >= dp || degree[b]! >= dp) continue;
+      doubled.add(k);
+      degree[a]!++;
+      degree[b]!++;
+      const inW1 = keys1.has(k);
+      const otherWeek = inW1 ? W2 : W1;
+      let list = augmented.get(otherWeek);
+      if (!list) {
+        list = [];
+        augmented.set(otherWeek, list);
+      }
+      list.push([a, b]);
+    }
+
+    const newPicksNeeded = totalCap - symCount - softAsymKeys.length;
+    if (newPicksNeeded <= 0) continue;
+
+    const available: number[] = [];
+    for (let t = 0; t < teamCount; t++) {
+      if (pinTeams.has(t)) continue;
+      if (degree[t]! >= dp) continue;
+      available.push(t);
+    }
+
+    const selected = pickPartialMatching(
+      shuffle(available),
+      newPicksNeeded,
+      isExcludedForNew,
+      shuffle,
+    );
+    if (!selected) continue;
+
+    for (const [a, b] of selected) {
+      const k = pairKey(a, b);
+      doubled.add(k);
+      degree[a]!++;
+      degree[b]!++;
+      for (const W of [W1, W2]) {
+        let list = augmented.get(W);
+        if (!list) {
+          list = [];
+          augmented.set(W, list);
+        }
+        list.push([a, b]);
+      }
+    }
+  }
+
+  // Top up to dp-regular with whatever edges remain. These "leftover" pairs
+  // have no slot assignment yet; the partner-slot phase places them at the
+  // tightest separation it can find.
+  let topupAttempts = 0;
+  while (doubled.size < target && topupAttempts < 200) {
+    topupAttempts++;
+    const candidates: PairKey[] = [];
+    for (let i = 0; i < teamCount; i++) {
+      if (degree[i]! >= dp) continue;
+      for (let j = i + 1; j < teamCount; j++) {
+        if (degree[j]! >= dp) continue;
+        const k = pairKey(i, j);
+        if (isExcludedForNew(k)) continue;
+        candidates.push(k);
+      }
+    }
+    if (candidates.length === 0) break;
+    const k = shuffle(candidates)[0]!;
+    const [a, b] = unpackPairKey(k);
+    doubled.add(k);
+    degree[a]!++;
+    degree[b]!++;
+  }
+
+  for (let i = 0; i < teamCount; i++) {
+    if (degree[i]! !== dp) return null;
+  }
+  return { doubled, augmented };
+}
+
+function pickPartialMatching(
+  available: ReadonlyArray<number>,
+  count: number,
+  isExcluded: (k: PairKey) => boolean,
+  shuffle: Shuffler,
+): Array<Pair> | null {
+  if (count === 0) return [];
+  if (available.length < 2 * count) return null;
+
+  const team = available[0]!;
+  const partners = shuffle(available.slice(1));
+  for (const partner of partners) {
+    if (isExcluded(pairKey(team, partner))) continue;
+    const remaining = available.filter((t) => t !== team && t !== partner);
+    const rest = pickPartialMatching(remaining, count - 1, isExcluded, shuffle);
+    if (rest !== null) return [[team, partner] as Pair, ...rest];
+  }
+  return null;
+}
+
 // Find a perfect matching for one week. mustInclude pairs are pre-placed;
 // the rest are filled by backtracking, restricted to edges with remaining
 // budget > 0 and not in `excluded` (which carries the independence
@@ -1332,15 +1536,30 @@ function buildScheduleWeekByWeek(
 
   for (let outerAttempt = 0; outerAttempt < 30; outerAttempt++) {
     let usingSoft = false;
-    let doubled = pickDoubledSet(
-      teamCount, dp, forcedDoubled, forcedSingle, hardAvoid, softAvoid, shuffle, totalDoubled,
+    let doubled: Set<PairKey> | null = null;
+    let preplacedMustInclude: Map<number, Pair[]> | null = null;
+
+    // Prefer slot-aware selection: pick doubled pairs by iterating partner
+    // slots, so the doubled set is feasible at max separation by construction.
+    const slotAware = pickDoubledSetSlotAware(
+      teamCount, dp, forcedDoubled, forcedSingle, hardAvoid, weekMustInclude,
+      format.separation, weekCount, shuffle,
     );
-    if (!doubled) {
+    if (slotAware) {
+      doubled = slotAware.doubled;
+      preplacedMustInclude = slotAware.augmented;
+    } else {
+      // Fallback: random pickDoubledSet (no slot bias).
       doubled = pickDoubledSet(
-        teamCount, dp, forcedDoubled, forcedSingle, hardAvoid, new Set(), shuffle, totalDoubled,
+        teamCount, dp, forcedDoubled, forcedSingle, hardAvoid, softAvoid, shuffle, totalDoubled,
       );
-      usingSoft = true;
-      if (!doubled) continue;
+      if (!doubled) {
+        doubled = pickDoubledSet(
+          teamCount, dp, forcedDoubled, forcedSingle, hardAvoid, new Set(), shuffle, totalDoubled,
+        );
+        usingSoft = true;
+        if (!doubled) continue;
+      }
     }
 
     const target = new Map<PairKey, number>();
@@ -1357,13 +1576,17 @@ function buildScheduleWeekByWeek(
     // if those tighter passes can't produce a feasible matching. Each tier
     // gets several shuffle attempts so random orderings can escape local
     // dead-ends without us giving up the quality goal.
+    // If slot-aware pre-placed pairs, most doubled pairs are already at their
+    // natural partner week. The partner-slot phase only needs to assign any
+    // leftover (top-up) pairs.
+    const baseForAssignment = preplacedMustInclude ?? weekMustInclude;
     let matchings: Matching[] | null = null;
     for (let widening = 0; widening < weekCount && !matchings; widening++) {
       const minSep = Math.max(1, format.separation - widening);
-      const tierAttempts = widening <= 4 ? 50 : 5;
+      const tierAttempts = widening <= 2 ? 20 : 5;
       for (let attempt = 0; attempt < tierAttempts; attempt++) {
         const augmented = assignPartnerWeeksForUnpinnedDoubled(
-          doubled, weekMustInclude, teamCount, weekCount, format.separation, minSep, shuffle,
+          doubled, baseForAssignment, teamCount, weekCount, format.separation, minSep, shuffle,
         );
         if (!augmented) continue;
         matchings = buildMatchingsByWeek(
