@@ -1895,7 +1895,7 @@ export default function GeneratePage() {
                 <h3 className={cls.sectionTitle}>Rivalry Weeks</h3>
                 <p className={cls.hint}>
                   Pin a matchup to a specific week (or any week) before generating. Pinned
-                  matchups render in blue. A single pin forces one game between the pair
+                  matchups render in blue. A single pin forces one game between the pair,
                   despite any avoidance. Pin the same pair twice to force a rivalry double.
                 </p>
                 <div className="flex flex-wrap gap-2 items-stretch">
