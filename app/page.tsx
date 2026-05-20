@@ -2027,8 +2027,8 @@ export default function GeneratePage() {
               <div className={`${cls.subSection} mt-4`}>
                 <h3 className={cls.sectionTitle}>Rivalry Weeks</h3>
                 <p className={cls.hint}>
-                  Pin a matchup to a specific week (or any week) before generating. Pins
-                  override avoidance. Pinned matchups show in blue on the schedule.
+                  Pick two teams and a week to lock in a matchup. Pins show in blue and
+                  override avoidance.
                 </p>
                 <div className="flex flex-wrap gap-2 items-stretch">
                   <select
