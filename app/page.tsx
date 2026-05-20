@@ -2230,7 +2230,7 @@ export default function GeneratePage() {
               );
             }
             const hasRivalries = schedule.rivalryPlacements.length > 0;
-            const summaryTitle = hasRivalries ? "Doubles & Rivals" : "Double Matchups";
+            const summaryTitle = hasRivalries ? "Rival & Double Matchups" : "Double Matchups";
             return (
               <>
                 <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
