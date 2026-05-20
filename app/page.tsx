@@ -2027,8 +2027,7 @@ export default function GeneratePage() {
               <div className={`${cls.subSection} mt-4`}>
                 <h3 className={cls.sectionTitle}>Rivalry Weeks</h3>
                 <p className={cls.hint}>
-                  Pick two teams and a week to lock in a matchup. Pins show in blue and
-                  override avoidance.
+                  Pick two teams and a week to lock in a matchup. Pins show in blue.
                 </p>
                 <div className="flex flex-wrap gap-2 items-stretch">
                   <select
