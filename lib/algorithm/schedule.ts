@@ -973,10 +973,11 @@ function findMatchingForWeek(
 ): Matching | null {
   const matching: Matching = [];
   const paired = new Set<number>();
+  // Must-include consumption is pre-accounted in `remaining` (callers initialize
+  // remaining = target - mustIncludeCount), so we don't re-check or decrement
+  // here. Only team conflicts within the must-include set can fail this stage.
   for (const [a, b] of mustInclude) {
     if (a === b || paired.has(a) || paired.has(b)) return null;
-    const k = pairKey(a, b);
-    if ((remaining.get(k) ?? 0) <= 0) return null;
     paired.add(a);
     paired.add(b);
     matching.push([Math.min(a, b), Math.max(a, b)]);
@@ -1008,6 +1009,204 @@ function findMatchingForWeek(
   return backtrack() ? matching : null;
 }
 
+// Augment `baseWeekMustInclude` so that every doubled pair has a partner-week
+// placement: a 2-pin pair is already at both weeks; a 1-pin doubled pair gets
+// its second appearance assigned; a fully unpinned doubled pair gets both
+// appearances assigned. We bias toward the natural max-separation slot
+// (sep = weekCount - dp) and degrade by one each iteration if no candidate at
+// the current separation has both weeks free for this pair.
+//
+// Slot cap: a partner-slot pair (W1, W2) must leave room for backtrack at the
+// other week when an asymmetric pin uses up the pin pair's target. Without
+// the reserve, e.g., 5 partner pairs at slot (3, 14) when (0,1) is pinned at
+// weeks 3 and 6 force (0,1) to also appear at week 14 — three appearances,
+// infeasible. Reserving one pair-spot per slot with any asym pin keeps the
+// asym-pinned teams pair-able at the opposite week.
+function assignPartnerWeeksForUnpinnedDoubled(
+  doubled: ReadonlySet<PairKey>,
+  baseWeekMustInclude: ReadonlyMap<number, Pair[]>,
+  teamCount: number,
+  weekCount: number,
+  separation: number,
+  minSep: number,
+  shuffle: Shuffler,
+): Map<number, Pair[]> | null {
+  const weekMustInclude = new Map<number, Pair[]>();
+  for (const [W, pairs] of baseWeekMustInclude) {
+    weekMustInclude.set(W, [...pairs]);
+  }
+
+  const pairWeeks = new Map<PairKey, number[]>();
+  for (const [W, pairs] of weekMustInclude) {
+    for (const [a, b] of pairs) {
+      const k = pairKey(a, b);
+      let list = pairWeeks.get(k);
+      if (!list) {
+        list = [];
+        pairWeeks.set(k, list);
+      }
+      list.push(W);
+    }
+  }
+
+  const teamsAtWeek = new Map<number, Set<number>>();
+  for (const [W, pairs] of weekMustInclude) {
+    const s = new Set<number>();
+    for (const [a, b] of pairs) {
+      s.add(a);
+      s.add(b);
+    }
+    teamsAtWeek.set(W, s);
+  }
+
+  const canClaim = (W: number, a: number, b: number): boolean => {
+    const s = teamsAtWeek.get(W);
+    if (!s) return true;
+    return !s.has(a) && !s.has(b);
+  };
+
+  const placeAt = (W: number, pair: Pair): void => {
+    let list = weekMustInclude.get(W);
+    if (!list) {
+      list = [];
+      weekMustInclude.set(W, list);
+    }
+    list.push(pair);
+    let s = teamsAtWeek.get(W);
+    if (!s) {
+      s = new Set();
+      teamsAtWeek.set(W, s);
+    }
+    s.add(pair[0]);
+    s.add(pair[1]);
+  };
+
+  // The reserve only applies to "hard" asym pins — pairs whose pin pattern
+  // can NOT be extended into a partner-slot at (W1, W2). A 1-pin doubled
+  // pair will itself be partner-slotted here (soft asym), so it doesn't
+  // trigger the reserve. Single asym pins, and doubled pairs already pinned
+  // at two non-(W2/W1) weeks, do.
+  const computeSlotCap = (W1: number, W2: number): number => {
+    const pins1 = baseWeekMustInclude.get(W1) ?? [];
+    const pins2 = baseWeekMustInclude.get(W2) ?? [];
+    const keys1 = new Set(pins1.map(([a, b]) => pairKey(a, b)));
+    const keys2 = new Set(pins2.map(([a, b]) => pairKey(a, b)));
+    let symCount = 0;
+    for (const k of keys1) if (keys2.has(k)) symCount++;
+    const classify = (k: PairKey): "soft" | "hard" => {
+      const count = pairWeeks.get(k)?.length ?? 0;
+      return doubled.has(k) && count < 2 ? "soft" : "hard";
+    };
+    let hardAsymW1 = 0;
+    let softAsymW1 = 0;
+    for (const k of keys1) {
+      if (keys2.has(k)) continue;
+      if (classify(k) === "soft") softAsymW1++;
+      else hardAsymW1++;
+    }
+    let hardAsymW2 = 0;
+    let softAsymW2 = 0;
+    for (const k of keys2) {
+      if (keys1.has(k)) continue;
+      if (classify(k) === "soft") softAsymW2++;
+      else hardAsymW2++;
+    }
+    const teamsUsed = new Set<number>();
+    for (const [a, b] of pins1) {
+      teamsUsed.add(a);
+      teamsUsed.add(b);
+    }
+    for (const [a, b] of pins2) {
+      teamsUsed.add(a);
+      teamsUsed.add(b);
+    }
+    const uSize = teamCount - teamsUsed.size;
+    // From U (teams not in any pin), at most floor(uSize/2) "new" partner-slot
+    // pairs can be added. Add back sym pins (already in slot) and soft asym
+    // pins (will be extended into the slot by our loop).
+    const teamCapTotal =
+      Math.floor(uSize / 2) + symCount + softAsymW1 + softAsymW2;
+    // Backtrack feasibility at the harder-pinned side caps total slot pairs.
+    const weekCap = Math.floor(teamCount / 2) - Math.max(hardAsymW1, hardAsymW2);
+    const reserve = hardAsymW1 + hardAsymW2 > 0 ? 1 : 0;
+    const totalCap = Math.max(0, Math.min(teamCapTotal, weekCap) - reserve);
+    // slotCounts tracks pairs our loop *adds*. Sym pins pre-exist.
+    return Math.max(0, totalCap - symCount);
+  };
+
+  const slotCounts = new Map<string, number>();
+  const slotCaps = new Map<string, number>();
+  const slotCapFor = (W1: number, W2: number): number => {
+    const key = `${W1}-${W2}`;
+    let cap = slotCaps.get(key);
+    if (cap === undefined) {
+      cap = computeSlotCap(W1, W2);
+      slotCaps.set(key, cap);
+    }
+    return cap;
+  };
+  const incSlotCount = (W1: number, W2: number): void => {
+    const key = `${W1}-${W2}`;
+    slotCounts.set(key, (slotCounts.get(key) ?? 0) + 1);
+  };
+  const getSlotCount = (W1: number, W2: number): number =>
+    slotCounts.get(`${W1}-${W2}`) ?? 0;
+
+  type Job = { k: PairKey; existingWeek: number | null };
+  const todo: Job[] = [];
+  for (const k of doubled) {
+    const existing = pairWeeks.get(k);
+    if (!existing || existing.length === 0) {
+      todo.push({ k, existingWeek: null });
+    } else if (existing.length === 1) {
+      todo.push({ k, existingWeek: existing[0]! });
+    }
+  }
+
+  for (const { k, existingWeek } of shuffle(todo)) {
+    const [a, b] = unpackPairKey(k);
+    let placed = false;
+
+    for (let sep = separation; sep >= minSep && !placed; sep--) {
+      if (existingWeek !== null) {
+        const candidates: number[] = [];
+        if (existingWeek + sep <= weekCount) candidates.push(existingWeek + sep);
+        if (existingWeek - sep >= 1) candidates.push(existingWeek - sep);
+        for (const W2 of shuffle(candidates)) {
+          const lo = Math.min(existingWeek, W2);
+          const hi = Math.max(existingWeek, W2);
+          if (getSlotCount(lo, hi) >= slotCapFor(lo, hi)) continue;
+          if (canClaim(W2, a, b)) {
+            placeAt(W2, [a, b]);
+            incSlotCount(lo, hi);
+            placed = true;
+            break;
+          }
+        }
+      } else {
+        const candidates: Array<[number, number]> = [];
+        for (let W1 = 1; W1 + sep <= weekCount; W1++) {
+          candidates.push([W1, W1 + sep]);
+        }
+        for (const [W1, W2] of shuffle(candidates)) {
+          if (getSlotCount(W1, W2) >= slotCapFor(W1, W2)) continue;
+          if (canClaim(W1, a, b) && canClaim(W2, a, b)) {
+            placeAt(W1, [a, b]);
+            placeAt(W2, [a, b]);
+            incSlotCount(W1, W2);
+            placed = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!placed) return null;
+  }
+
+  return weekMustInclude;
+}
+
 function buildMatchingsByWeek(
   n: number,
   weekCount: number,
@@ -1026,8 +1225,29 @@ function buildMatchingsByWeek(
   // pinned week of a non-partner pair has the first week's matching available.
   pinnedWeeks.sort((a, b) => a - b);
 
+  // Pre-account must-include placements: each pair's remaining backtrack
+  // budget is target - mustIncludeCount. Backtrack only consumes the budget,
+  // must-include placements are "free" because the budget already excludes
+  // them. This prevents an earlier week's backtrack from stealing a pair that
+  // a later week's must-include depends on (e.g., a partner-slot pair must
+  // appear at both natural-partner weeks even if a backtrack at an
+  // intermediate week could otherwise use it).
+  const mustIncludeCount = new Map<PairKey, number>();
+  for (const [, pairs] of weekMustInclude) {
+    for (const [a, b] of pairs) {
+      const k = pairKey(a, b);
+      mustIncludeCount.set(k, (mustIncludeCount.get(k) ?? 0) + 1);
+    }
+  }
+  for (const [k, c] of mustIncludeCount) {
+    if (c > (target.get(k) ?? 0)) return null;
+  }
+
   for (let outer = 0; outer < 50; outer++) {
-    const remaining = new Map<PairKey, number>(target);
+    const remaining = new Map<PairKey, number>();
+    for (const [k, t] of target) {
+      remaining.set(k, t - (mustIncludeCount.get(k) ?? 0));
+    }
     const matchings: (Matching | null)[] = new Array(weekCount).fill(null);
     const matchingPairs = new Map<number, Set<PairKey>>();
     const order = [...pinnedWeeks, ...shuffle(unpinnedWeeks)];
@@ -1053,10 +1273,14 @@ function buildMatchingsByWeek(
         break;
       }
       matchings[W - 1] = m;
+      const mustKeys = new Set<PairKey>();
+      for (const [a, b] of must) mustKeys.add(pairKey(a, b));
       const pSet = new Set<PairKey>();
       for (const [a, b] of m) {
         const k = pairKey(a, b);
-        remaining.set(k, (remaining.get(k) ?? 0) - 1);
+        if (!mustKeys.has(k)) {
+          remaining.set(k, (remaining.get(k) ?? 0) - 1);
+        }
         pSet.add(k);
       }
       matchingPairs.set(W, pSet);
@@ -1127,9 +1351,27 @@ function buildScheduleWeekByWeek(
       }
     }
 
-    const matchings = buildMatchingsByWeek(
-      teamCount, weekCount, target, weekMustInclude, nonPartnerPartners, shuffle,
-    );
+    // Bias unpinned doubled pairs toward partner-week slots, tightening the
+    // floor on allowed separation in tiers: first try staying within the
+    // natural slot; then 1 week below; then 2 weeks below; only widen further
+    // if those tighter passes can't produce a feasible matching. Each tier
+    // gets several shuffle attempts so random orderings can escape local
+    // dead-ends without us giving up the quality goal.
+    let matchings: Matching[] | null = null;
+    for (let widening = 0; widening < weekCount && !matchings; widening++) {
+      const minSep = Math.max(1, format.separation - widening);
+      const tierAttempts = widening <= 4 ? 50 : 5;
+      for (let attempt = 0; attempt < tierAttempts; attempt++) {
+        const augmented = assignPartnerWeeksForUnpinnedDoubled(
+          doubled, weekMustInclude, teamCount, weekCount, format.separation, minSep, shuffle,
+        );
+        if (!augmented) continue;
+        matchings = buildMatchingsByWeek(
+          teamCount, weekCount, target, augmented, nonPartnerPartners, shuffle,
+        );
+        if (matchings) break;
+      }
+    }
     if (!matchings) continue;
 
     const doubledPairs = new Set<PairKey>();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildSchedule, describeFormat, pairKey } from "./index";
-import type { RivalryPin, ScheduleSuccess } from "./types";
+import type { PairKey, RivalryPin, ScheduleSuccess } from "./types";
 
 // Mulberry32: small, fast, deterministic PRNG. Each test that needs random
 // scheduling gets a fresh seed so failures are reproducible and tests don't
@@ -1049,6 +1049,46 @@ describe("buildSchedule rivalry pins", () => {
       let overlap = 0;
       for (const k of w3) if (w14.has(k)) overlap++;
       expect(overlap).toBe(6);
+    });
+
+    it("unpinned doubled pairs stay near max separation across seeds (12/14, non-partner pin)", () => {
+      // 12/14 separation = 11. The pinned (0,1) at non-partner weeks (3, 6)
+      // displaces a natural double slot, capping slot (3,14) below its
+      // full team capacity so backtrack at week 14 stays feasible. The
+      // remaining doubled pair the cap excludes degrades to a lower-sep
+      // partner slot. Empirically the worst case across these seeds is
+      // around sep 5; that's well above what arbitrary placement produced
+      // before this change (no bias at all). The floor sep >= 5 still
+      // demonstrates the partner-week bias is doing meaningful work.
+      let globalMin = Infinity;
+      const pinnedKey = pairKey(0, 1);
+      for (let seed = 0; seed < 20; seed++) {
+        const r = buildSchedule({
+          teamCount: 12,
+          weekCount: 14,
+          rivalryPins: [pinTo(3, 0, 1), pinTo(6, 0, 1)],
+          random: mulberry32(0xa000 + seed),
+        });
+        assertSuccess(r);
+        const appearances = new Map<string, number[]>();
+        r.weeks.forEach((week, wi) => {
+          for (const [a, b] of week) {
+            const k = pairKey(a, b);
+            if (!r.doubledPairs.has(k)) continue;
+            if (k === pinnedKey) continue;
+            const arr = appearances.get(k);
+            if (arr) arr.push(wi);
+            else appearances.set(k, [wi]);
+          }
+        });
+        for (const [, weeks] of appearances) {
+          if (weeks.length === 2) {
+            const sep = Math.abs((weeks[1] as number) - (weeks[0] as number));
+            if (sep < globalMin) globalMin = sep;
+          }
+        }
+      }
+      expect(globalMin).toBeGreaterThanOrEqual(5);
     });
 
     it("partial week 3 pin plus a non-partner second pin: W3 carries all pinned matchups, W6 carries only (0,1)", () => {
