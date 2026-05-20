@@ -1889,8 +1889,11 @@ export default function GeneratePage() {
                 if (dupExists) pinError = "This matchup is already pinned to this week.";
               }
             }
+            // Avoid warning is informational about the current selection; it
+            // stays visible whenever the pair is avoided, regardless of any
+            // active pinError or the post-add suppression flag.
             let avoidWarning = "";
-            if (!pinError) {
+            {
               const { hard, soft } = getAvoidSets();
               if (hard.has(pinAKey)) {
                 avoidWarning =
@@ -1987,7 +1990,7 @@ export default function GeneratePage() {
                     Pin
                   </button>
                 </div>
-                {pinJustAdded ? null : pinError ? (
+                {!pinJustAdded && pinError ? (
                   <p className="text-[11px] mt-2 text-red-400">{pinError}</p>
                 ) : avoidWarning ? (
                   <p className="text-[11px] mt-2 text-amber-400">{avoidWarning}</p>
