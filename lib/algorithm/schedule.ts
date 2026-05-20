@@ -39,7 +39,7 @@ export function buildSchedule(config: ScheduleConfig): ScheduleResult {
   const format = describeFormat(teamCount, weekCount);
   const { doublesPerTeam, singlesPerTeam } = format;
 
-  if (doublesPerTeam === 0) {
+  if (doublesPerTeam === 0 && rivalryPins.length === 0) {
     return {
       ok: false,
       reason: "pure-round-robin",
@@ -49,6 +49,9 @@ export function buildSchedule(config: ScheduleConfig): ScheduleResult {
       format,
     };
   }
+  // For pure round-robin formats with rivalry pins, fall through and let the
+  // generator place the pinned matchups; with dp=0 every pin is a forced
+  // single and the schedule is just a constrained 1-factorization of K_n.
 
   if (singlesPerTeam === 0) {
     return {

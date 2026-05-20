@@ -878,6 +878,94 @@ describe("buildSchedule rivalry pins", () => {
       ).toBe(true);
     });
   });
+
+  // The most constrained formats: 14/13 (pure round-robin, 0 doubles, cap=1)
+  // and 14/14 (only 1 double per team, cap=2). These exercise the dp=0
+  // bypass and the limit case where the doubled set is exactly one matching.
+  describe("14-team rivalry weeks", () => {
+    function partition(pairs: Array<[number, number]>, week: number): RivalryPin[] {
+      return pairs.map(([a, b]) => pinTo(week, a, b));
+    }
+    const PART_X_14: Array<[number, number]> = [
+      [0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11], [12, 13],
+    ];
+    const PART_Y_14: Array<[number, number]> = [
+      [0, 2], [1, 4], [3, 5], [6, 8], [7, 9], [10, 12], [11, 13],
+    ];
+
+    it("two full rivalry weeks with different matchups in a pure round-robin (14/13)", () => {
+      // 14/13 has dp=0 (every pair plays once). Pinning two disjoint full
+      // weeks should constrain the round-robin so PART_X plays week 1 and
+      // PART_Y plays week 13; the other 11 weeks fill in the rest of K_14.
+      const pins = [...partition(PART_X_14, 1), ...partition(PART_Y_14, 13)];
+      const r = buildSchedule({
+        teamCount: 14, weekCount: 13, rivalryPins: pins,
+        random: mulberry32(0x14a01),
+      });
+      assertSuccess(r);
+      expect(r.doubledPairs.size).toBe(0);
+      for (const [a, b] of PART_X_14) {
+        expect(
+          r.weeks[0]!.some(
+            ([x, y]) => (x === a && y === b) || (x === b && y === a),
+          ),
+        ).toBe(true);
+      }
+      for (const [a, b] of PART_Y_14) {
+        expect(
+          r.weeks[12]!.some(
+            ([x, y]) => (x === a && y === b) || (x === b && y === a),
+          ),
+        ).toBe(true);
+      }
+    });
+
+    it("rejects a pair repeating across two rivalry weeks in 14/13 (cap=1)", () => {
+      // 14/13 cap = ceil(13/13) = 1. Any pair pinned twice exceeds the
+      // cap because there are no doubled pairs available in pure RR.
+      const overlap: Array<[number, number]> = [
+        [0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11], [12, 13],
+      ];
+      const partTwo: Array<[number, number]> = [
+        [0, 1], [2, 4], [3, 5], [6, 8], [7, 9], [10, 12], [11, 13],
+      ];
+      const pins = [...partition(overlap, 1), ...partition(partTwo, 13)];
+      const r = buildSchedule({
+        teamCount: 14, weekCount: 13, rivalryPins: pins,
+        random: mulberry32(0x14a02),
+      });
+      expect(r.ok).toBe(false);
+    });
+
+    // 14/14 has dp=1 (one double per team, cap=2). The doubled set is one
+    // full matching shared between the two natural-partner weeks. The
+    // structural limitation noted in the multi-week tests above means a
+    // single pair can't repeat across two weeks while everything else
+    // differs — the closest feasible scenario is the entire partition
+    // repeating, turning all 7 pairs into 2-pin forced doubles.
+    it("two full rivalry weeks at natural partners share a partition (14/14, all 7 pairs doubled)", () => {
+      // sep = 14 - 1 = 13, so weeks 1 and 14 are the natural partner pair.
+      const pins = [...partition(PART_X_14, 1), ...partition(PART_X_14, 14)];
+      const r = buildSchedule({
+        teamCount: 14, weekCount: 14, rivalryPins: pins,
+        random: mulberry32(0x14a03),
+      });
+      assertSuccess(r);
+      for (const [a, b] of PART_X_14) {
+        expect(r.doubledPairs.has(pairKey(a, b))).toBe(true);
+        expect(
+          r.weeks[0]!.some(
+            ([x, y]) => (x === a && y === b) || (x === b && y === a),
+          ),
+        ).toBe(true);
+        expect(
+          r.weeks[13]!.some(
+            ([x, y]) => (x === a && y === b) || (x === b && y === a),
+          ),
+        ).toBe(true);
+      }
+    });
+  });
 });
 
 describe("buildSchedule edge cases", () => {
