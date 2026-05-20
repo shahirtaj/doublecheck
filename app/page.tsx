@@ -1899,7 +1899,7 @@ export default function GeneratePage() {
                 return { disabled: true, suffix: " (no partner)" };
               }
               if (partnerOnlyWeek !== null && W !== partnerOnlyWeek) {
-                return { disabled: true, suffix: " (non-partner)" };
+                return { disabled: true, suffix: " (unavailable)" };
               }
               return { disabled: false, suffix: "" };
             };
