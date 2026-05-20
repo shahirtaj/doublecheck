@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { pairKey, unpackPairKey, type PairKey } from "@/lib/algorithm";
 
 type RivalryPlacement = {
@@ -163,15 +164,16 @@ export function SharedScheduleView({
         </details>
       </div>
 
-      <div className="max-w-[700px] mx-auto mt-6 text-center">
-        <p className="text-[11px] text-slate-500">
-          <a
-            href="https://doublecheckff.com"
-            className="text-emerald-400 hover:text-emerald-300"
-          >
-            Generate your own schedule
-          </a>
+      <div className="max-w-[700px] mx-auto mt-8 text-center">
+        <p className="text-xs text-slate-400 mb-3">
+          Want a fair schedule for your league?
         </p>
+        <Link
+          href="/"
+          className="inline-block bg-transparent text-emerald-400 border border-emerald-700 px-5 py-2.5 rounded-md text-[13px] font-semibold hover:border-emerald-600 hover:text-emerald-300"
+        >
+          Create your own schedule →
+        </Link>
       </div>
     </>
   );
