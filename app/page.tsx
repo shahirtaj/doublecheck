@@ -1881,6 +1881,7 @@ export default function GeneratePage() {
                 : null;
             const noPartnerWeekForPair: boolean =
               !!format &&
+              format.doublesPerTeam === 1 &&
               !!existingPinForPair &&
               existingPinForPair.week !== null &&
               existingPinForPair.week + format.separation > weekCount &&
