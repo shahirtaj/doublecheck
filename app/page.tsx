@@ -1896,7 +1896,7 @@ export default function GeneratePage() {
               );
               if (teamConflict) return { disabled: true, suffix: " (pinned)" };
               if (noPartnerWeekForPair) {
-                return { disabled: true, suffix: " (no partner)" };
+                return { disabled: true, suffix: " (unavailable)" };
               }
               if (partnerOnlyWeek !== null && W !== partnerOnlyWeek) {
                 return { disabled: true, suffix: " (unavailable)" };
@@ -1917,10 +1917,17 @@ export default function GeneratePage() {
               pinError = `This pair can play at most ${maxPinsPerPair} time${
                 maxPinsPerPair === 1 ? "" : "s"
               } in this format.`;
-            } else if (noPartnerWeekForPair && pinWeek !== null) {
+            } else if (
+              pinWeek !== null &&
+              (noPartnerWeekForPair ||
+                (partnerOnlyWeek !== null && pinWeek !== partnerOnlyWeek))
+            ) {
               pinError =
-                "No valid partner week available for this pair in this format. " +
-                "Use 'Any' to let the algorithm place the rematch.";
+                partnerOnlyWeek !== null
+                  ? `This format only allows the rematch in Week ${partnerOnlyWeek}. ` +
+                    "Use 'Any' to let the algorithm place it automatically."
+                  : "No valid week available for a second pin in this format. " +
+                    "Use 'Any' to let the algorithm place the rematch.";
             } else if (pinWeek !== null) {
               for (const p of rivalryPins) {
                 if (p.week !== pinWeek) continue;
