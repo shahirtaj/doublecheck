@@ -1448,6 +1448,13 @@ export default function GeneratePage() {
       {/* ═══ STEP 2: AVOID ═══ */}
       {step === "doubles" && (
         <div className={cls.card}>
+          <button
+            type="button"
+            onClick={() => setStep("teams")}
+            className="text-[12px] text-slate-400 hover:text-slate-300 mb-2"
+          >
+            ← Back
+          </button>
           <h2 className={cls.cardTitle}>{leagueName || "Review"}</h2>
 
           {history.length > 0 && (
@@ -1913,11 +1920,71 @@ export default function GeneratePage() {
             let pinError = "";
             if (sameTeam) {
               pinError = "Pick two different teams.";
-            } else if (pairAtMax) {
+            }
+            // Same team, same week (different opponent). Stricter and more
+            // informative than the per-week conflict loop below, which still
+            // runs as a fallback.
+            if (!pinError && pinWeek !== null) {
+              for (const p of rivalryPins) {
+                if (p.week !== pinWeek) continue;
+                if (pairKey(p.teamA, p.teamB) === pinAKey) continue;
+                let conflictedIdx = -1;
+                let opponentIdx = -1;
+                if (p.teamA === safeA || p.teamB === safeA) {
+                  conflictedIdx = safeA;
+                  opponentIdx = p.teamA === safeA ? p.teamB : p.teamA;
+                } else if (p.teamA === safeB || p.teamB === safeB) {
+                  conflictedIdx = safeB;
+                  opponentIdx = p.teamA === safeB ? p.teamB : p.teamA;
+                }
+                if (conflictedIdx >= 0) {
+                  pinError =
+                    `Team ${teams[conflictedIdx]} is already pinned to Week ${pinWeek} against ${teams[opponentIdx]}. ` +
+                    "A team can only play once per week.";
+                  break;
+                }
+              }
+            }
+            // Too many doubles for one team. Counts distinct pinned opponents
+            // per team across all pins (including "Any"). A second pin for the
+            // same pair doesn't add a new opponent, so it's allowed.
+            if (!pinError && format) {
+              const opponentsOf = (team: number) => {
+                const set = new Set<number>();
+                for (const p of rivalryPins) {
+                  if (p.teamA === team) set.add(p.teamB);
+                  else if (p.teamB === team) set.add(p.teamA);
+                }
+                return set;
+              };
+              const maxDoubles = format.doublesPerTeam;
+              const oppA = opponentsOf(safeA);
+              if (!oppA.has(safeB) && oppA.size >= maxDoubles) {
+                pinError = `${teams[safeA]} already has ${oppA.size} pinned opponents — the max for this format is ${maxDoubles}.`;
+              } else {
+                const oppB = opponentsOf(safeB);
+                if (!oppB.has(safeA) && oppB.size >= maxDoubles) {
+                  pinError = `${teams[safeB]} already has ${oppB.size} pinned opponents — the max for this format is ${maxDoubles}.`;
+                }
+              }
+            }
+            // Too many matchups in one week. A full week is teamCount / 2.
+            if (!pinError && pinWeek !== null) {
+              const matchupsInWeek = rivalryPins.filter(
+                (p) => p.week === pinWeek,
+              ).length;
+              const fullWeek = Math.floor(teamCount / 2);
+              if (matchupsInWeek >= fullWeek) {
+                pinError = `Week ${pinWeek} already has ${matchupsInWeek} matchups pinned — that fills the entire week.`;
+              }
+            }
+            if (!pinError && pairAtMax) {
               pinError = `This pair can play at most ${maxPinsPerPair} time${
                 maxPinsPerPair === 1 ? "" : "s"
               } in this format.`;
-            } else if (
+            }
+            if (
+              !pinError &&
               pinWeek !== null &&
               (noPartnerWeekForPair ||
                 (partnerOnlyWeek !== null && pinWeek !== partnerOnlyWeek))
@@ -1928,7 +1995,8 @@ export default function GeneratePage() {
                     "Use 'Any' to let the algorithm place it automatically."
                   : "No valid week available for a second pin in this format. " +
                     "Use 'Any' to let the algorithm place the rematch.";
-            } else if (pinWeek !== null) {
+            }
+            if (!pinError && pinWeek !== null) {
               for (const p of rivalryPins) {
                 if (p.week !== pinWeek) continue;
                 const conflictA = p.teamA === safeA || p.teamB === safeA;
@@ -2124,6 +2192,13 @@ export default function GeneratePage() {
       {/* ═══ STEP 3: SCHEDULE ═══ */}
       {step === "schedule" && schedule && (
         <div className={cls.card}>
+          <button
+            type="button"
+            onClick={() => setStep("doubles")}
+            className="text-[12px] text-slate-400 hover:text-slate-300 mb-2"
+          >
+            ← Back
+          </button>
           <h2 className={cls.cardTitle}>
             {leagueName ? `${leagueName} ${scheduleYear} Schedule` : "Generated Schedule"}
           </h2>
