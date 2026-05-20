@@ -113,54 +113,47 @@ export function SharedScheduleView({
           </summary>
           <div className="flex flex-col gap-1 mt-2">
             {teams.map((t, i) => {
+              type Appearance = { week: number; isPinned: boolean };
               type Entry = {
+                opponentIdx: number;
                 name: string;
-                tone: string;
-                suffix: string;
-                sortKey: number;
-                week: number;
+                appearances: Appearance[];
+                anyPinned: boolean;
               };
-              const entries: Entry[] = [];
-              // One entry per appearance: pinned weeks render blue, naturally
-              // doubled weeks render red.
+              // Collect all appearances for team i, grouped by opponent.
+              const byOpponent = new Map<number, Appearance[]>();
               weeks.forEach((week, wi) => {
                 const W = wi + 1;
                 for (const [a, b] of week) {
                   const key = pairKey(a, b);
                   const isDouble = doubledSet.has(key);
-                  const placement = placementByWeekPair.get(`${key}@${W}`);
-                  if (!isDouble && !placement) continue;
+                  const isPinned = placementByWeekPair.has(`${key}@${W}`);
+                  if (!isDouble && !isPinned) continue;
                   const other = a === i ? b : b === i ? a : null;
                   if (other === null) continue;
-                  if (placement) {
-                    const suffix =
-                      placement.pinnedWeek === null
-                        ? ` (any → Week ${W})`
-                        : ` (Week ${W})`;
-                    entries.push({
-                      name: teams[other]!,
-                      tone: "text-sky-400",
-                      suffix,
-                      sortKey: 0,
-                      week: W,
-                    });
-                  } else {
-                    entries.push({
-                      name: teams[other]!,
-                      tone: "text-red-400",
-                      suffix: ` (Week ${W})`,
-                      sortKey: 1,
-                      week: W,
-                    });
+                  let list = byOpponent.get(other);
+                  if (!list) {
+                    list = [];
+                    byOpponent.set(other, list);
                   }
+                  list.push({ week: W, isPinned });
                 }
               });
-              if (entries.length === 0) return null;
+              if (byOpponent.size === 0) return null;
+              const entries: Entry[] = [];
+              byOpponent.forEach((apps, opp) => {
+                apps.sort((x, y) => x.week - y.week);
+                entries.push({
+                  opponentIdx: opp,
+                  name: teams[opp]!,
+                  appearances: apps,
+                  anyPinned: apps.some((a) => a.isPinned),
+                });
+              });
               entries.sort(
                 (x, y) =>
-                  x.sortKey - y.sortKey ||
-                  x.name.localeCompare(y.name) ||
-                  x.week - y.week,
+                  (x.anyPinned ? 0 : 1) - (y.anyPinned ? 0 : 1) ||
+                  x.name.localeCompare(y.name),
               );
               return (
                 <div key={i} className="text-xs px-2 py-1 bg-slate-900 rounded">
@@ -169,10 +162,21 @@ export function SharedScheduleView({
                     {entries.map((e, k) => (
                       <span key={k}>
                         {k > 0 ? ", " : ""}
-                        <span className={e.tone}>
+                        <span className={e.anyPinned ? "text-sky-400" : "text-red-400"}>
                           {e.name}
-                          {e.suffix}
                         </span>
+                        {" ("}
+                        {e.appearances.map((app, j) => (
+                          <span key={j}>
+                            {j > 0 ? ", " : ""}
+                            <span
+                              className={app.isPinned ? "text-sky-400" : "text-red-400"}
+                            >
+                              Week {app.week}
+                            </span>
+                          </span>
+                        ))}
+                        {")"}
                       </span>
                     ))}
                   </div>
