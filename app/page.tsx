@@ -2031,6 +2031,30 @@ export default function GeneratePage() {
                 </p>
                 <div className="flex flex-wrap gap-2 items-stretch">
                   <select
+                    aria-label="Week"
+                    className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                    value={pinWeek === null ? "any" : String(pinWeek)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setPinWeek(v === "any" ? null : parseInt(v, 10));
+                      setPinJustAdded(false);
+                    }}
+                  >
+                    <option value="any" disabled={pairAtMax}>
+                      Any week
+                    </option>
+                    {Array.from({ length: weekCount }, (_, i) => {
+                      const W = i + 1;
+                      const { disabled, suffix } = weekOptionState(W);
+                      return (
+                        <option key={W} value={String(W)} disabled={disabled}>
+                          Week {W}
+                          {suffix}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <select
                     aria-label="First team"
                     className="flex-1 min-w-[8rem] bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
                     value={safeA}
@@ -2066,30 +2090,6 @@ export default function GeneratePage() {
                       </option>
                     ))}
                   </select>
-                  <select
-                    aria-label="Week"
-                    className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
-                    value={pinWeek === null ? "any" : String(pinWeek)}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setPinWeek(v === "any" ? null : parseInt(v, 10));
-                      setPinJustAdded(false);
-                    }}
-                  >
-                    <option value="any" disabled={pairAtMax}>
-                      Any week
-                    </option>
-                    {Array.from({ length: weekCount }, (_, i) => {
-                      const W = i + 1;
-                      const { disabled, suffix } = weekOptionState(W);
-                      return (
-                        <option key={W} value={String(W)} disabled={disabled}>
-                          Week {W}
-                          {suffix}
-                        </option>
-                      );
-                    })}
-                  </select>
                   <button
                     type="button"
                     className={cls.primaryBtn}
@@ -2100,7 +2100,8 @@ export default function GeneratePage() {
                         ...rivalryPins,
                         { teamA: safeA, teamB: safeB, week: pinWeek },
                       ]);
-                      setPinWeek(null);
+                      setPinTeamA(0);
+                      setPinTeamB(1);
                       setPinJustAdded(true);
                     }}
                   >
