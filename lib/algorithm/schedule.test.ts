@@ -651,6 +651,79 @@ describe("buildSchedule rivalry pins", () => {
     if (r.ok) return;
     expect(r.reason).toBe("generation-failed");
   });
+
+  // A commissioner pinning every matchup for a single week (every team
+  // appears exactly once) is the core rivalry-weeks use case. It has to
+  // succeed for every supported format, including the case where some of
+  // the pinned pairs are also hard-avoided (which would otherwise create a
+  // structurally invalid mix of doubled and single matchings at that week).
+  describe("full-week pin succeeds for every format", () => {
+    const formats: Array<{ teams: number; weeks: number }> = [
+      { teams: 8, weeks: 13 },
+      { teams: 10, weeks: 13 },
+      { teams: 10, weeks: 14 },
+      { teams: 12, weeks: 13 },
+      { teams: 12, weeks: 14 },
+      { teams: 14, weeks: 14 },
+      { teams: 14, weeks: 15 },
+    ];
+
+    for (const { teams, weeks } of formats) {
+      it(`${teams}-team / ${weeks}-week — pin every matchup at week 2`, () => {
+        const pins: RivalryPin[] = [];
+        for (let i = 0; i < teams; i += 2) {
+          pins.push(pinTo(2, i, i + 1));
+        }
+        const r = buildSchedule({
+          teamCount: teams,
+          weekCount: weeks,
+          rivalryPins: pins,
+          random: mulberry32(0xfa11 + teams * 100 + weeks),
+        });
+        assertSuccess(r);
+        const week2 = r.weeks[1]!;
+        for (const pin of pins) {
+          expect(
+            week2.some(
+              ([a, b]) =>
+                (a === pin.teamA && b === pin.teamB) ||
+                (a === pin.teamB && b === pin.teamA),
+            ),
+          ).toBe(true);
+        }
+      });
+
+      it(`${teams}-team / ${weeks}-week — full-week pin with one hard-avoided pair`, () => {
+        const pins: RivalryPin[] = [];
+        for (let i = 0; i < teams; i += 2) {
+          pins.push(pinTo(2, i, i + 1));
+        }
+        // The first pinned pair is hard-avoided; the others naturally double
+        // at the corresponding block-pair week. Pre-fix this combination
+        // produced a structurally invalid mix and failed generation.
+        const hardAvoid = new Set([pairKey(0, 1)]);
+        const r = buildSchedule({
+          teamCount: teams,
+          weekCount: weeks,
+          rivalryPins: pins,
+          hardAvoid,
+          random: mulberry32(0xfa12 + teams * 100 + weeks),
+        });
+        assertSuccess(r);
+        const week2 = r.weeks[1]!;
+        for (const pin of pins) {
+          expect(
+            week2.some(
+              ([a, b]) =>
+                (a === pin.teamA && b === pin.teamB) ||
+                (a === pin.teamB && b === pin.teamA),
+            ),
+          ).toBe(true);
+        }
+        expect(r.doubledPairs.has(pairKey(0, 1))).toBe(false);
+      });
+    }
+  });
 });
 
 describe("buildSchedule edge cases", () => {

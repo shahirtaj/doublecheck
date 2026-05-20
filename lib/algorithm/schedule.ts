@@ -321,9 +321,17 @@ function resolvePins(
   const forcedSinglePairs = new Set<PairKey>();
   const placements: RivalryPlacement[] = [];
 
+  const willBeForcedSingle = (pair: Pair, W: number): boolean => {
+    if (hardAvoid.has(pairKey(pair[0], pair[1]))) return true;
+    const inBlockArea = W <= dp || W > weekCount - dp;
+    return !inBlockArea;
+  };
+
   // Place a 1-pin pair at week W. Hard-avoided pairs stay single; non-hard-
   // avoided pairs in the block area attempt the natural double at W±sep and
-  // fall back to single if that paired week is already claimed.
+  // fall back to single if that paired week is already claimed OR the week
+  // already hosts a forced-single matching (mixing a doubled matching and a
+  // single matching at the same week is structurally impossible).
   const place1PinAtWeek = (
     pair: Pair,
     W: number,
@@ -334,7 +342,8 @@ function resolvePins(
     const key = pairKey(a, b);
     const isHardAvoided = hardAvoid.has(key);
     const inBlockArea = W <= dp || W > weekCount - dp;
-    if (!isHardAvoided && inBlockArea) {
+    const weekHasForcedSingle = singleSlotByWeek.has(W);
+    if (!isHardAvoided && inBlockArea && !weekHasForcedSingle) {
       const W2 = W <= dp ? W + separation : W - separation;
       if (W2 >= 1 && W2 <= weekCount && claimWeek(W2, a, b)) {
         const slot = ensureDoubleSlot(W, W2);
@@ -367,11 +376,23 @@ function resolvePins(
     placements.push({ teamA: a, teamB: b, pinnedWeek: W2, placedWeek: W2 });
   }
 
-  // Pass B: 1-pin pairs with specific week. Block-aware via place1PinAtWeek.
+  // Pass B: 1-pin pairs with specific week. Process forced singles first so
+  // tentative-double pins can see the S slot and demote themselves, avoiding
+  // a structurally invalid mix of D and S matchings at the same week.
   for (const [, group] of groupsByPair) {
     if (group.pins.length !== 1) continue;
     const [p] = group.pins as [RivalryPin];
     if (p.week === null) continue;
+    if (!willBeForcedSingle(group.pair, p.week)) continue;
+    if (!place1PinAtWeek(group.pair, p.week, p.week)) {
+      return { error: PIN_FAIL_MESSAGE };
+    }
+  }
+  for (const [, group] of groupsByPair) {
+    if (group.pins.length !== 1) continue;
+    const [p] = group.pins as [RivalryPin];
+    if (p.week === null) continue;
+    if (willBeForcedSingle(group.pair, p.week)) continue;
     if (!place1PinAtWeek(group.pair, p.week, p.week)) {
       return { error: PIN_FAIL_MESSAGE };
     }
