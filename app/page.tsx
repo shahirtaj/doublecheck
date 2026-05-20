@@ -1860,6 +1860,25 @@ export default function GeneratePage() {
               return null;
             })();
 
+            // When the pair's existing pin sits on a week whose natural
+            // partner (W ± separation) falls outside [1, weekCount], the
+            // second specific-week pin has no in-range partner — any
+            // specific week the user picks creates a non-partner double
+            // that the algorithm rejects at generation time. Block adding
+            // a second specific-week pin in this state; "Any" still lets
+            // the algorithm route the rematch.
+            const existingPinForPair =
+              existingPinsForPair === 1
+                ? rivalryPins.find((p) => pairKey(p.teamA, p.teamB) === pinAKey) ??
+                  null
+                : null;
+            const noPartnerWeekForPair: boolean =
+              !!format &&
+              !!existingPinForPair &&
+              existingPinForPair.week !== null &&
+              existingPinForPair.week + format.separation > weekCount &&
+              existingPinForPair.week - format.separation < 1;
+
             // Per-week option state. Order matters: an exact-pair duplicate
             // takes priority over the generic team-conflict label.
             const weekOptionState = (W: number): { disabled: boolean; suffix: string } => {
@@ -1876,6 +1895,9 @@ export default function GeneratePage() {
                     p.teamB === safeB),
               );
               if (teamConflict) return { disabled: true, suffix: " (pinned)" };
+              if (noPartnerWeekForPair) {
+                return { disabled: true, suffix: " (no partner)" };
+              }
               if (partnerOnlyWeek !== null && W !== partnerOnlyWeek) {
                 return { disabled: true, suffix: " (non-partner)" };
               }
@@ -1895,6 +1917,10 @@ export default function GeneratePage() {
               pinError = `This pair can play at most ${maxPinsPerPair} time${
                 maxPinsPerPair === 1 ? "" : "s"
               } in this format.`;
+            } else if (noPartnerWeekForPair && pinWeek !== null) {
+              pinError =
+                "No valid partner week available for this pair in this format. " +
+                "Use 'Any' to let the algorithm place the rematch.";
             } else if (pinWeek !== null) {
               for (const p of rivalryPins) {
                 if (p.week !== pinWeek) continue;
