@@ -1461,7 +1461,7 @@ export default function GeneratePage() {
               </p>
               <div className="mt-2 flex flex-wrap gap-2 items-center text-[11px]">
                 <label htmlFor="lookback-override" className="text-slate-500">
-                  Override:
+                  Lookback:
                 </label>
                 <select
                   id="lookback-override"
@@ -1484,18 +1484,25 @@ export default function GeneratePage() {
                 </select>
                 <span className="text-slate-500">
                   ={" "}
-                  <span className="text-red-400">{effectiveLookback.hard} hard</span>
+                  <span className="text-red-400">
+                    {effectiveLookback.hard} hard season{effectiveLookback.hard === 1 ? "" : "s"}
+                  </span>
                   {effectiveLookback.soft > 0 && (
                     <>
                       {" + "}
-                      <span className="text-amber-400">{effectiveLookback.soft} soft</span>
+                      <span className="text-amber-400">
+                        {effectiveLookback.soft} soft season
+                        {effectiveLookback.soft === 1 ? "" : "s"}
+                      </span>
                     </>
                   )}
                 </span>
               </div>
               <p className="mt-1.5 text-[11px] text-slate-500">
                 {history.length} season{history.length > 1 ? "s" : ""} in history ·{" "}
-                {avoidInfo.hard} hard · {avoidInfo.soft} soft · {avoidInfo.total} total avoid pairs
+                {avoidInfo.total} total pairs avoided (
+                <span className="text-red-400">{avoidInfo.hard} hard</span>,{" "}
+                <span className="text-amber-400">{avoidInfo.soft} soft</span>)
               </p>
             </div>
           )}
