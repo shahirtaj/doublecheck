@@ -1710,7 +1710,7 @@ export default function GeneratePage() {
                     let cellTone = "bg-slate-800 text-slate-500 hover:bg-slate-700";
                     let glyph = "";
                     if (isManual) {
-                      cellTone = "bg-emerald-900 text-emerald-400 font-bold";
+                      cellTone = "bg-purple-900 text-purple-400 font-bold";
                       glyph = "✕";
                     } else if (at === "hard") {
                       cellTone = "bg-red-950 text-red-400 font-bold";
@@ -1761,7 +1761,7 @@ export default function GeneratePage() {
           </div>
 
           <p className="text-[10px] text-slate-500 mt-2">
-            <span className="text-emerald-400">✕</span> manual{"  "}
+            <span className="text-purple-400">✕</span> manual avoid{"  "}
             <span className="text-red-400">H</span> hard avoid (last {effectiveLookback.hard}{" "}
             season{effectiveLookback.hard !== 1 ? "s" : ""}){"  "}
             <span className="text-amber-400">S</span> soft avoid (older)
@@ -1780,7 +1780,7 @@ export default function GeneratePage() {
                   const at = cellAvoidType(i, j);
                   const isManual = manualDoubles.has(pairKey(i, j));
                   if (isManual) {
-                    partners.push({ name: teams[j]!, tone: "text-emerald-400", sortKey: 0 });
+                    partners.push({ name: teams[j]!, tone: "text-purple-400", sortKey: 0 });
                   } else if (at === "hard") {
                     partners.push({ name: teams[j]!, tone: "text-red-400", sortKey: 1 });
                   } else if (at === "soft") {
