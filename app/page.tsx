@@ -1996,33 +1996,45 @@ export default function GeneratePage() {
                   <p className="text-[11px] mt-2 text-amber-400">{avoidWarning}</p>
                 ) : null}
                 {rivalryPins.length > 0 && (
-                  <div className="mt-3 flex flex-col gap-1">
-                    {rivalryPins.map((p, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-2 px-2 py-1 bg-slate-800 rounded text-xs border border-slate-700"
-                      >
-                        <span className="flex-1 text-slate-200">
-                          <span className="text-sky-400">{teams[p.teamA]}</span>
-                          <span className="text-slate-500"> vs </span>
-                          <span className="text-sky-400">{teams[p.teamB]}</span>
-                          <span className="text-slate-500">
-                            {" — "}
-                            {p.week === null ? "Any week" : `Week ${p.week}`}
-                          </span>
-                        </span>
-                        <button
-                          type="button"
-                          className="bg-transparent text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 border border-red-700 hover:border-red-600 rounded cursor-pointer"
-                          onClick={() =>
-                            setRivalryPins(rivalryPins.filter((_, i) => i !== idx))
-                          }
+                  <>
+                    <div className="mt-3 flex flex-col gap-1">
+                      {rivalryPins.map((p, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-2 px-2 py-1 bg-slate-800 rounded text-xs border border-slate-700"
                         >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                          <span className="flex-1 text-slate-200">
+                            <span className="text-sky-400">{teams[p.teamA]}</span>
+                            <span className="text-slate-500"> vs </span>
+                            <span className="text-sky-400">{teams[p.teamB]}</span>
+                            <span className="text-slate-500">
+                              {" — "}
+                              {p.week === null ? "Any week" : `Week ${p.week}`}
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            className="bg-transparent text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 border border-red-700 hover:border-red-600 rounded cursor-pointer"
+                            onClick={() =>
+                              setRivalryPins(rivalryPins.filter((_, i) => i !== idx))
+                            }
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        className="bg-transparent text-amber-400 border border-amber-700 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:text-amber-300 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => setRivalryPins([])}
+                        disabled={addingPastSeason}
+                      >
+                        Clear Rivalry Pins
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             );
