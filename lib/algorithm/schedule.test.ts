@@ -257,9 +257,10 @@ describe("buildSchedule rivalry pins", () => {
     return out;
   }
 
-  it("places a one-pin pair as a single at the requested week (not doubled)", () => {
-    // 12 teams / 14 weeks. Week 2 would be a default double slot, but a single
-    // pin should NOT auto-double; the pair plays only week 2.
+  it("single pin at a first-block week naturally doubles a non-avoided pair", () => {
+    // 12/14: dp=3, sep=11. Week 2 is a block-area week, so a 1-pin on a
+    // non-avoided pair "at least one game" lets the natural double in at
+    // week 2 + 11 = week 13.
     const r = buildSchedule({
       teamCount: 12,
       weekCount: 14,
@@ -267,14 +268,16 @@ describe("buildSchedule rivalry pins", () => {
       random: mulberry32(0x1111),
     });
     assertSuccess(r);
-    expect(pairAppearances(r, 0, 1)).toEqual([2]);
-    expect(r.doubledPairs.has(pairKey(0, 1))).toBe(false);
+    expect(pairAppearances(r, 0, 1)).toEqual([2, 13]);
+    expect(r.doubledPairs.has(pairKey(0, 1))).toBe(true);
     expect(r.rivalryPlacements).toEqual([
       { teamA: 0, teamB: 1, pinnedWeek: 2, placedWeek: 2 },
     ]);
   });
 
-  it("places a one-pin pair as a single at a last-block week (not doubled)", () => {
+  it("single pin at a last-block week naturally doubles a non-avoided pair", () => {
+    // Pin at week 13 (last block). The pair's natural double sits at
+    // week 13 - 11 = week 2.
     const r = buildSchedule({
       teamCount: 12,
       weekCount: 14,
@@ -282,8 +285,8 @@ describe("buildSchedule rivalry pins", () => {
       random: mulberry32(0x2222),
     });
     assertSuccess(r);
-    expect(pairAppearances(r, 2, 3)).toEqual([13]);
-    expect(r.doubledPairs.has(pairKey(2, 3))).toBe(false);
+    expect(pairAppearances(r, 2, 3)).toEqual([2, 13]);
+    expect(r.doubledPairs.has(pairKey(2, 3))).toBe(true);
     expect(r.rivalryPlacements[0]!.placedWeek).toBe(13);
   });
 
@@ -548,7 +551,11 @@ describe("buildSchedule rivalry pins", () => {
     expect(r.doubledPairs.has(pairKey(0, 1))).toBe(true);
   });
 
-  it("single pin works for a non-avoided pair (plays at the pinned week)", () => {
+  it("single pin works for a non-avoided pair (plays at the pinned week, may also appear elsewhere)", () => {
+    // 1 pin = "at least one game" — the pair is guaranteed at the pinned week
+    // and remains eligible for natural doubling. With a middle-week pin the
+    // algorithm leaves the pair as a single; a block-week pin triggers the
+    // natural double. Either way, week 5 must be in the schedule.
     const r = buildSchedule({
       teamCount: 12,
       weekCount: 14,

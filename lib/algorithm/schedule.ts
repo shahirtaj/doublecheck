@@ -61,7 +61,7 @@ export function buildSchedule(config: ScheduleConfig): ScheduleResult {
     };
   }
 
-  const resolved = resolvePins(rivalryPins, format);
+  const resolved = resolvePins(rivalryPins, format, hardAvoid);
   if ("error" in resolved) {
     return { ok: false, reason: "generation-failed", message: resolved.error };
   }
@@ -219,15 +219,20 @@ function validate(teamCount: number, weekCount: number): ScheduleResult | null {
 }
 
 // Resolve rivalry pins into per-slot must-include lists with explicit slot →
-// week mappings. The model: each pin is one appearance request. Group pins by
-// pair — 1 pin = the pair becomes a "forced single" (one appearance at the
-// pinned week), 2 pins = a "forced double" (two appearances at the pinned
-// weeks). Avoidance is overridden for pinned-week appearances only; the
-// second appearance of a 1-pin pair is still suppressed by avoidance because
-// the pair is excluded from the doubled set entirely.
+// week mappings. The model:
+//   * 2 pins on a pair = forced double, both pinned weeks fixed, avoidance
+//     fully overridden.
+//   * 1 pin + hard-avoided pair = forced single (avoidance suppresses the
+//     second appearance the schedule structure would otherwise add).
+//   * 1 pin + non-hard-avoided pair = "at least one game" at the pinned
+//     week. If the pinned week is one of the format's block-area weeks
+//     (W <= dp or W > wc - dp), the pair naturally doubles into the
+//     corresponding paired week. If that paired week is already claimed, or
+//     the pinned week is in the middle, the pair stays single.
 function resolvePins(
   pins: ReadonlyArray<RivalryPin>,
   format: FormatProperties,
+  hardAvoid: ReadonlySet<PairKey>,
 ): SlotAssignment | { error: string } {
   const { teamCount, weekCount, doublesPerTeam: dp, singlesPerTeam: sp, separation } = format;
 
@@ -316,6 +321,36 @@ function resolvePins(
   const forcedSinglePairs = new Set<PairKey>();
   const placements: RivalryPlacement[] = [];
 
+  // Place a 1-pin pair at week W. Hard-avoided pairs stay single; non-hard-
+  // avoided pairs in the block area attempt the natural double at W±sep and
+  // fall back to single if that paired week is already claimed.
+  const place1PinAtWeek = (
+    pair: Pair,
+    W: number,
+    pinnedWeek: number | null,
+  ): boolean => {
+    const [a, b] = pair;
+    if (!claimWeek(W, a, b)) return false;
+    const key = pairKey(a, b);
+    const isHardAvoided = hardAvoid.has(key);
+    const inBlockArea = W <= dp || W > weekCount - dp;
+    if (!isHardAvoided && inBlockArea) {
+      const W2 = W <= dp ? W + separation : W - separation;
+      if (W2 >= 1 && W2 <= weekCount && claimWeek(W2, a, b)) {
+        const slot = ensureDoubleSlot(W, W2);
+        doubleSlotMustInclude[slot]!.push(pair);
+        forcedDoubledPairs.add(key);
+        placements.push({ teamA: a, teamB: b, pinnedWeek, placedWeek: W });
+        return true;
+      }
+    }
+    const slot = ensureSingleSlot(W);
+    singleSlotMustInclude[slot]!.push(pair);
+    forcedSinglePairs.add(key);
+    placements.push({ teamA: a, teamB: b, pinnedWeek, placedWeek: W });
+    return true;
+  };
+
   // Pass A: 2-pin pairs with both weeks specific. Both weeks fixed.
   for (const [key, group] of groupsByPair) {
     if (group.pins.length !== 2) continue;
@@ -332,17 +367,14 @@ function resolvePins(
     placements.push({ teamA: a, teamB: b, pinnedWeek: W2, placedWeek: W2 });
   }
 
-  // Pass B: 1-pin pairs with specific week. Forced single at that week.
-  for (const [key, group] of groupsByPair) {
+  // Pass B: 1-pin pairs with specific week. Block-aware via place1PinAtWeek.
+  for (const [, group] of groupsByPair) {
     if (group.pins.length !== 1) continue;
     const [p] = group.pins as [RivalryPin];
     if (p.week === null) continue;
-    const [a, b] = group.pair;
-    if (!claimWeek(p.week, a, b)) return { error: PIN_FAIL_MESSAGE };
-    const slot = ensureSingleSlot(p.week);
-    singleSlotMustInclude[slot]!.push(group.pair);
-    forcedSinglePairs.add(key);
-    placements.push({ teamA: a, teamB: b, pinnedWeek: p.week, placedWeek: p.week });
+    if (!place1PinAtWeek(group.pair, p.week, p.week)) {
+      return { error: PIN_FAIL_MESSAGE };
+    }
   }
 
   // Pass C: 2-pin pairs with at least one any-week. Pick remaining week(s).
@@ -422,8 +454,9 @@ function resolvePins(
     placements.push({ teamA: a, teamB: b, pinnedWeek: latestPinned, placedWeek: latest });
   }
 
-  // Pass D: 1-pin pairs with any-week. Pick a single-slot week.
-  for (const [key, group] of groupsByPair) {
+  // Pass D: 1-pin pairs with any-week. Pick a compatible week; block-aware
+  // doubling falls out of place1PinAtWeek when the chosen week is at the ends.
+  for (const [, group] of groupsByPair) {
     if (group.pins.length !== 1) continue;
     const [p] = group.pins as [RivalryPin];
     if (p.week !== null) continue;
@@ -440,11 +473,9 @@ function resolvePins(
     );
     let placed = false;
     for (const W of candidates) {
-      if (claimWeek(W, a, b)) {
-        const slot = ensureSingleSlot(W);
-        singleSlotMustInclude[slot]!.push(group.pair);
-        forcedSinglePairs.add(key);
-        placements.push({ teamA: a, teamB: b, pinnedWeek: null, placedWeek: W });
+      const tw = teamsInWeek.get(W);
+      if (tw && (tw.has(a) || tw.has(b))) continue;
+      if (place1PinAtWeek(group.pair, W, null)) {
         placed = true;
         break;
       }
