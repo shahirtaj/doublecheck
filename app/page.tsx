@@ -1839,6 +1839,27 @@ export default function GeneratePage() {
             ).length;
             const pairAtMax = existingPinsForPair >= maxPinsPerPair;
 
+            // In dp=1 formats (e.g. 14/14) each team has exactly one doubled
+            // partner, so a 2-pin pair MUST sit at natural-partner weeks (W
+            // and W ± separation). If the pair already has one specific-week
+            // pin, the only valid second-pin week is that partner — every
+            // other week would force a structurally infeasible non-partner
+            // double.
+            const partnerOnlyWeek: number | null = (() => {
+              if (!format || format.doublesPerTeam !== 1) return null;
+              if (existingPinsForPair !== 1) return null;
+              const existing = rivalryPins.find(
+                (p) => pairKey(p.teamA, p.teamB) === pinAKey,
+              );
+              if (!existing || existing.week === null) return null;
+              const sep = format.separation;
+              const up = existing.week + sep;
+              const down = existing.week - sep;
+              if (up >= 1 && up <= weekCount) return up;
+              if (down >= 1 && down <= weekCount) return down;
+              return null;
+            })();
+
             // Per-week option state. Order matters: an exact-pair duplicate
             // takes priority over the generic team-conflict label.
             const weekOptionState = (W: number): { disabled: boolean; suffix: string } => {
@@ -1855,6 +1876,9 @@ export default function GeneratePage() {
                     p.teamB === safeB),
               );
               if (teamConflict) return { disabled: true, suffix: " (pinned)" };
+              if (partnerOnlyWeek !== null && W !== partnerOnlyWeek) {
+                return { disabled: true, suffix: " (non-partner)" };
+              }
               return { disabled: false, suffix: "" };
             };
 
