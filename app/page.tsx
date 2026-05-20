@@ -2486,14 +2486,18 @@ export default function GeneratePage() {
         <div className="max-w-[700px] mx-auto mt-6 text-center">
           {!confirmReset ? (
             <div className="inline-flex gap-2 items-center justify-center flex-wrap">
-              {step !== "teams" && (
-                <button
-                  className="bg-transparent text-amber-400 border border-amber-700 px-3 py-1.5 rounded-md text-[11px] cursor-pointer hover:text-amber-300 hover:border-amber-600"
-                  onClick={() => setStep(step === "schedule" ? "doubles" : "teams")}
-                >
-                  ← Back
-                </button>
-              )}
+              <button
+                className="bg-transparent text-amber-400 border border-amber-700 px-3 py-1.5 rounded-md text-[11px] cursor-pointer hover:text-amber-300 hover:border-amber-600"
+                onClick={() => {
+                  if (step === "teams") {
+                    handleResetEverything();
+                  } else {
+                    setStep(step === "schedule" ? "doubles" : "teams");
+                  }
+                }}
+              >
+                ← Back
+              </button>
               <button
                 className="bg-transparent text-red-400 border border-red-700 px-3 py-1.5 rounded-md text-[11px] cursor-pointer hover:text-red-300 hover:border-red-600"
                 onClick={() => setConfirmReset(true)}
