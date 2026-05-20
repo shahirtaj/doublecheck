@@ -2071,11 +2071,17 @@ export default function GeneratePage() {
           </div>
 
           {(() => {
-            const rivalryByKey = new Map<PairKey, RivalryPlacement>();
+            // Keyed by `${pairKey}@${week}` so we can ask "is this specific
+            // pair-week appearance pinned?" — naturally-doubled second weeks
+            // are NOT in this map and so render red, not blue.
+            const placementByWeekPair = new Map<string, RivalryPlacement>();
             for (const p of schedule.rivalryPlacements) {
-              rivalryByKey.set(pairKey(p.teamA, p.teamB), p);
+              placementByWeekPair.set(
+                `${pairKey(p.teamA, p.teamB)}@${p.placedWeek}`,
+                p,
+              );
             }
-            const hasRivalries = rivalryByKey.size > 0;
+            const hasRivalries = schedule.rivalryPlacements.length > 0;
             const summaryTitle = hasRivalries ? "Doubles & Rivals" : "Double Matchups";
             return (
               <>
@@ -2088,9 +2094,11 @@ export default function GeneratePage() {
                       ([a, b]: [number, number], gi: number) => {
                         const key = pairKey(a, b);
                         const isDouble = schedule.doubledPairs.has(key);
-                        const isRivalry = rivalryByKey.has(key);
+                        const isPinnedHere = placementByWeekPair.has(
+                          `${key}@${selectedWeek + 1}`,
+                        );
                         const isRepeat = schedule.hardRepeated.includes(key);
-                        const vsTone = isRivalry
+                        const vsTone = isPinnedHere
                           ? "text-sky-400"
                           : isDouble
                             ? "text-red-400"
@@ -2128,40 +2136,49 @@ export default function GeneratePage() {
                         tone: string;
                         suffix: string;
                         sortKey: number;
+                        week: number;
                       };
                       const entries: Entry[] = [];
-                      const seen = new Set<PairKey>();
-                      rivalryByKey.forEach((placement, key) => {
-                        const [a, b] = unpackPairKey(key);
-                        const other = a === i ? b : b === i ? a : null;
-                        if (other === null) return;
-                        seen.add(key);
-                        const suffix =
-                          placement.pinnedWeek === null
-                            ? ` (any → Week ${placement.placedWeek})`
-                            : ` (Week ${placement.placedWeek})`;
-                        entries.push({
-                          name: teams[other]!,
-                          tone: "text-sky-400",
-                          suffix,
-                          sortKey: 0,
-                        });
-                      });
-                      schedule.doubledPairs.forEach((key) => {
-                        if (seen.has(key)) return;
-                        const [a, b] = unpackPairKey(key);
-                        const other = a === i ? b : b === i ? a : null;
-                        if (other === null) return;
-                        entries.push({
-                          name: teams[other]!,
-                          tone: "text-red-400",
-                          suffix: "",
-                          sortKey: 1,
-                        });
+                      // One entry per appearance: pinned weeks render blue,
+                      // naturally-doubled weeks render red.
+                      schedule.weeks.forEach((week, wi) => {
+                        const W = wi + 1;
+                        for (const [a, b] of week) {
+                          const key = pairKey(a, b);
+                          const isDouble = schedule.doubledPairs.has(key);
+                          const placement = placementByWeekPair.get(`${key}@${W}`);
+                          if (!isDouble && !placement) continue;
+                          const other = a === i ? b : b === i ? a : null;
+                          if (other === null) continue;
+                          if (placement) {
+                            const suffix =
+                              placement.pinnedWeek === null
+                                ? ` (any → Week ${W})`
+                                : ` (Week ${W})`;
+                            entries.push({
+                              name: teams[other]!,
+                              tone: "text-sky-400",
+                              suffix,
+                              sortKey: 0,
+                              week: W,
+                            });
+                          } else {
+                            entries.push({
+                              name: teams[other]!,
+                              tone: "text-red-400",
+                              suffix: ` (Week ${W})`,
+                              sortKey: 1,
+                              week: W,
+                            });
+                          }
+                        }
                       });
                       if (entries.length === 0) return null;
                       entries.sort(
-                        (x, y) => x.sortKey - y.sortKey || x.name.localeCompare(y.name),
+                        (x, y) =>
+                          x.sortKey - y.sortKey ||
+                          x.name.localeCompare(y.name) ||
+                          x.week - y.week,
                       );
                       return (
                         <div key={i} className="text-xs px-2 py-1 bg-slate-900 rounded">
