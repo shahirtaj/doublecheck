@@ -1096,7 +1096,7 @@ function pickDoubledSetSlotAware(
       isExcludedForNew,
       shuffle,
     );
-    if (!selected) continue;
+    if (selected.length === 0) continue;
 
     for (const [a, b] of selected) {
       const k = pairKey(a, b);
@@ -1144,14 +1144,19 @@ function pickDoubledSetSlotAware(
   return { doubled, augmented };
 }
 
+// Greedily pick up to `count` disjoint pairs from `available`, skipping
+// excluded edges. Returns the largest matching found (may be shorter than
+// `count` if some team can't pair with any non-excluded partner). Returns
+// at least an empty array — never null — so the slot-aware caller can still
+// commit partial progress when a slot's team capacity is structurally below
+// its `count` target.
 function pickPartialMatching(
   available: ReadonlyArray<number>,
   count: number,
   isExcluded: (k: PairKey) => boolean,
   shuffle: Shuffler,
-): Array<Pair> | null {
-  if (count === 0) return [];
-  if (available.length < 2 * count) return null;
+): Array<Pair> {
+  if (count === 0 || available.length < 2) return [];
 
   const team = available[0]!;
   const partners = shuffle(available.slice(1));
@@ -1159,9 +1164,10 @@ function pickPartialMatching(
     if (isExcluded(pairKey(team, partner))) continue;
     const remaining = available.filter((t) => t !== team && t !== partner);
     const rest = pickPartialMatching(remaining, count - 1, isExcluded, shuffle);
-    if (rest !== null) return [[team, partner] as Pair, ...rest];
+    return [[team, partner] as Pair, ...rest];
   }
-  return null;
+  // First team can't pair with anyone — skip it and try the rest.
+  return pickPartialMatching(available.slice(1), count, isExcluded, shuffle);
 }
 
 // Find a perfect matching for one week. mustInclude pairs are pre-placed;
@@ -1570,20 +1576,17 @@ function buildScheduleWeekByWeek(
       }
     }
 
-    // Bias unpinned doubled pairs toward partner-week slots, tightening the
-    // floor on allowed separation in tiers: first try staying within the
-    // natural slot; then 1 week below; then 2 weeks below; only widen further
-    // if those tighter passes can't produce a feasible matching. Each tier
-    // gets several shuffle attempts so random orderings can escape local
-    // dead-ends without us giving up the quality goal.
-    // If slot-aware pre-placed pairs, most doubled pairs are already at their
-    // natural partner week. The partner-slot phase only needs to assign any
-    // leftover (top-up) pairs.
+    // If slot-aware pre-placed pairs, most doubled pairs already have a
+    // natural-partner-slot assignment in `preplacedMustInclude`; the
+    // assignment loop below only needs to place top-up leftovers. The
+    // widening tiers tighten the floor on allowed separation: try max sep
+    // first, then drop one week at a time, with several shuffle attempts
+    // per tier to escape local dead-ends without giving up the quality goal.
     const baseForAssignment = preplacedMustInclude ?? weekMustInclude;
     let matchings: Matching[] | null = null;
     for (let widening = 0; widening < weekCount && !matchings; widening++) {
       const minSep = Math.max(1, format.separation - widening);
-      const tierAttempts = widening <= 2 ? 20 : 5;
+      const tierAttempts = widening <= 2 ? 15 : 4;
       for (let attempt = 0; attempt < tierAttempts; attempt++) {
         const augmented = assignPartnerWeeksForUnpinnedDoubled(
           doubled, baseForAssignment, teamCount, weekCount, format.separation, minSep, shuffle,
