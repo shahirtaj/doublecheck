@@ -1448,13 +1448,6 @@ export default function GeneratePage() {
       {/* ═══ STEP 2: AVOID ═══ */}
       {step === "doubles" && (
         <div className={cls.card}>
-          <button
-            type="button"
-            onClick={() => setStep("teams")}
-            className="text-[12px] text-slate-400 hover:text-slate-300 mb-2"
-          >
-            ← Back
-          </button>
           <h2 className={cls.cardTitle}>{leagueName || "Review"}</h2>
 
           {history.length > 0 && (
@@ -2193,13 +2186,6 @@ export default function GeneratePage() {
       {/* ═══ STEP 3: SCHEDULE ═══ */}
       {step === "schedule" && schedule && (
         <div className={cls.card}>
-          <button
-            type="button"
-            onClick={() => setStep("doubles")}
-            className="text-[12px] text-slate-400 hover:text-slate-300 mb-2"
-          >
-            ← Back
-          </button>
           <h2 className={cls.cardTitle}>
             {leagueName ? `${leagueName} ${scheduleYear} Schedule` : "Generated Schedule"}
           </h2>
@@ -2500,12 +2486,22 @@ export default function GeneratePage() {
       {selectedFormat && (
         <div className="max-w-[700px] mx-auto mt-6 text-center">
           {!confirmReset ? (
-            <button
-              className="bg-transparent text-red-400 border border-red-700 px-3 py-1.5 rounded-md text-[11px] cursor-pointer hover:text-red-300 hover:border-red-600"
-              onClick={() => setConfirmReset(true)}
-            >
-              Reset
-            </button>
+            <div className="inline-flex gap-2 items-center justify-center flex-wrap">
+              {step !== "teams" && (
+                <button
+                  className={cls.secondaryBtn}
+                  onClick={() => setStep(step === "schedule" ? "doubles" : "teams")}
+                >
+                  ← Back
+                </button>
+              )}
+              <button
+                className="bg-transparent text-red-400 border border-red-700 px-3 py-1.5 rounded-md text-[11px] cursor-pointer hover:text-red-300 hover:border-red-600"
+                onClick={() => setConfirmReset(true)}
+              >
+                Reset
+              </button>
+            </div>
           ) : (
             <div className="inline-flex gap-2 items-center flex-wrap justify-center">
               <span className="text-[11px] text-red-400">
