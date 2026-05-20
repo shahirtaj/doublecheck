@@ -153,6 +153,10 @@ export default function GeneratePage() {
   const [pinTeamB, setPinTeamB] = useState<number>(1);
   // null = "any week"; integer in [1, weekCount] = specific week.
   const [pinWeek, setPinWeek] = useState<number | null>(null);
+  // True between a successful "Pin" click and the user's next dropdown change.
+  // Used to suppress the inline error/warning that would otherwise fire against
+  // the just-added pin while the same teams stay selected.
+  const [pinJustAdded, setPinJustAdded] = useState(false);
   const [schedule, setSchedule] = useState<ScheduleSuccess | null>(null);
   const [history, setHistory] = useState<SeasonHistory[]>([]);
   const [lookbackOverride, setLookbackOverride] = useState<number | null>(null);
@@ -1917,6 +1921,7 @@ export default function GeneratePage() {
                       if (pinTeamB === newA) {
                         setPinTeamB(newA === 0 ? Math.min(1, teamCount - 1) : 0);
                       }
+                      setPinJustAdded(false);
                     }}
                   >
                     {teams.map((t, i) => (
@@ -1932,6 +1937,7 @@ export default function GeneratePage() {
                     onChange={(e) => {
                       const newB = Number(e.target.value);
                       if (newB !== safeA) setPinTeamB(newB);
+                      setPinJustAdded(false);
                     }}
                   >
                     {teams.map((t, i) => (
@@ -1947,6 +1953,7 @@ export default function GeneratePage() {
                     onChange={(e) => {
                       const v = e.target.value;
                       setPinWeek(v === "any" ? null : parseInt(v, 10));
+                      setPinJustAdded(false);
                     }}
                   >
                     <option value="any" disabled={pairAtMax}>
@@ -1974,12 +1981,13 @@ export default function GeneratePage() {
                         { teamA: safeA, teamB: safeB, week: pinWeek },
                       ]);
                       setPinWeek(null);
+                      setPinJustAdded(true);
                     }}
                   >
                     Pin
                   </button>
                 </div>
-                {pinError ? (
+                {pinJustAdded ? null : pinError ? (
                   <p className="text-[11px] mt-2 text-red-400">{pinError}</p>
                 ) : avoidWarning ? (
                   <p className="text-[11px] mt-2 text-amber-400">{avoidWarning}</p>
