@@ -442,12 +442,7 @@ export default function GeneratePage() {
     let nextHistory = history;
     let nextManualDoubles: PairKey[] = [...manualDoubles];
     if (!saved) {
-      const currentYear = new Date().getFullYear();
-      const lastYearStr = history.length > 0 ? history[history.length - 1]!.season : "";
-      const lastYear = parseInt(lastYearStr, 10);
-      const seasonLabel = String(
-        Math.max(currentYear, Number.isNaN(lastYear) ? currentYear : lastYear + 1),
-      );
+      const seasonLabel = String(new Date().getFullYear());
       const hasUserIds = userIds.some((id) => id != null);
 
       let doubles: PairKey[];
