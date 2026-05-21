@@ -2808,12 +2808,10 @@ export default function GeneratePage() {
                   {shareCopied ? "✓ Copied" : "Copy link"}
                 </button>
               </div>
-              {platform === "manual" && (
-                <p className="text-[11px] text-slate-400 mt-2">
-                  Bookmark your share link — you can restore your league from
-                  it next season on any device.
-                </p>
-              )}
+              <p className="text-[11px] text-slate-400 mt-2">
+                Bookmark your share link — you can restore your league from it
+                next season on any device.
+              </p>
             </div>
           )}
           {shareStatus === "error" && shareError && (
