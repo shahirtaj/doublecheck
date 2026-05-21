@@ -14,7 +14,7 @@ const SLUG_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 const TTL_SECONDS = 60 * 60 * 24 * 365;
 const MAX_SLUG_ATTEMPTS = 5;
 const SHARE_WINDOW_MS = 60 * 60 * 1000;
-const SHARE_MAX_PER_WINDOW = 5;
+const SHARE_MAX_PER_WINDOW = 15;
 
 function generateSlug(): string {
   const bytes = new Uint8Array(SLUG_LENGTH);

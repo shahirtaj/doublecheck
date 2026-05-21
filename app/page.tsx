@@ -57,19 +57,6 @@ function detectFormatFromImport(season: ImportedSeasonRecord): SelectedFormat | 
   return { teamCount, weekCount };
 }
 
-// Year shown in the step-3 heading, the copy-as-text export, and the share
-// payload. Picks the most recent valid season year from history when it's at
-// or beyond the current calendar year (so the just-saved year stays put);
-// otherwise rolls forward to the next slot or the current year.
-function deriveScheduleYear(history: SeasonHistory[]): number {
-  const currentYear = new Date().getFullYear();
-  if (history.length === 0) return currentYear;
-  const lastYear = parseInt(history[history.length - 1]!.season, 10);
-  if (Number.isNaN(lastYear)) return currentYear;
-  if (lastYear >= currentYear) return lastYear;
-  return Math.max(currentYear, lastYear + 1);
-}
-
 // "espn" needs to render as the full acronym; the other platforms are normal
 // proper nouns and just want title-case.
 function platformLabel(platform: ImportPlatform): string {
@@ -396,7 +383,7 @@ export default function GeneratePage() {
     () => (format ? deriveLookback(effectiveLookbackTotal, format.lookback) : { hard: 0, soft: 0 }),
     [effectiveLookbackTotal, format],
   );
-  const scheduleYear = useMemo(() => deriveScheduleYear(history), [history]);
+  const scheduleYear = new Date().getFullYear();
 
   function getAvoidSets() {
     const { hard, soft } = buildAvoidMap(history, userIds, effectiveLookback);
@@ -441,6 +428,14 @@ export default function GeneratePage() {
 
   async function handleSaveAndShare() {
     if (!schedule || !selectedFormat) return;
+
+    // Already shared this exact schedule — the existing link still points at
+    // it, so there's nothing to do. Regenerate clears shareUrl and saved
+    // before the next gen, so a fresh schedule still gets a fresh link.
+    if (saved && shareUrl) {
+      setShareStatus("ready");
+      return;
+    }
 
     // Save once per generated schedule. Subsequent clicks just re-share so the
     // history doesn't accumulate duplicate entries.
