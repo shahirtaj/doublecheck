@@ -735,17 +735,29 @@ export default function GeneratePage() {
     let nextTeams = teams;
     if (formatChanged) {
       nextTeams = mostRecent.teamNames;
-      setTeams(nextTeams);
       setSelectedFormat(detected);
       setLookbackOverride(null);
     } else {
       const hasCustomNames = teams.some((t, i) => t !== `Team ${i + 1}`);
       if (!hasCustomNames) {
         nextTeams = mostRecent.teamNames;
-        setTeams(nextTeams);
       }
     }
-    const nextUserIds = mostRecent.userIds;
+    let nextUserIds: (string | null)[] = mostRecent.userIds;
+
+    // Sort teams and userIds together by team name so index 0 is always
+    // the alphabetically-first team from the moment of import. Indices
+    // are assigned once, here — all downstream logic (algorithm, matrix,
+    // storage) stays consistent with that assignment.
+    const sortedPairs = nextTeams
+      .map((name, i) => ({ name, userId: nextUserIds[i] ?? null }))
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true }),
+      );
+    nextTeams = sortedPairs.map((p) => p.name);
+    nextUserIds = sortedPairs.map((p) => p.userId);
+
+    setTeams(nextTeams);
     setUserIds(nextUserIds);
 
     // Server returns most-recent-first; history stores oldest-first. When the
@@ -815,8 +827,18 @@ export default function GeneratePage() {
     const tc = manualTeamCount;
     const wc = manualWeekCount;
     const name = manualLeagueName.trim();
-    const nextTeams = Array.from({ length: tc }, (_, i) => `Team ${i + 1}`);
-    const nextUserIds = Array.from({ length: tc }, () => null) as (string | null)[];
+    const initialTeams = Array.from({ length: tc }, (_, i) => `Team ${i + 1}`);
+    const initialUserIds = Array.from({ length: tc }, () => null) as (string | null)[];
+    // Mirror the handleApplyImport sort path so index 0 is always the
+    // alphabetically-first team. No-op for the numbered defaults, but
+    // keeps the code path consistent if the default naming changes.
+    const sortedPairs = initialTeams
+      .map((name, i) => ({ name, userId: initialUserIds[i] ?? null }))
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true }),
+      );
+    const nextTeams = sortedPairs.map((p) => p.name);
+    const nextUserIds = sortedPairs.map((p) => p.userId);
     setSelectedFormat({ teamCount: tc, weekCount: wc });
     setTeams(nextTeams);
     setUserIds(nextUserIds);
