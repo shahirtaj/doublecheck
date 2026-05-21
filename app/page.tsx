@@ -16,6 +16,7 @@ import {
   describeFormat,
   pairKey,
   unpackPairKey,
+  type FormatProperties,
   type LookbackWindow,
   type Matching,
   type PairKey,
@@ -62,6 +63,18 @@ function detectFormatFromImport(season: ImportedSeasonRecord): SelectedFormat | 
 function platformLabel(platform: ImportPlatform): string {
   if (platform === "espn") return "ESPN";
   return platform.charAt(0).toUpperCase() + platform.slice(1);
+}
+
+// Pull the 8-char slug out of a share-link input. Accepts a full URL
+// (.../s/<slug>), a relative path (/s/<slug>), or a bare slug — anything
+// else returns null. Used by the "Import from link" restore flow.
+const SLUG_RE = /^[a-z0-9]{8}$/;
+function extractSlug(input: string): string | null {
+  const trimmed = input.trim().toLowerCase();
+  if (!trimmed) return null;
+  const urlMatch = trimmed.match(/\/s\/([a-z0-9]{8})(?:[/?#]|$)/);
+  if (urlMatch) return urlMatch[1]!;
+  return SLUG_RE.test(trimmed) ? trimmed : null;
 }
 
 // Assign a deterministic home/away display order to every matchup in the
@@ -114,6 +127,11 @@ type ImportedSeasonRecord = {
 };
 
 type ImportPlatform = "sleeper" | "espn" | "yahoo" | "manual";
+
+// "link" is the dropdown value for restoring from a share URL. It is not
+// stored or shared — when a restore succeeds, `platform` gets set from the
+// share payload (with "manual" as the fallback for older links).
+type ImportSource = ImportPlatform | "link";
 
 type ImportPreview = {
   platform: ImportPlatform;
@@ -194,6 +212,11 @@ export default function GeneratePage() {
 
   // League import (server-side via /api/import/<platform>)
   const [platform, setPlatform] = useState<ImportPlatform>("sleeper");
+  // What the import-source dropdown currently shows. Sync'd with `platform`
+  // when the user picks a real platform; sits at "link" when they pick
+  // "Import from link" without touching `platform`, so apply-instructions
+  // and the share payload keep reflecting the last real platform.
+  const [importSource, setImportSource] = useState<ImportSource>("sleeper");
   // Mirrors `platform` so in-flight Yahoo fetches can detect when the user
   // has switched platforms mid-request and bail out instead of stomping on
   // the new platform's state.
@@ -202,6 +225,11 @@ export default function GeneratePage() {
     platformRef.current = platform;
   }, [platform]);
   const [leagueId, setLeagueId] = useState("");
+  // Pasted share-link URL or bare slug for the "Import from link" flow.
+  const [shareLinkInput, setShareLinkInput] = useState("");
+  // Banner shown on Step 3 after a successful restore from a share link.
+  // Cleared on regen, reset, manual start, or a fresh import apply.
+  const [restoredFromShare, setRestoredFromShare] = useState(false);
   const [importStatus, setImportStatus] = useState<ImportStatus>("");
   const [importMsg, setImportMsg] = useState("");
   // Captured from import error responses (e.g. ESPN private-league 403) so the
@@ -402,6 +430,7 @@ export default function GeneratePage() {
     setShareUrl("");
     setShareError("");
     setShareCopied(false);
+    setRestoredFromShare(false);
     const { hard, soft } = getAvoidSets();
     const result = buildSchedule({
       teamCount,
@@ -875,6 +904,204 @@ export default function GeneratePage() {
     setPinTeamA(0);
     setPinTeamB(1);
     setPinWeek(null);
+    setRestoredFromShare(false);
+  }
+
+  // Restore the league state from a previously-shared schedule. Hydrates
+  // selectedFormat / teams / userIds / leagueName / history / manualDoubles /
+  // schedule / displayWeeks / platform, then lands on Step 3 (or Step 2 if
+  // the payload has no schedule for some reason).
+  async function handleRestoreFromLink() {
+    const slug = extractSlug(shareLinkInput);
+    if (!slug) {
+      setImportStatus("error");
+      setImportMsg(
+        "That doesn't look like a DoubleCheck share link. Paste the full URL or the 8-character slug.",
+      );
+      return;
+    }
+    setImportStatus("loading");
+    setImportMsg("Restoring league…");
+    try {
+      const res = await fetch(`/api/share/${slug}`);
+      const raw = await res.json();
+      if (!res.ok) throw new Error(raw?.error || `HTTP ${res.status}`);
+      if (
+        !raw ||
+        typeof raw !== "object" ||
+        !raw.format ||
+        !Array.isArray(raw.teams) ||
+        !Array.isArray(raw.userIds) ||
+        raw.teams.length !== raw.userIds.length
+      ) {
+        throw new Error("This share link is missing required league data.");
+      }
+      const payload = raw as {
+        format: { teamCount: number; weekCount: number };
+        teams: string[];
+        userIds: (string | null)[];
+        leagueName?: string;
+        platform?: string;
+        history?: SeasonHistory[];
+        manualDoubles?: PairKey[];
+        schedule?: {
+          weeks: [number, number][][];
+          displayWeeks?: [number, number][][];
+          doubledPairs?: string[];
+          softRepeated?: string[];
+          hardRepeated?: string[];
+          clean?: boolean;
+          format?: FormatProperties;
+          rivalryPlacements?: RivalryPlacement[];
+        };
+      };
+      if (
+        typeof payload.format.teamCount !== "number" ||
+        typeof payload.format.weekCount !== "number"
+      ) {
+        throw new Error("This share link has an invalid format.");
+      }
+
+      // Sort teams + userIds together so index 0 is always alphabetically-
+      // first — same invariant fresh imports establish. We build an
+      // old → new index map and remap every index-based field below so the
+      // schedule, manual doubles, and history stay aligned even if the
+      // payload was saved before that sort-at-import invariant existed.
+      const pairsWithIdx = payload.teams.map((name, oldIdx) => ({
+        name,
+        userId: payload.userIds[oldIdx] ?? null,
+        oldIdx,
+      }));
+      pairsWithIdx.sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true }),
+      );
+      const nextTeams = pairsWithIdx.map((p) => p.name);
+      const nextUserIds = pairsWithIdx.map((p) => p.userId);
+      const oldToNew = new Array<number>(payload.teams.length);
+      pairsWithIdx.forEach((p, newIdx) => {
+        oldToNew[p.oldIdx] = newIdx;
+      });
+
+      const remapKey = (key: string): string => {
+        // userid-format keys (uid1:uid2) don't reference team indices and
+        // are preserved as-is — buildAvoidMap resolves them via userIds.
+        if (key.indexOf(":") >= 0) return key;
+        const [a, b] = unpackPairKey(key);
+        return pairKey(oldToNew[a]!, oldToNew[b]!);
+      };
+      const remapWeeks = (weeks: [number, number][][]): [number, number][][] =>
+        weeks.map((week) =>
+          week.map(
+            ([a, b]) => [oldToNew[a]!, oldToNew[b]!] as [number, number],
+          ),
+        );
+
+      let restoredSchedule: ScheduleSuccess | null = null;
+      let restoredDisplayWeeks: [number, number][][] | null = null;
+      if (payload.schedule && Array.isArray(payload.schedule.weeks)) {
+        const s = payload.schedule;
+        const remappedWeeks = remapWeeks(s.weeks);
+        restoredSchedule = {
+          ok: true,
+          weeks: remappedWeeks,
+          doubledPairs: new Set((s.doubledPairs ?? []).map(remapKey)),
+          softRepeated: (s.softRepeated ?? []).map(remapKey),
+          hardRepeated: (s.hardRepeated ?? []).map(remapKey),
+          clean: s.clean ?? true,
+          format:
+            s.format ??
+            describeFormat(payload.format.teamCount, payload.format.weekCount),
+          rivalryPlacements: (s.rivalryPlacements ?? []).map((p) => ({
+            teamA: oldToNew[p.teamA]!,
+            teamB: oldToNew[p.teamB]!,
+            pinnedWeek: p.pinnedWeek ?? null,
+            placedWeek: p.placedWeek,
+          })),
+        };
+        restoredDisplayWeeks = s.displayWeeks
+          ? remapWeeks(s.displayWeeks)
+          : computeDisplayWeeks(remappedWeeks, nextTeams);
+      }
+
+      const remappedHistory: SeasonHistory[] = (payload.history ?? []).map(
+        (entry) => ({
+          ...entry,
+          doubles: (entry.doubles ?? []).map((k) =>
+            entry.format === "userid" ? k : remapKey(k),
+          ),
+        }),
+      );
+      const remappedManual: PairKey[] = (payload.manualDoubles ?? []).map(
+        (k) => (typeof k === "string" ? remapKey(k) : k),
+      );
+
+      const restoredPlatform: ImportPlatform =
+        payload.platform === "sleeper" ||
+        payload.platform === "espn" ||
+        payload.platform === "yahoo" ||
+        payload.platform === "manual"
+          ? payload.platform
+          : "manual";
+      const restoredLeagueName =
+        typeof payload.leagueName === "string" ? payload.leagueName : "";
+      const nextFormat: SelectedFormat = {
+        teamCount: payload.format.teamCount,
+        weekCount: payload.format.weekCount,
+      };
+
+      setSelectedFormat(nextFormat);
+      setTeams(nextTeams);
+      setUserIds(nextUserIds);
+      setLeagueName(restoredLeagueName);
+      setHistory(remappedHistory);
+      setManualDoubles(new Set(remappedManual));
+      setRivalryPins([]);
+      setPinTeamA(0);
+      setPinTeamB(1);
+      setPinWeek(null);
+      setSchedule(restoredSchedule);
+      setDisplayWeeks(restoredDisplayWeeks);
+      setSaved(false);
+      setLookbackOverride(null);
+      setPlatform(restoredPlatform);
+      setImportSource(restoredPlatform);
+      setShareLinkInput("");
+      setShareStatus("idle");
+      setShareUrl("");
+      setShareError("");
+      setShareCopied(false);
+      setImportPreview(null);
+      setImportStatus("");
+      setImportMsg("");
+      setLeagueId("");
+      setSleeperLeagues(null);
+      setSelectedSleeperLeague("");
+      setYahooLeagues(null);
+      setSelectedYahooLeague("");
+      setRestoredFromShare(true);
+
+      if (restoredSchedule) {
+        setSelectedWeek(0);
+        setStep("schedule");
+        setFurthestStep("schedule");
+      } else {
+        setStep("doubles");
+        setFurthestStep("doubles");
+      }
+
+      saveToStorage({
+        format: nextFormat,
+        teams: nextTeams,
+        userIds: nextUserIds,
+        leagueName: restoredLeagueName,
+        history: remappedHistory,
+        manualDoubles: remappedManual,
+        lookbackOverride: null,
+      });
+    } catch (e) {
+      setImportStatus("error");
+      setImportMsg((e as Error).message || "Could not restore from share link.");
+    }
   }
 
   function handleManualStart() {
@@ -907,6 +1134,7 @@ export default function GeneratePage() {
     setDisplayWeeks(null);
     setSaved(false);
     setLookbackOverride(null);
+    setRestoredFromShare(false);
     setStep("teams");
     setFurthestStep("teams");
     resetImportUi();
@@ -1069,6 +1297,8 @@ export default function GeneratePage() {
     resetImportUi();
     setLeagueId("");
     setPlatform("sleeper");
+    setImportSource("sleeper");
+    setShareLinkInput("");
     setYahooLeagues(null);
     setSelectedYahooLeague("");
     setManualLeagueName("");
@@ -1078,6 +1308,7 @@ export default function GeneratePage() {
     setPastSeasonYear(CURRENT_YEAR_STR);
     setPastSeasonDoubles(new Set());
     setEditingSeasonIndex(null);
+    setRestoredFromShare(false);
     setStep("teams");
     setFurthestStep("teams");
     setConfirmReset(false);
@@ -1139,7 +1370,12 @@ export default function GeneratePage() {
     <>
       <div className={cls.subSection}>
         <p className={cls.hint}>
-          {platform === "sleeper" ? (
+          {importSource === "link" ? (
+            <>
+              Paste a DoubleCheck share link to restore that league&apos;s full
+              state into this browser.
+            </>
+          ) : platform === "sleeper" ? (
             <>
               Enter your Sleeper username, or paste your league ID from
               sleeper.com/leagues/<strong>YOUR_ID</strong>.
@@ -1161,12 +1397,13 @@ export default function GeneratePage() {
         <div className="flex flex-wrap gap-2 items-stretch justify-center">
           <select
             className="w-full sm:w-auto bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
-            value={platform}
+            value={importSource}
             onChange={(e) => {
-              const next = e.target.value as ImportPlatform;
-              if (next === platform) return;
-              setPlatform(next);
+              const next = e.target.value as ImportSource;
+              if (next === importSource) return;
+              setImportSource(next);
               setLeagueId("");
+              setShareLinkInput("");
               setManualLeagueName("");
               setManualTeamCount(12);
               setManualWeekCount(14);
@@ -1177,8 +1414,14 @@ export default function GeneratePage() {
               setSelectedYahooLeague("");
               setSleeperLeagues(null);
               setSelectedSleeperLeague("");
-              if (next === "yahoo") {
-                void fetchYahooLeagues();
+              // platform tracks the most recent real platform (drives apply
+              // instructions, share payload). "link" is a dropdown-only state
+              // so we leave platform alone for that case.
+              if (next !== "link") {
+                setPlatform(next);
+                if (next === "yahoo") {
+                  void fetchYahooLeagues();
+                }
               }
             }}
           >
@@ -1186,8 +1429,31 @@ export default function GeneratePage() {
             <option value="espn">ESPN</option>
             <option value="yahoo">Yahoo</option>
             <option value="manual">Manual (NFL.com, CBS, other)</option>
+            <option value="link">Import from link</option>
           </select>
-          {platform === "yahoo" ? (
+          {importSource === "link" ? (
+            <>
+              <input
+                className={cls.leagueInput}
+                value={shareLinkInput}
+                onChange={(e) => {
+                  setShareLinkInput(e.target.value);
+                  if (importStatus) {
+                    setImportStatus("");
+                    setImportMsg("");
+                  }
+                }}
+                placeholder="https://doublecheckff.com/s/abc12345"
+              />
+              <button
+                className={cls.primaryBtn}
+                onClick={handleRestoreFromLink}
+                disabled={!shareLinkInput.trim() || importBusy}
+              >
+                {importStatus === "loading" ? "Restoring…" : "Restore"}
+              </button>
+            </>
+          ) : platform === "yahoo" ? (
             yahooLeagues && yahooLeagues.length > 1 ? (
               <>
                 <select
@@ -2288,6 +2554,13 @@ export default function GeneratePage() {
             {leagueName ? `${leagueName} ${scheduleYear} Schedule` : "Generated Schedule"}
           </h2>
 
+          {restoredFromShare && (
+            <div className="bg-slate-900 border border-emerald-700 rounded-md px-3 py-2 text-[11px] text-emerald-400 mb-3">
+              Restored from shared schedule. Your league data is saved in this
+              browser for next season.
+            </div>
+          )}
+
           {schedule.hardRepeated.length > 0 && (
             <div className="bg-amber-950 border border-amber-800 rounded-md px-3 py-2 text-[11px] text-amber-400 mb-3">
               ⚠ {schedule.hardRepeated.length} hard-avoid pair(s) couldn&apos;t be skipped
@@ -2499,6 +2772,12 @@ export default function GeneratePage() {
                   {shareCopied ? "✓ Copied" : "Copy link"}
                 </button>
               </div>
+              {platform === "manual" && (
+                <p className="text-[11px] text-slate-400 mt-2">
+                  Bookmark your share link — you can restore your league from
+                  it next season on any device.
+                </p>
+              )}
             </div>
           )}
           {shareStatus === "error" && shareError && (
