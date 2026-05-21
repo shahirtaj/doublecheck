@@ -1218,18 +1218,6 @@ export default function GeneratePage() {
               >
                 {importStatus === "loading" ? "Loading…" : "Use this league"}
               </button>
-              <button
-                className={cls.secondaryBtn}
-                onClick={() => {
-                  setSleeperLeagues(null);
-                  setSelectedSleeperLeague("");
-                  setImportStatus("");
-                  setImportMsg("");
-                }}
-                disabled={importBusy}
-              >
-                Back
-              </button>
             </>
           ) : (
             <>
