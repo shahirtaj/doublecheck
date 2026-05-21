@@ -40,6 +40,7 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 - **Fair rotation.** Every opponent gets doubled exactly once over a full rotation cycle (~4 years for 12-team / 14-week). No pair keeps drawing the short straw season after season.
 - **Per-format lookback window.** The lookback is computed per format to maximize rotation coverage. Recent seasons are hard-avoided (cannot repeat), with the next oldest soft-avoided (preferred to skip but allowed when the constraint set is too tight).
 - **Maximum-separation placement.** Doubled pairs are placed at the largest possible week distance within the season (`weekCount - doublesPerTeam`), so a doubled rivalry's first and rematch games are as far apart as the format allows.
+- **Rivalry weeks.** Commissioners can pin specific matchups to specific weeks (or let the algorithm pick the week). Pin an entire week's worth of matchups to create a full rivalry week. One pin forces a single appearance at that week; two pins for the same pair force a double. Pins override the avoidance system — a hard-avoided pair pinned to a week still plays that week — while the algorithm continues rotating the remaining doubles fairly across the rest of the league. Works across all 7 supported formats, including the most constrained (14/13 pure round-robin and 14/14 with only 1 double per team).
 - **Identity tracking via user IDs.** Doubled pairs are stored by Sleeper user ID, ESPN user ID, or Yahoo manager GUID - not team name. The schedule survives team renames, manager changes, and roster reshuffles between seasons.
 - **Auto-detected league format.** Team count and week count are read directly from the imported league data; there's no manual format selector.
 
@@ -55,8 +56,8 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 The tool is a three-step flow at [doublecheckff.com](https://doublecheckff.com):
 
 1. **Import.** Pick your platform and enter your league ID (or, for Sleeper, your username - DoubleCheck lists your leagues to pick from). League format is auto-detected from imported data. For platforms without automatic import (NFL.com, CBS, etc.), choose **Manual** and enter your league info directly.
-2. **Review.** See the lookback window (with optional override if you want to weight more or fewer prior seasons), scan past season history, and review the avoidance matrix.
-3. **Schedule.** Browse the generated schedule week-by-week, click **Save & Share** to get a read-only `/s/{slug}` link your league members can open from any device, or click **Copy Full Schedule as Text** for a plain-text dump. Links expire after 365 days.
+2. **Review.** See the lookback window (with optional override if you want to weight more or fewer prior seasons), scan past season history, review the avoidance matrix, and optionally pin rivalry matchups to specific weeks.
+3. **Schedule.** Browse the generated schedule week-by-week (pinned rivalry matchups are highlighted), click **Save & Share** to get a read-only `/s/{slug}` link your league members can open from any device, or click **Copy Full Schedule as Text** for a plain-text dump. Links expire after 365 days.
 
 No platform exposes a write API for league schedules, so commissioners enter the generated matchups into their platform's commissioner tools by hand. It's a one-time ~10-minute annual task per league.
 
@@ -66,7 +67,7 @@ No platform exposes a write API for league schedules, so commissioners enter the
 - **React 19**
 - **Tailwind CSS** for styling
 - **ESLint 9** with flat config (`eslint.config.mjs`)
-- **Vitest** for the algorithm test suite (92 tests across 7 supported formats)
+- **Vitest** for the algorithm test suite (149 tests across 7 supported formats, including rivalry-pin coverage)
 - **Vercel** for deployment
 
 See [ROADMAP.md](ROADMAP.md) for the full product roadmap and current state.

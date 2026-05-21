@@ -23,7 +23,8 @@ In a 12-team, 14-week fantasy football league, each team plays 3 opponents twice
 - Every doubled pair gets maximum separation (e.g., 11 weeks for 14-week / 3-double format)
 - Lookback window derived per format: hard-avoid recent seasons, soft-avoid the next oldest (~6 forced repeats from oldest avoided season)
 - Full rotation cycle varies by format (~4 years for 12-team/14-week)
-- Identity tracking via Sleeper user IDs (survives name changes, team name changes, roster position changes)
+- Identity tracking via Sleeper user IDs, ESPN user IDs, or Yahoo manager GUIDs (survives name changes, team name changes, roster position changes)
+- Rivalry pins: commissioner-supplied matchup constraints that override the avoidance system. 1 pin = forced single at that week; 2 pins for the same pair = forced double at both weeks. Pins integrate with the block-pair structure so pinned weeks at block boundaries naturally double while middle-week pins stay single.
 
 ---
 
@@ -219,31 +220,78 @@ Two waves, different audiences and timing:
 
 ---
 
+### Phase 10: Rivalry weeks ✅
+**Tool: Claude Code**
+
+Top requested feature from the r/fantasyfootball thread (164-point top comment). Commissioners can pin specific matchups to specific weeks, creating designated rivalry weeks where chosen opponents always face each other — regardless of the normal avoidance rotation. The algorithm honors those locks while continuing to rotate the remaining doubles fairly.
+
+**Algorithm (`lib/algorithm/schedule.ts`):**
+- `buildSchedule` accepts an optional `rivalryPins` array of `RivalryPin` objects (teamA, teamB, week or null for "any week")
+- `resolvePins()` resolves pins in four passes: (A) 2-pin both specific → forced double at both weeks; (B) 1-pin specific → placed at the pinned week, doubles naturally if at a block boundary; (C) 2-pin with any-week → algorithm picks the second week optimally; (D) 1-pin any-week → algorithm picks a compatible week, preferring middle (single) weeks for spread
+- Pins override hard-avoid and soft-avoid: a hard-avoided pair pinned to a week still plays that week. One pin + hard-avoid = forced single (avoidance suppresses the second appearance). Two pins fully override avoidance and force a double.
+- Per-pair pin cap of `ceil(weekCount / (teamCount - 1))` — currently 2 for all supported formats
+- Full-week pins (every team paired once at a single week) work across all 7 formats, including with hard-avoided pairs in the mix
+- Multi-week rivalry scenarios supported: pin different complete matchings to different weeks, or mix full-week pins with individual pair pins
+- `RivalryPlacement` output tracks where each pin landed (`pinnedWeek` vs `placedWeek`) for UI display
+- Non-partner-week doubles (pins at weeks that aren't natural block partners) handled via `recordNonPartner` bookkeeping so slot assignment stays consistent
+
+**Types (`lib/algorithm/types.ts`):**
+- `RivalryPin`: `{ teamA, teamB, week: number | null }`
+- `RivalryPlacement`: `{ teamA, teamB, pinnedWeek: number | null, placedWeek: number }`
+- `ScheduleConfig` extended with optional `rivalryPins`
+- `ScheduleSuccess` extended with `rivalryPlacements` array
+
+**UI (`app/page.tsx`):**
+- Pin builder in Step 2 (Review): Team A dropdown, Team B dropdown, Week selector (Any or specific week 1–N)
+- Smart disabling: weeks where either team is already pinned show "(pinned)"; exact-pair duplicates show "(already pinned)"; dp=1 formats restrict the second pin to the natural partner week; weeks with no valid partner show "(unavailable)"
+- Avoidance warnings: adding a pin for a hard-avoided pair shows an amber warning explaining the pin overrides avoidance
+- Pin list with inline remove buttons; pins cleared on reset, reimport, or new manual flow
+- `pinJustAdded` flag suppresses stale validation errors immediately after a successful pin
+
+**Share links:**
+- `rivalryPlacements` included in the share payload written to Upstash Redis
+- `SharedScheduleView` renders rivalry placements in the read-only view
+- Backward-compatible: pre-Phase-10 share links without `rivalryPlacements` treated as empty
+
+**Tests (`lib/algorithm/schedule.test.ts`):**
+- 57 new rivalry-pin tests expanding the suite to 149 total
+- Single-pin and double-pin scenarios, any-week placement, avoidance override behavior
+- Full-week pin succeeds for every supported format (7 formats × 2 variants: plain and with hard-avoided pair)
+- Multi-week rivalry: two and three full rivalry weeks with different matchups, natural-partner partition sharing, rejection of over-cap configurations
+- 14-team edge cases: pure round-robin (14/13, dp=0) and minimal-double (14/14, dp=1) rivalry weeks
+- Mixed scenarios: full rivalry week plus individual pins
+- Non-partner rivalry pins: pairs pinned to weeks that aren't natural block partners get independent matchings; separation-floor verification across all applicable formats; structural infeasibility detection for dp=1 formats
+- Rejection tests: exact duplicates, too many pins per pair, unsolvable configurations
+
+**Deliverable:** Full rivalry-weeks feature — algorithm, UI, share links, and comprehensive test coverage.
+
+---
+
 ## Priority order
 
-Phases 1–8 are done. Phase 9 Wave 1 is complete (all 5 target subreddits posted; r/DynastyFF landed in the Friday megathread per Rule 11). Phase 10 (rivalry weeks) is next.
+Phases 1–10 are done. Phase 9 Wave 2 (Reddit redraft-season push) is next, planned for late July/August 2026.
 
 ## Estimated effort
 
-Phases 1–8 completed across two days. Phase 9 Wave 1 complete; Wave 2 planned for late July/August 2026. Phase 10 (rivalry weeks) next.
+Phases 1–8 completed across two days. Phase 9 Wave 1 complete. Phase 10 complete. Wave 2 planned for late July/August 2026.
 
 ---
 
 ## Current state
 
-Phases 1–8 are complete. Phase 9 Wave 1 is complete. Phase 10 (rivalry weeks) is next. The tool is live at [doublecheckff.com](https://doublecheckff.com).
+Phases 1–10 are complete. Phase 9 Wave 2 (late July/August 2026 Reddit redraft-season push) is next. The tool is live at [doublecheckff.com](https://doublecheckff.com).
 
-- **Phase 1 - Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 92 Vitest tests prove constraints hold across every format.
+- **Phase 1 - Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 149 Vitest tests prove constraints hold across every format, including rivalry-pin coverage.
 - **Phase 2 - Next.js 16 App Router.** Tool is the homepage with Tailwind CSS and responsive UI. localStorage persistence. Originally built on Next.js 14; upgraded through 15 to 16 (Turbopack default, React 19). Linting moved to ESLint 9 flat config in `eslint.config.mjs` since `next lint` was removed in Next 16. `postcss` and `glob` `overrides` from `package.json` were dropped because Next 15+ already resolves both cleanly.
 - **Phase 3 - Server-side platform integrations.** `/api/import/sleeper` and `/api/import/espn` walk the season-history chain, fetch all completed seasons, and apply IP-based rate limiting. Sleeper also supports username lookup: enter a Sleeper username and DoubleCheck lists your leagues to pick from (no need to remember the league ID). For platforms without an API (NFL.com, CBS, etc.), a **manual entry** mode lets commissioners pick the format, name their teams, and click each past season's doubled matchups on an interactive grid.
-- **Phase 4 - GitHub.** Public repo with README, MIT license, and GitHub Actions CI (92/92 tests passing).
+- **Phase 4 - GitHub.** Public repo with README, MIT license, and GitHub Actions CI (149/149 tests passing).
 - **Phase 5 - Deployed.** Live on Vercel at doublecheckff.com with auto-deploy from main.
 - **Phase 6 - SEO + polish.** Favicon (double checkmark SVG), OG/Twitter meta tags, auto-detected league format from import data, lookback window override control, edge-case format detection. No manual format selector - format is derived from imported seasons.
 - **Phase 6.5 - Yahoo OAuth 2.0 import.** `/api/auth/yahoo/start` + `/api/auth/yahoo/callback` handle the OAuth dance with a CSRF state cookie. Access + refresh tokens encrypted with AES-256-GCM and stored in an httpOnly cookie - no database, no user accounts. `/api/import/yahoo` lists the user's NFL leagues for a picker, then walks the renew chain on selection to return `ImportedSeasonRecord[]`. Auto-refreshes expired tokens.
-- **Phase 7 - Shareable read-only links via Upstash Redis.** `/api/share` accepts the current league state, generates an 8-char alphanumeric slug, and writes the payload to Upstash Redis (originally Vercel KV, auto-migrated when Vercel KV was deprecated) with a 365-day TTL. `/s/[slug]` server-renders a read-only schedule view (week navigator, matchup list, double-matchup summary). Step 3 has a "Save & Share" button that saves the season and returns the share URL with a "Copy link" affordance in one action. IP rate limit of 5 shares per hour, namespaced separately from the import quota.
+- **Phase 7 - Shareable read-only links via Upstash Redis.** `/api/share` accepts the current league state, generates an 8-char alphanumeric slug, and writes the payload to Upstash Redis (originally Vercel KV, auto-migrated when Vercel KV was deprecated) with a 365-day TTL. `/s/[slug]` server-renders a read-only schedule view (week navigator, matchup list, double-matchup summary, rivalry placements). Step 3 has a "Save & Share" button that saves the season and returns the share URL with a "Copy link" affordance in one action. IP rate limit of 5 shares per hour, namespaced separately from the import quota.
 - **Phase 8 - Vercel Web Analytics.** `@vercel/analytics/next` `<Analytics />` mounted in `app/layout.tsx` so every route (homepage + share views) reports pageviews on the free tier. No cookies, no PII, zero-config when deployed on Vercel.
 - **Phase 9 Wave 1 - Reddit launch complete.** Posted to r/FFCommish (12 upvotes, 6 comments, 3.4K views), r/DynastyNerds (1.6K views, link in comments after spam filter blocked the inline link), r/SleeperApp (743 views, link in comments, modmail open for a fresh post), and r/fantasyfootball (**527 upvotes, 118 comments, 88% upvote ratio** on a 3.4M-subscriber subreddit - top comment, 164 pts, requested rivalry weeks; **Sleeper username lookup shipped live in the thread**, and **manual entry shipped in response to NFL.com/CBS requests in the same thread**). r/DynastyFF landed in the Friday megathread (Rule 11 restricts tools to the megathread; standalone post denied by mods). Shipped alongside the Wave 1 push: platform-specific how-to-apply instructions on the schedule step (Sleeper / ESPN / Yahoo / Manual with deep links to each platform's docs), ESPN private-league error improvements (active-voice message, inline "see instructions" link, Manual entry fallback), mobile viewport fixes (Step 1 dropdown/input wrap, Start button stays on row in Manual entry), avoidance list styling (opponents wrap below team name, sorted hard > soft > alphabetical), soft-avoid color contrast bump in the matrix, and input clearing on platform switch. Wave 2 (late July/August 2026) will hit r/DynastyFF (megathread), r/FFCommish, r/DynastyNerds, r/SleeperApp, and r/Fantasy_Football for redraft setup season.
-- **Phase 10 - Rivalry weeks (next).** Top requested feature from the r/fantasyfootball thread (164-point top comment). Let commissioners designate rivalry pairs that get doubled every year regardless of rotation, with the algorithm honoring those locks while still rotating the remaining doubles fairly across the rest of the league.
+- **Phase 10 - Rivalry weeks complete.** Top requested feature from the r/fantasyfootball thread. Commissioners pin matchups to specific weeks (or "any week") via a pin builder in Step 2. Pins override the avoidance system while the algorithm continues rotating remaining doubles fairly. Full-week pins work across all 7 formats. 57 new tests added to the suite. Share links include rivalry placements; backward-compatible with pre-Phase-10 links.
 
 ### Production fixes
 - **Sleeper import 502 on single-season leagues** (commit `f67c65a`). Sleeper returns `previous_league_id: "0"` for leagues with no prior season; `"0"` is truthy in JS, so the chain walker fetched `league/0`, got a 404, and crashed the route with a 502. Fix: `nextChainId()` now treats `"0"` (alongside `null`/`undefined`/`""`) as end-of-chain. Added a typed `LeagueNotFoundError`, an outer try/catch with `console.error` logging, and response validation. The same defensive fixes were applied to the ESPN and Yahoo routes so a single bad upstream response can't take down the import endpoints.
