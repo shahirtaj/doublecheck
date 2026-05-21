@@ -76,7 +76,7 @@ export function SharedScheduleView({
         </div>
 
         <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
-          <h3 className="text-sm font-bold text-emerald-50 mb-3">Week {selectedWeek + 1}</h3>
+          <h3 className="text-sm font-bold text-emerald-50 mb-3 text-center">Week {selectedWeek + 1}</h3>
           <div className="flex flex-col gap-2">
             {weeks[selectedWeek]!.map(([a, b], gi) => {
               const key = pairKey(a, b);
