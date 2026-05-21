@@ -1092,7 +1092,7 @@ export default function GeneratePage() {
             <>Sign in with Yahoo to import your fantasy leagues.</>
           )}
         </p>
-        <div className="flex flex-wrap gap-2 items-stretch">
+        <div className="flex flex-wrap gap-2 items-stretch justify-center">
           <select
             className="w-full sm:w-auto bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
             value={platform}
@@ -1166,7 +1166,7 @@ export default function GeneratePage() {
                 maxLength={48}
               />
               <div className="basis-full h-0" aria-hidden="true" />
-              <div className="flex gap-2 items-stretch w-full">
+              <div className="flex gap-2 items-stretch w-full justify-center">
                 <select
                   className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
                   value={manualTeamCount}
@@ -1305,7 +1305,7 @@ export default function GeneratePage() {
           <p className="text-[11px] text-slate-500 mb-2">
             Managers: {importPreview.seasons[0]!.teamNames.join(", ")}
           </p>
-          <div className="flex gap-2 flex-wrap items-center">
+          <div className="flex gap-2 flex-wrap items-center justify-center">
             <button className={cls.primaryBtn} onClick={handleApplyImport}>
               Apply
             </button>
@@ -1428,7 +1428,7 @@ export default function GeneratePage() {
               </div>
             ))}
           </div>
-          <div className="flex gap-3 mt-6 flex-wrap">
+          <div className="flex gap-3 mt-6 flex-wrap justify-center">
             <button
               className={cls.primaryBtn}
               onClick={() => {
@@ -2390,7 +2390,7 @@ export default function GeneratePage() {
             );
           })()}
 
-          <div className="flex gap-3 mt-6 flex-wrap items-center">
+          <div className="flex gap-3 mt-6 flex-wrap items-center justify-center">
             <button className={cls.secondaryBtn} onClick={handleGenerate}>
               Regenerate
             </button>
@@ -2413,7 +2413,7 @@ export default function GeneratePage() {
               <p className="text-[11px] text-slate-400 mb-2">
                 Shareable read-only link (expires in 365 days):
               </p>
-              <div className="flex gap-2 items-center flex-wrap">
+              <div className="flex gap-2 items-center flex-wrap justify-center">
                 <input
                   readOnly
                   className="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[12px] text-slate-200 font-mono outline-none"
