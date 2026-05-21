@@ -2443,7 +2443,7 @@ export default function GeneratePage() {
             </button>
             {saved && (
               <span className="text-emerald-400 text-[13px] font-semibold">
-                ✓ Saved - share link ready
+                ✓ Saved
               </span>
             )}
           </div>
