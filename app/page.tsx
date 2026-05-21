@@ -16,7 +16,6 @@ import {
   describeFormat,
   pairKey,
   unpackPairKey,
-  type FormatProperties,
   type LookbackWindow,
   type Matching,
   type PairKey,
@@ -138,6 +137,19 @@ type ImportPreview = {
   seasons: ImportedSeasonRecord[];
 };
 
+// Hydratable subset of a fetched share payload — everything except the
+// schedule itself. Restoring intentionally drops the old schedule so the
+// user regenerates against current avoidance constraints on Step 3.
+type LinkPreview = {
+  format: { teamCount: number; weekCount: number };
+  teams: string[];
+  userIds: (string | null)[];
+  leagueName?: string;
+  platform?: string;
+  history?: SeasonHistory[];
+  manualDoubles?: PairKey[];
+};
+
 type ImportStatus = "" | "loading" | "ready" | "error";
 
 type YahooLeagueOption = {
@@ -227,9 +239,9 @@ export default function GeneratePage() {
   const [leagueId, setLeagueId] = useState("");
   // Pasted share-link URL or bare slug for the "Import from link" flow.
   const [shareLinkInput, setShareLinkInput] = useState("");
-  // Banner shown on Step 3 after a successful restore from a share link.
-  // Cleared on regen, reset, manual start, or a fresh import apply.
-  const [restoredFromShare, setRestoredFromShare] = useState(false);
+  // Fetched share payload waiting for the user to confirm via the preview
+  // box. Mirrors the role importPreview plays for platform imports.
+  const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
   const [importStatus, setImportStatus] = useState<ImportStatus>("");
   const [importMsg, setImportMsg] = useState("");
   // Captured from import error responses (e.g. ESPN private-league 403) so the
@@ -430,7 +442,6 @@ export default function GeneratePage() {
     setShareUrl("");
     setShareError("");
     setShareCopied(false);
-    setRestoredFromShare(false);
     const { hard, soft } = getAvoidSets();
     const result = buildSchedule({
       teamCount,
@@ -595,6 +606,8 @@ export default function GeneratePage() {
 
   function resetImportUi() {
     setImportPreview(null);
+    setLinkPreview(null);
+    setShareLinkInput("");
     setImportStatus("");
     setImportMsg("");
     setSleeperLeagues(null);
@@ -904,14 +917,9 @@ export default function GeneratePage() {
     setPinTeamA(0);
     setPinTeamB(1);
     setPinWeek(null);
-    setRestoredFromShare(false);
   }
 
-  // Restore the league state from a previously-shared schedule. Hydrates
-  // selectedFormat / teams / userIds / leagueName / history / manualDoubles /
-  // schedule / displayWeeks / platform, then lands on Step 3 (or Step 2 if
-  // the payload has no schedule for some reason).
-  async function handleRestoreFromLink() {
+  async function handleFetchLink() {
     const slug = extractSlug(shareLinkInput);
     if (!slug) {
       setImportStatus("error");
@@ -921,7 +929,8 @@ export default function GeneratePage() {
       return;
     }
     setImportStatus("loading");
-    setImportMsg("Restoring league…");
+    setImportMsg("Fetching shared league…");
+    setLinkPreview(null);
     try {
       const res = await fetch(`/api/share/${slug}`);
       const raw = await res.json();
@@ -944,16 +953,6 @@ export default function GeneratePage() {
         platform?: string;
         history?: SeasonHistory[];
         manualDoubles?: PairKey[];
-        schedule?: {
-          weeks: [number, number][][];
-          displayWeeks?: [number, number][][];
-          doubledPairs?: string[];
-          softRepeated?: string[];
-          hardRepeated?: string[];
-          clean?: boolean;
-          format?: FormatProperties;
-          rivalryPlacements?: RivalryPlacement[];
-        };
       };
       if (
         typeof payload.format.teamCount !== "number" ||
@@ -961,147 +960,123 @@ export default function GeneratePage() {
       ) {
         throw new Error("This share link has an invalid format.");
       }
-
-      // Sort teams + userIds together so index 0 is always alphabetically-
-      // first — same invariant fresh imports establish. We build an
-      // old → new index map and remap every index-based field below so the
-      // schedule, manual doubles, and history stay aligned even if the
-      // payload was saved before that sort-at-import invariant existed.
-      const pairsWithIdx = payload.teams.map((name, oldIdx) => ({
-        name,
-        userId: payload.userIds[oldIdx] ?? null,
-        oldIdx,
-      }));
-      pairsWithIdx.sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { numeric: true }),
-      );
-      const nextTeams = pairsWithIdx.map((p) => p.name);
-      const nextUserIds = pairsWithIdx.map((p) => p.userId);
-      const oldToNew = new Array<number>(payload.teams.length);
-      pairsWithIdx.forEach((p, newIdx) => {
-        oldToNew[p.oldIdx] = newIdx;
+      setLinkPreview({
+        format: payload.format,
+        teams: payload.teams,
+        userIds: payload.userIds,
+        leagueName: payload.leagueName,
+        platform: payload.platform,
+        history: payload.history,
+        manualDoubles: payload.manualDoubles,
       });
-
-      const remapKey = (key: string): string => {
-        // userid-format keys (uid1:uid2) don't reference team indices and
-        // are preserved as-is — buildAvoidMap resolves them via userIds.
-        if (key.indexOf(":") >= 0) return key;
-        const [a, b] = unpackPairKey(key);
-        return pairKey(oldToNew[a]!, oldToNew[b]!);
-      };
-      const remapWeeks = (weeks: [number, number][][]): [number, number][][] =>
-        weeks.map((week) =>
-          week.map(
-            ([a, b]) => [oldToNew[a]!, oldToNew[b]!] as [number, number],
-          ),
-        );
-
-      let restoredSchedule: ScheduleSuccess | null = null;
-      let restoredDisplayWeeks: [number, number][][] | null = null;
-      if (payload.schedule && Array.isArray(payload.schedule.weeks)) {
-        const s = payload.schedule;
-        const remappedWeeks = remapWeeks(s.weeks);
-        restoredSchedule = {
-          ok: true,
-          weeks: remappedWeeks,
-          doubledPairs: new Set((s.doubledPairs ?? []).map(remapKey)),
-          softRepeated: (s.softRepeated ?? []).map(remapKey),
-          hardRepeated: (s.hardRepeated ?? []).map(remapKey),
-          clean: s.clean ?? true,
-          format:
-            s.format ??
-            describeFormat(payload.format.teamCount, payload.format.weekCount),
-          rivalryPlacements: (s.rivalryPlacements ?? []).map((p) => ({
-            teamA: oldToNew[p.teamA]!,
-            teamB: oldToNew[p.teamB]!,
-            pinnedWeek: p.pinnedWeek ?? null,
-            placedWeek: p.placedWeek,
-          })),
-        };
-        restoredDisplayWeeks = s.displayWeeks
-          ? remapWeeks(s.displayWeeks)
-          : computeDisplayWeeks(remappedWeeks, nextTeams);
-      }
-
-      const remappedHistory: SeasonHistory[] = (payload.history ?? []).map(
-        (entry) => ({
-          ...entry,
-          doubles: (entry.doubles ?? []).map((k) =>
-            entry.format === "userid" ? k : remapKey(k),
-          ),
-        }),
-      );
-      const remappedManual: PairKey[] = (payload.manualDoubles ?? []).map(
-        (k) => (typeof k === "string" ? remapKey(k) : k),
-      );
-
-      const restoredPlatform: ImportPlatform =
-        payload.platform === "sleeper" ||
-        payload.platform === "espn" ||
-        payload.platform === "yahoo" ||
-        payload.platform === "manual"
-          ? payload.platform
-          : "manual";
-      const restoredLeagueName =
-        typeof payload.leagueName === "string" ? payload.leagueName : "";
-      const nextFormat: SelectedFormat = {
-        teamCount: payload.format.teamCount,
-        weekCount: payload.format.weekCount,
-      };
-
-      setSelectedFormat(nextFormat);
-      setTeams(nextTeams);
-      setUserIds(nextUserIds);
-      setLeagueName(restoredLeagueName);
-      setHistory(remappedHistory);
-      setManualDoubles(new Set(remappedManual));
-      setRivalryPins([]);
-      setPinTeamA(0);
-      setPinTeamB(1);
-      setPinWeek(null);
-      setSchedule(restoredSchedule);
-      setDisplayWeeks(restoredDisplayWeeks);
-      setSaved(false);
-      setLookbackOverride(null);
-      setPlatform(restoredPlatform);
-      setImportSource(restoredPlatform);
-      setShareLinkInput("");
-      setShareStatus("idle");
-      setShareUrl("");
-      setShareError("");
-      setShareCopied(false);
-      setImportPreview(null);
-      setImportStatus("");
+      setImportStatus("ready");
       setImportMsg("");
-      setLeagueId("");
-      setSleeperLeagues(null);
-      setSelectedSleeperLeague("");
-      setYahooLeagues(null);
-      setSelectedYahooLeague("");
-      setRestoredFromShare(true);
-
-      if (restoredSchedule) {
-        setSelectedWeek(0);
-        setStep("schedule");
-        setFurthestStep("schedule");
-      } else {
-        setStep("doubles");
-        setFurthestStep("doubles");
-      }
-
-      saveToStorage({
-        format: nextFormat,
-        teams: nextTeams,
-        userIds: nextUserIds,
-        leagueName: restoredLeagueName,
-        history: remappedHistory,
-        manualDoubles: remappedManual,
-        lookbackOverride: null,
-      });
     } catch (e) {
       setImportStatus("error");
-      setImportMsg((e as Error).message || "Could not restore from share link.");
+      setImportMsg(
+        (e as Error).message || "Could not fetch this share link.",
+      );
     }
+  }
+
+  // Apply step for the link-import preview. Mirrors handleApplyImport's
+  // landing — selectedFormat + teams hydrated, no schedule pre-loaded
+  // (the previous schedule is stale; the user regenerates against current
+  // avoidance constraints), lands on Step 1.
+  function handleApplyLinkImport() {
+    if (!linkPreview) return;
+
+    // Sort teams + userIds together (numeric collation) so index 0 is the
+    // alphabetically-first team — same invariant fresh imports establish.
+    // Build an old → new index map so manual doubles and index-format
+    // history entries from older payloads come back correctly aligned.
+    const pairsWithIdx = linkPreview.teams.map((name, oldIdx) => ({
+      name,
+      userId: linkPreview.userIds[oldIdx] ?? null,
+      oldIdx,
+    }));
+    pairsWithIdx.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { numeric: true }),
+    );
+    const nextTeams = pairsWithIdx.map((p) => p.name);
+    const nextUserIds = pairsWithIdx.map((p) => p.userId);
+    const oldToNew = new Array<number>(linkPreview.teams.length);
+    pairsWithIdx.forEach((p, newIdx) => {
+      oldToNew[p.oldIdx] = newIdx;
+    });
+    const remapKey = (key: string): string => {
+      if (key.indexOf(":") >= 0) return key;
+      const [a, b] = unpackPairKey(key);
+      return pairKey(oldToNew[a]!, oldToNew[b]!);
+    };
+
+    const remappedHistory: SeasonHistory[] = (linkPreview.history ?? []).map(
+      (entry) => ({
+        ...entry,
+        doubles: (entry.doubles ?? []).map((k) =>
+          entry.format === "userid" ? k : remapKey(k),
+        ),
+      }),
+    );
+    const remappedManual: PairKey[] = (linkPreview.manualDoubles ?? []).map(
+      (k) => (typeof k === "string" ? remapKey(k) : k),
+    );
+
+    const restoredPlatform: ImportPlatform =
+      linkPreview.platform === "sleeper" ||
+      linkPreview.platform === "espn" ||
+      linkPreview.platform === "yahoo" ||
+      linkPreview.platform === "manual"
+        ? linkPreview.platform
+        : "manual";
+    const restoredLeagueName = (linkPreview.leagueName || "").trim();
+    const nextFormat: SelectedFormat = {
+      teamCount: linkPreview.format.teamCount,
+      weekCount: linkPreview.format.weekCount,
+    };
+
+    setSelectedFormat(nextFormat);
+    setTeams(nextTeams);
+    setUserIds(nextUserIds);
+    setLeagueName(restoredLeagueName);
+    setHistory(remappedHistory);
+    setManualDoubles(new Set(remappedManual));
+    setRivalryPins([]);
+    setPinTeamA(0);
+    setPinTeamB(1);
+    setPinWeek(null);
+    setSchedule(null);
+    setDisplayWeeks(null);
+    setSaved(false);
+    setLookbackOverride(null);
+    setPlatform(restoredPlatform);
+    setImportSource(restoredPlatform);
+    setLinkPreview(null);
+    setShareLinkInput("");
+    setShareStatus("idle");
+    setShareUrl("");
+    setShareError("");
+    setShareCopied(false);
+    setImportPreview(null);
+    setImportStatus("");
+    setImportMsg("");
+    setLeagueId("");
+    setSleeperLeagues(null);
+    setSelectedSleeperLeague("");
+    setYahooLeagues(null);
+    setSelectedYahooLeague("");
+    setStep("teams");
+    setFurthestStep("teams");
+
+    saveToStorage({
+      format: nextFormat,
+      teams: nextTeams,
+      userIds: nextUserIds,
+      leagueName: restoredLeagueName,
+      history: remappedHistory,
+      manualDoubles: remappedManual,
+      lookbackOverride: null,
+    });
   }
 
   function handleManualStart() {
@@ -1134,7 +1109,7 @@ export default function GeneratePage() {
     setDisplayWeeks(null);
     setSaved(false);
     setLookbackOverride(null);
-    setRestoredFromShare(false);
+    setLinkPreview(null);
     setStep("teams");
     setFurthestStep("teams");
     resetImportUi();
@@ -1308,7 +1283,7 @@ export default function GeneratePage() {
     setPastSeasonYear(CURRENT_YEAR_STR);
     setPastSeasonDoubles(new Set());
     setEditingSeasonIndex(null);
-    setRestoredFromShare(false);
+    setLinkPreview(null);
     setStep("teams");
     setFurthestStep("teams");
     setConfirmReset(false);
@@ -1404,6 +1379,7 @@ export default function GeneratePage() {
               setImportSource(next);
               setLeagueId("");
               setShareLinkInput("");
+              setLinkPreview(null);
               setManualLeagueName("");
               setManualTeamCount(12);
               setManualWeekCount(14);
@@ -1438,6 +1414,7 @@ export default function GeneratePage() {
                 value={shareLinkInput}
                 onChange={(e) => {
                   setShareLinkInput(e.target.value);
+                  if (linkPreview) setLinkPreview(null);
                   if (importStatus) {
                     setImportStatus("");
                     setImportMsg("");
@@ -1447,10 +1424,10 @@ export default function GeneratePage() {
               />
               <button
                 className={cls.primaryBtn}
-                onClick={handleRestoreFromLink}
+                onClick={handleFetchLink}
                 disabled={!shareLinkInput.trim() || importBusy}
               >
-                {importStatus === "loading" ? "Restoring…" : "Restore"}
+                {importStatus === "loading" ? "Fetching…" : "Fetch"}
               </button>
             </>
           ) : platform === "yahoo" ? (
@@ -1599,7 +1576,7 @@ export default function GeneratePage() {
             ), then try again. Or, choose Manual entry to import without changing any ESPN settings.
           </p>
         ) : (
-          importMsg && !importPreview && (
+          importMsg && !importPreview && !linkPreview && (
             <p className={`text-[11px] mt-2 text-center ${statusToneClass(importStatus)}`}>{importMsg}</p>
           )
         )}
@@ -1653,6 +1630,72 @@ export default function GeneratePage() {
                 <button
                   className={cls.secondaryBtn}
                   onClick={() => setImportPreview(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
+      {/* Shared-link import preview */}
+      {linkPreview &&
+        (() => {
+          const leagueLabel = (linkPreview.leagueName || "").trim();
+          const restoredPlatform: ImportPlatform =
+            linkPreview.platform === "sleeper" ||
+            linkPreview.platform === "espn" ||
+            linkPreview.platform === "yahoo" ||
+            linkPreview.platform === "manual"
+              ? linkPreview.platform
+              : "manual";
+          const platformName = platformLabel(restoredPlatform);
+          const formatLabel = `${linkPreview.format.teamCount}-team / ${linkPreview.format.weekCount}-week`;
+          const historyEntries = linkPreview.history ?? [];
+          const seasonCount = historyEntries.length;
+          const years = historyEntries
+            .map((h) => h.season || "?")
+            .join(", ");
+          const sortedManagers = [...linkPreview.teams].sort((a, b) =>
+            a.localeCompare(b, undefined, { numeric: true }),
+          );
+          return (
+            <div className="mt-2.5 mb-3 px-3 py-2.5 bg-slate-800 rounded-md border border-emerald-700">
+              <p className="text-xs text-slate-200 mb-1">
+                {leagueLabel ? (
+                  <>
+                    <strong className="text-emerald-400">{leagueLabel}</strong>
+                    <span className="text-slate-500"> · </span>
+                    {formatLabel}
+                    <span className="text-slate-500"> · </span>
+                    {platformName}
+                  </>
+                ) : (
+                  <>
+                    <strong className="text-emerald-400">{platformName}</strong>
+                    <span className="text-slate-500"> · </span>
+                    {formatLabel}
+                  </>
+                )}
+              </p>
+              {seasonCount > 0 && (
+                <p className="text-[11px] text-slate-400 mb-2">
+                  {seasonCount} season{seasonCount > 1 ? "s" : ""}: {years}
+                </p>
+              )}
+              <p className="text-[11px] text-slate-500 mb-2">
+                Managers: {sortedManagers.join(", ")}
+              </p>
+              <div className="flex gap-2 flex-wrap items-center justify-center">
+                <button
+                  className={cls.primaryBtn}
+                  onClick={handleApplyLinkImport}
+                >
+                  Apply
+                </button>
+                <button
+                  className={cls.secondaryBtn}
+                  onClick={() => setLinkPreview(null)}
                 >
                   Cancel
                 </button>
@@ -2553,13 +2596,6 @@ export default function GeneratePage() {
           <h2 className={cls.cardTitle}>
             {leagueName ? `${leagueName} ${scheduleYear} Schedule` : "Generated Schedule"}
           </h2>
-
-          {restoredFromShare && (
-            <div className="bg-slate-900 border border-emerald-700 rounded-md px-3 py-2 text-[11px] text-emerald-400 mb-3">
-              Restored from shared schedule. Your league data is saved in this
-              browser for next season.
-            </div>
-          )}
 
           {schedule.hardRepeated.length > 0 && (
             <div className="bg-amber-950 border border-amber-800 rounded-md px-3 py-2 text-[11px] text-amber-400 mb-3">
