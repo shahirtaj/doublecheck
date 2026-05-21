@@ -1291,7 +1291,10 @@ export default function GeneratePage() {
             Most recent: {importPreview.seasons[0]!.seasonYear || "unknown"}
           </p>
           <p className="text-[11px] text-slate-500 mb-2">
-            Managers: {importPreview.seasons[0]!.teamNames.join(", ")}
+            Managers:{" "}
+            {[...importPreview.seasons[0]!.teamNames]
+              .sort((a, b) => a.localeCompare(b))
+              .join(", ")}
           </p>
           <div className="flex gap-2 flex-wrap items-center justify-center">
             <button className={cls.primaryBtn} onClick={handleApplyImport}>
@@ -1784,7 +1787,9 @@ export default function GeneratePage() {
               Avoidance by team
             </summary>
             <div className="mt-2 flex flex-col gap-1">
-              {teams.map((t, i) => {
+              {[...teams.entries()]
+                .sort((a, b) => a[1].localeCompare(b[1]))
+                .map(([i, t]) => {
                 const partners: { name: string; tone: string; sortKey: number }[] = [];
                 for (let j = 0; j < teamCount; j++) {
                   if (j === i) continue;
@@ -2295,7 +2300,9 @@ export default function GeneratePage() {
                     {summaryTitle}
                   </summary>
                   <div className="flex flex-col gap-1 mt-2">
-                    {teams.map((t, i) => {
+                    {[...teams.entries()]
+                      .sort((a, b) => a[1].localeCompare(b[1]))
+                      .map(([i, t]) => {
                       type Appearance = { week: number; isPinned: boolean };
                       type Entry = {
                         opponentIdx: number;
@@ -2481,7 +2488,8 @@ export default function GeneratePage() {
                   .map(
                     (week: Matching, wi: number) =>
                       `Week ${wi + 1}\n` +
-                      week
+                      [...week]
+                        .sort((x, y) => teams[x[0]]!.localeCompare(teams[y[0]]!))
                         .map(([a, b]: [number, number]) => `  ${teams[a]}  vs  ${teams[b]}`)
                         .join("\n"),
                   )

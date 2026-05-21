@@ -55,7 +55,7 @@ export function SharedScheduleView({
         <div className="bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 mb-4">
           <strong className="text-slate-200 text-[13px]">Managers</strong>
           <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-            {teams.join(", ")}
+            {[...teams].sort((a, b) => a.localeCompare(b)).join(", ")}
           </p>
         </div>
 
@@ -112,7 +112,9 @@ export function SharedScheduleView({
             {summaryTitle}
           </summary>
           <div className="flex flex-col gap-1 mt-2">
-            {teams.map((t, i) => {
+            {[...teams.entries()]
+              .sort((a, b) => a[1].localeCompare(b[1]))
+              .map(([i, t]) => {
               type Appearance = { week: number; isPinned: boolean };
               type Entry = {
                 opponentIdx: number;
