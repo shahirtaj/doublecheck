@@ -1405,7 +1405,7 @@ export default function GeneratePage() {
             <option value="espn">ESPN</option>
             <option value="yahoo">Yahoo</option>
             <option value="manual">Manual (NFL.com, CBS, other)</option>
-            <option value="link">Import from link</option>
+            <option value="link">Restore from link</option>
           </select>
           {importSource === "link" ? (
             <>
