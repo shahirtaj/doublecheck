@@ -16,7 +16,7 @@ export default function NotFound() {
       </div>
 
       <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 max-w-[700px] mx-auto text-center">
-        <h2 className="text-base font-bold text-emerald-50 mb-2">Page not found</h2>
+        <h2 className="text-base font-bold text-emerald-50 mb-2">Page Not Found</h2>
         <p className="text-xs text-slate-400 leading-relaxed mb-4">
           The page you&apos;re looking for doesn&apos;t exist. Head back to{" "}
           <a href="https://doublecheckff.com" className="text-emerald-400 hover:text-emerald-300">

@@ -124,7 +124,7 @@ export async function generateMetadata({
 function NotFoundView() {
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 max-w-[700px] mx-auto text-center">
-      <h2 className="text-base font-bold text-emerald-50 mb-2">Link expired or not found</h2>
+      <h2 className="text-base font-bold text-emerald-50 mb-2">Link Expired or Not Found</h2>
       <p className="text-xs text-slate-400 leading-relaxed">
         Shared schedules expire after 365 days. Ask whoever sent you the link to regenerate it
         at{" "}
