@@ -189,7 +189,7 @@ export function SharedScheduleView({
 
       <div className="max-w-[700px] mx-auto mt-8 text-center">
         <p className="text-xs text-slate-400 mb-3">
-          Want a fair schedule for your league?
+          Want a fair schedule for another league?
         </p>
         <Link
           href="/"
