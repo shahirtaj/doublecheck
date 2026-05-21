@@ -225,13 +225,13 @@ Two waves, different audiences and timing:
 ### Phase 10: Rivalry weeks ✅
 **Tool: Claude Code**
 
-Top requested feature from the r/fantasyfootball thread (164-point top comment). Commissioners can pin specific matchups to specific weeks, creating designated rivalry weeks where chosen opponents always face each other — regardless of the normal avoidance rotation. The algorithm honors those locks while continuing to rotate the remaining doubles fairly.
+Top requested feature from the r/fantasyfootball thread (164-point top comment). Commissioners can pin specific matchups to specific weeks, creating designated rivalry weeks where chosen opponents always face each other - regardless of the normal avoidance rotation. The algorithm honors those locks while continuing to rotate the remaining doubles fairly.
 
 **Algorithm (`lib/algorithm/schedule.ts`):**
 - `buildSchedule` accepts an optional `rivalryPins` array of `RivalryPin` objects (teamA, teamB, week or null for "any week")
 - `resolvePins()` resolves pins in four passes: (A) 2-pin both specific → forced double at both weeks; (B) 1-pin specific → placed at the pinned week, doubles naturally if at a block boundary; (C) 2-pin with any-week → algorithm picks the second week optimally; (D) 1-pin any-week → algorithm picks a compatible week, preferring middle (single) weeks for spread
 - Pins override hard-avoid and soft-avoid: a hard-avoided pair pinned to a week still plays that week. One pin + hard-avoid = forced single (avoidance suppresses the second appearance). Two pins fully override avoidance and force a double.
-- Per-pair pin cap of `ceil(weekCount / (teamCount - 1))` — currently 2 for all supported formats
+- Per-pair pin cap of `ceil(weekCount / (teamCount - 1))` - currently 2 for all supported formats
 - Full-week pins (every team paired once at a single week) work across all 7 formats, including with hard-avoided pairs in the mix
 - Multi-week rivalry scenarios supported: pin different complete matchings to different weeks, or mix full-week pins with individual pair pins
 - `RivalryPlacement` output tracks where each pin landed (`pinnedWeek` vs `placedWeek`) for UI display
@@ -265,7 +265,7 @@ Top requested feature from the r/fantasyfootball thread (164-point top comment).
 - Non-partner rivalry pins: pairs pinned to weeks that aren't natural block partners get independent matchings; separation-floor verification across all applicable formats; structural infeasibility detection for dp=1 formats
 - Rejection tests: exact duplicates, too many pins per pair, unsolvable configurations
 
-**Deliverable:** Full rivalry-weeks feature — algorithm, UI, share links, and comprehensive test coverage.
+**Deliverable:** Full rivalry-weeks feature - algorithm, UI, share links, and comprehensive test coverage.
 
 ---
 
