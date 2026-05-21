@@ -2028,15 +2028,15 @@ export default function GeneratePage() {
                 </div>
               </div>
               <div className="flex gap-2 mt-3 flex-wrap">
+                <button className={cls.secondaryBtn} onClick={handleCancelPastSeason}>
+                  Cancel
+                </button>
                 <button
                   className={cls.primaryBtn}
                   onClick={handleApplyPastSeason}
                   disabled={!pastSeasonYear.trim()}
                 >
                   {editingSeasonIndex !== null ? "Update Season" : "Add Season"}
-                </button>
-                <button className={cls.secondaryBtn} onClick={handleCancelPastSeason}>
-                  Cancel
                 </button>
               </div>
             </div>
