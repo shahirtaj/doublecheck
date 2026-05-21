@@ -763,25 +763,21 @@ export default function GeneratePage() {
     const detected = detectFormatFromImport(mostRecent);
     if (!detected) return;
 
-    // Format-changing imports replace roster + history outright. Same-format
-    // imports preserve any custom names the user has already set.
+    // Reimport always replaces the roster with the imported names; fresh
+    // data wins over any local edits. A format change additionally resets
+    // selectedFormat and the lookback override and drops the prior history
+    // (handled below) since its team indices belong to a different roster.
     const formatChanged =
       !selectedFormat ||
       selectedFormat.teamCount !== detected.teamCount ||
       selectedFormat.weekCount !== detected.weekCount;
 
-    let nextTeams = teams;
+    let nextTeams: string[] = mostRecent.teamNames;
+    let nextUserIds: (string | null)[] = mostRecent.userIds;
     if (formatChanged) {
-      nextTeams = mostRecent.teamNames;
       setSelectedFormat(detected);
       setLookbackOverride(null);
-    } else {
-      const hasCustomNames = teams.some((t, i) => t !== `Team ${i + 1}`);
-      if (!hasCustomNames) {
-        nextTeams = mostRecent.teamNames;
-      }
     }
-    let nextUserIds: (string | null)[] = mostRecent.userIds;
 
     // Sort teams and userIds together by team name so index 0 is always
     // the alphabetically-first team from the moment of import. Indices
@@ -1368,11 +1364,6 @@ export default function GeneratePage() {
                 >
                   Cancel
                 </button>
-                {selectedFormat && teams.some((t, i) => t !== `Team ${i + 1}`) && (
-                  <span className="text-[10px] text-slate-500">
-                    Keeps your custom names
-                  </span>
-                )}
               </div>
             </div>
           );
