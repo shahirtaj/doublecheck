@@ -77,6 +77,33 @@ function validatePayload(body: unknown): string | null {
     return "schedule.doubledPairs must be an array.";
   }
 
+  // displayWeeks is optional (older clients won't send it). When present, it
+  // mirrors schedule.weeks in shape but with the home/away display order
+  // applied — same number of weeks, each week an array of [number, number]
+  // tuples. Loose validation: shape only, no per-pair sanity check.
+  if (schedule.displayWeeks !== undefined) {
+    if (!Array.isArray(schedule.displayWeeks)) {
+      return "schedule.displayWeeks must be an array when provided.";
+    }
+    if (schedule.displayWeeks.length !== format.weekCount) {
+      return "schedule.displayWeeks length must match format.weekCount.";
+    }
+    for (const week of schedule.displayWeeks) {
+      if (!Array.isArray(week)) {
+        return "Each schedule.displayWeeks entry must be an array.";
+      }
+      for (const pair of week) {
+        if (
+          !Array.isArray(pair) ||
+          pair.length !== 2 ||
+          !pair.every((n) => typeof n === "number" && Number.isInteger(n))
+        ) {
+          return "Each schedule.displayWeeks matchup must be [int, int].";
+        }
+      }
+    }
+  }
+
   if (schedule.rivalryPlacements !== undefined) {
     if (!Array.isArray(schedule.rivalryPlacements)) {
       return "schedule.rivalryPlacements must be an array when provided.";

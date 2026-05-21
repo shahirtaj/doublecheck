@@ -77,6 +77,43 @@ function platformLabel(platform: ImportPlatform): string {
   return platform.charAt(0).toUpperCase() + platform.slice(1);
 }
 
+// Assign a deterministic home/away display order to every matchup in the
+// schedule, then sort each week's matchups by the left-side team name.
+// Display-only — the underlying pair tuple, its index in schedule.weeks,
+// and every algorithm/storage system are untouched. Greedy: for each
+// matchup [a, b], whichever team has fewer left appearances across all
+// prior weeks goes on the left, with (a + b + weekIndex) % 2 as the
+// tiebreaker. Produces a balanced 7/7 split in 14-week formats and 7/8
+// in 15-week formats.
+function computeDisplayWeeks(
+  weeks: ReadonlyArray<Matching>,
+  teams: ReadonlyArray<string>,
+): [number, number][][] {
+  const leftCount = new Array<number>(teams.length).fill(0);
+  return weeks.map((week, weekIndex) => {
+    const assigned: [number, number][] = week.map(([a, b]) => {
+      let left: number;
+      let right: number;
+      const la = leftCount[a]!;
+      const lb = leftCount[b]!;
+      if (la < lb) {
+        [left, right] = [a, b];
+      } else if (lb < la) {
+        [left, right] = [b, a];
+      } else if ((a + b + weekIndex) % 2 === 0) {
+        [left, right] = [a, b];
+      } else {
+        [left, right] = [b, a];
+      }
+      leftCount[left]!++;
+      return [left, right];
+    });
+    return assigned.sort(([a1], [a2]) =>
+      teams[a1]!.localeCompare(teams[a2]!, undefined, { numeric: true }),
+    );
+  });
+}
+
 // ── Types ─────────────────────────────────────────────────
 
 type ImportedSeasonRecord = {
@@ -147,6 +184,10 @@ export default function GeneratePage() {
   // the just-added pin while the same teams stay selected.
   const [pinJustAdded, setPinJustAdded] = useState(false);
   const [schedule, setSchedule] = useState<ScheduleSuccess | null>(null);
+  // Home/away (left/right) display assignment, computed once per generated
+  // schedule. Same shape as schedule.weeks; only the order within each
+  // matchup tuple differs. Used for the week viewer and the text export.
+  const [displayWeeks, setDisplayWeeks] = useState<[number, number][][] | null>(null);
   const [history, setHistory] = useState<SeasonHistory[]>([]);
   const [lookbackOverride, setLookbackOverride] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -392,6 +433,7 @@ export default function GeneratePage() {
       return;
     }
     setSchedule(result);
+    setDisplayWeeks(computeDisplayWeeks(result.weeks, teams));
     setSelectedWeek(0);
     setStep("schedule");
     setFurthestStep("schedule");
@@ -449,6 +491,7 @@ export default function GeneratePage() {
         manualDoubles: nextManualDoubles,
         schedule: {
           weeks: schedule.weeks,
+          displayWeeks: displayWeeks ?? undefined,
           doubledPairs: [...schedule.doubledPairs],
           softRepeated: schedule.softRepeated,
           hardRepeated: schedule.hardRepeated,
@@ -839,6 +882,7 @@ export default function GeneratePage() {
     setPinTeamB(1);
     setPinWeek(null);
     setSchedule(null);
+    setDisplayWeeks(null);
     setSaved(false);
     setLookbackOverride(null);
     setStep("teams");
@@ -996,6 +1040,7 @@ export default function GeneratePage() {
     setPinTeamB(1);
     setPinWeek(null);
     setSchedule(null);
+    setDisplayWeeks(null);
     setSaved(false);
     setLookbackOverride(null);
     setLeagueName("");
@@ -2268,7 +2313,7 @@ export default function GeneratePage() {
                     Week {selectedWeek + 1}
                   </h3>
                   <div className="flex flex-col gap-2">
-                    {schedule.weeks[selectedWeek]!.map(
+                    {(displayWeeks ?? schedule.weeks)[selectedWeek]!.map(
                       ([a, b]: [number, number], gi: number) => {
                         const key = pairKey(a, b);
                         const isDouble = schedule.doubledPairs.has(key);
@@ -2492,20 +2537,14 @@ export default function GeneratePage() {
               className="w-full bg-slate-900 text-slate-400 border border-slate-700 rounded-md p-2.5 text-[11px] font-mono resize-y mt-2 box-border"
               value={
                 (leagueName ? `${leagueName} ${scheduleYear} Schedule\n\n` : "") +
-                schedule.weeks
+                (displayWeeks ?? schedule.weeks)
                   .map(
-                    (week: Matching, wi: number) =>
+                    (week, wi) =>
                       `Week ${wi + 1}\n` +
                       week
-                        .map(([a, b]: [number, number]) =>
-                          teams[a]!.localeCompare(teams[b]!, undefined, {
-                            numeric: true,
-                          }) <= 0
-                            ? `  ${teams[a]}  vs  ${teams[b]}`
-                            : `  ${teams[b]}  vs  ${teams[a]}`,
-                        )
-                        .sort((x, y) =>
-                          x.localeCompare(y, undefined, { numeric: true }),
+                        .map(
+                          ([a, b]: [number, number]) =>
+                            `  ${teams[a]}  vs  ${teams[b]}`,
                         )
                         .join("\n"),
                   )

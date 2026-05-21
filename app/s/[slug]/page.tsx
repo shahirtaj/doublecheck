@@ -24,6 +24,9 @@ type SharedPayload = {
   teams: string[];
   schedule: {
     weeks: [number, number][][];
+    // Optional: home/away display assignments. Older share links predate
+    // this field; SharedScheduleView falls back to weeks when absent.
+    displayWeeks?: [number, number][][];
     doubledPairs: string[];
     // Optional: pre-v2 share links don't include this; treated as empty.
     rivalryPlacements?: RivalryPlacement[];
@@ -53,6 +56,9 @@ function isValidPayload(v: unknown): v is SharedPayload {
   if (!schedule) return false;
   if (!Array.isArray(schedule.weeks)) return false;
   if (!Array.isArray(schedule.doubledPairs)) return false;
+  if (schedule.displayWeeks !== undefined && !Array.isArray(schedule.displayWeeks)) {
+    return false;
+  }
   if (schedule.rivalryPlacements !== undefined && !Array.isArray(schedule.rivalryPlacements)) {
     return false;
   }
@@ -158,6 +164,7 @@ export default async function SharePage({
           seasonYear={data.seasonYear}
           teams={data.teams}
           weeks={data.schedule.weeks}
+          displayWeeks={data.schedule.displayWeeks}
           doubledPairs={data.schedule.doubledPairs}
           rivalryPlacements={data.schedule.rivalryPlacements ?? []}
         />

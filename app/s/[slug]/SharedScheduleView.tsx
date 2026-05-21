@@ -17,6 +17,9 @@ type Props = {
   seasonYear?: number;
   teams: string[];
   weeks: [number, number][][];
+  // Optional: home/away display assignments. Older share links predate
+  // this field; we fall back to the raw weeks order when absent.
+  displayWeeks?: [number, number][][];
   doubledPairs: string[];
   rivalryPlacements: RivalryPlacement[];
 };
@@ -27,9 +30,14 @@ export function SharedScheduleView({
   seasonYear,
   teams,
   weeks,
+  displayWeeks,
   doubledPairs,
   rivalryPlacements,
 }: Props) {
+  // Summary sections continue to use the raw weeks (they only care which
+  // teams played, not which side they appeared on); only the week viewer
+  // honors the home/away assignment.
+  const viewerWeeks = displayWeeks ?? weeks;
   const [selectedWeek, setSelectedWeek] = useState(0);
   const doubledSet = new Set(doubledPairs);
   // Keyed by `${pairKey}@${week}` so we can ask "is this specific pair-week
@@ -80,7 +88,7 @@ export function SharedScheduleView({
         <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
           <h3 className="text-sm font-bold text-emerald-50 mb-3 text-center">Week {selectedWeek + 1}</h3>
           <div className="flex flex-col gap-2">
-            {weeks[selectedWeek]!.map(([a, b], gi) => {
+            {viewerWeeks[selectedWeek]!.map(([a, b], gi) => {
               const key = pairKey(a, b);
               const isDouble = doubledSet.has(key);
               const isPinnedHere = placementByWeekPair.has(
