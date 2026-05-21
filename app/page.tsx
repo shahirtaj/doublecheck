@@ -1280,7 +1280,7 @@ export default function GeneratePage() {
           </p>
         ) : (
           importMsg && (
-            <p className={`text-[11px] mt-2 ${statusToneClass(importStatus)}`}>{importMsg}</p>
+            <p className={`text-[11px] mt-2 text-center ${statusToneClass(importStatus)}`}>{importMsg}</p>
           )
         )}
       </div>
