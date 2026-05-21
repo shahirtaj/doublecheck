@@ -1298,7 +1298,7 @@ export default function GeneratePage() {
             .map((s) => s.seasonYear || "?")
             .join(", ");
           const sortedManagers = [...mostRecent.teamNames].sort((a, b) =>
-            a.localeCompare(b),
+            a.localeCompare(b, undefined, { numeric: true }),
           );
           return (
             <div className="mt-2.5 mb-3 px-3 py-2.5 bg-slate-800 rounded-md border border-emerald-700">
@@ -1816,7 +1816,7 @@ export default function GeneratePage() {
             </summary>
             <div className="mt-2 flex flex-col gap-1">
               {[...teams.entries()]
-                .sort((a, b) => a[1].localeCompare(b[1]))
+                .sort((a, b) => a[1].localeCompare(b[1], undefined, { numeric: true }))
                 .map(([i, t]) => {
                 const partners: { name: string; tone: string; sortKey: number }[] = [];
                 for (let j = 0; j < teamCount; j++) {
@@ -2329,7 +2329,7 @@ export default function GeneratePage() {
                   </summary>
                   <div className="flex flex-col gap-1 mt-2">
                     {[...teams.entries()]
-                      .sort((a, b) => a[1].localeCompare(b[1]))
+                      .sort((a, b) => a[1].localeCompare(b[1], undefined, { numeric: true }))
                       .map(([i, t]) => {
                       type Appearance = { week: number; isPinned: boolean };
                       type Entry = {
@@ -2518,11 +2518,15 @@ export default function GeneratePage() {
                       `Week ${wi + 1}\n` +
                       week
                         .map(([a, b]: [number, number]) =>
-                          teams[a]!.localeCompare(teams[b]!) <= 0
+                          teams[a]!.localeCompare(teams[b]!, undefined, {
+                            numeric: true,
+                          }) <= 0
                             ? `  ${teams[a]}  vs  ${teams[b]}`
                             : `  ${teams[b]}  vs  ${teams[a]}`,
                         )
-                        .sort((x, y) => x.localeCompare(y))
+                        .sort((x, y) =>
+                          x.localeCompare(y, undefined, { numeric: true }),
+                        )
                         .join("\n"),
                   )
                   .join("\n\n")
