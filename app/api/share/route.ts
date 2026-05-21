@@ -75,6 +75,32 @@ function validatePayload(body: unknown): string | null {
   if (!Array.isArray(body.history)) return "history must be an array.";
   if (!Array.isArray(body.manualDoubles)) return "manualDoubles must be an array.";
 
+  // rivalryPins is optional (older clients won't send it). Each pin has
+  // integer team indices and a week that's either an integer or null
+  // ("any week"). Loose validation, matching the doubledPairs treatment.
+  if (body.rivalryPins !== undefined) {
+    if (!Array.isArray(body.rivalryPins)) {
+      return "rivalryPins must be an array when provided.";
+    }
+    for (const pin of body.rivalryPins) {
+      if (!isPlainObject(pin)) return "Each rivalry pin must be an object.";
+      if (
+        typeof pin.teamA !== "number" ||
+        typeof pin.teamB !== "number" ||
+        !Number.isInteger(pin.teamA) ||
+        !Number.isInteger(pin.teamB)
+      ) {
+        return "Each rivalry pin must have integer teamA and teamB.";
+      }
+      if (
+        pin.week !== null &&
+        !(typeof pin.week === "number" && Number.isInteger(pin.week))
+      ) {
+        return "rivalryPin.week must be null or an integer.";
+      }
+    }
+  }
+
   const schedule = body.schedule;
   if (!isPlainObject(schedule)) return "Missing schedule.";
   if (!Array.isArray(schedule.weeks)) return "schedule.weeks must be an array.";

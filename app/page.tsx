@@ -148,6 +148,7 @@ type LinkPreview = {
   platform?: string;
   history?: SeasonHistory[];
   manualDoubles?: PairKey[];
+  rivalryPins?: RivalryPin[];
 };
 
 type ImportStatus = "" | "loading" | "ready" | "error";
@@ -521,6 +522,7 @@ export default function GeneratePage() {
         userIds,
         history: nextHistory,
         manualDoubles: nextManualDoubles,
+        rivalryPins,
         schedule: {
           weeks: schedule.weeks,
           displayWeeks: displayWeeks ?? undefined,
@@ -953,6 +955,7 @@ export default function GeneratePage() {
         platform?: string;
         history?: SeasonHistory[];
         manualDoubles?: PairKey[];
+        rivalryPins?: RivalryPin[];
       };
       if (
         typeof payload.format.teamCount !== "number" ||
@@ -968,6 +971,7 @@ export default function GeneratePage() {
         platform: payload.platform,
         history: payload.history,
         manualDoubles: payload.manualDoubles,
+        rivalryPins: payload.rivalryPins,
       });
       setImportStatus("ready");
       setImportMsg("");
@@ -1021,6 +1025,13 @@ export default function GeneratePage() {
     const remappedManual: PairKey[] = (linkPreview.manualDoubles ?? []).map(
       (k) => (typeof k === "string" ? remapKey(k) : k),
     );
+    const remappedRivalryPins: RivalryPin[] = (linkPreview.rivalryPins ?? []).map(
+      (p) => ({
+        teamA: oldToNew[p.teamA]!,
+        teamB: oldToNew[p.teamB]!,
+        week: p.week,
+      }),
+    );
 
     const restoredPlatform: ImportPlatform =
       linkPreview.platform === "sleeper" ||
@@ -1041,7 +1052,7 @@ export default function GeneratePage() {
     setLeagueName(restoredLeagueName);
     setHistory(remappedHistory);
     setManualDoubles(new Set(remappedManual));
-    setRivalryPins([]);
+    setRivalryPins(remappedRivalryPins);
     setPinTeamA(0);
     setPinTeamB(1);
     setPinWeek(null);
