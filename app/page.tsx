@@ -1792,7 +1792,7 @@ export default function GeneratePage() {
           {/* Mobile-friendly per-team summary */}
           <details className="mt-3">
             <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
-              Avoidance by team
+              Avoidance by Team
             </summary>
             <div className="mt-2 flex flex-col gap-1">
               {[...teams.entries()]
