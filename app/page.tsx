@@ -1766,10 +1766,22 @@ export default function GeneratePage() {
             <span className="text-amber-400">S</span> soft avoid (older)
           </p>
 
+          {manualDoubles.size > 0 && (
+            <div className="mt-3">
+              <button
+                className="bg-transparent text-amber-400 border border-amber-700 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:text-amber-300 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setManualDoubles(new Set())}
+                disabled={addingPastSeason}
+              >
+                Clear Manual Overrides
+              </button>
+            </div>
+          )}
+
           {/* Mobile-friendly per-team summary */}
           <details className="mt-3">
             <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
-              Per-team avoidance list
+              Avoidance by team
             </summary>
             <div className="mt-2 flex flex-col gap-1">
               {teams.map((t, i) => {
@@ -2174,18 +2186,7 @@ export default function GeneratePage() {
             );
           })()}
 
-          <div className="flex gap-3 mt-5 flex-wrap">
-            <button
-              className={
-                manualDoubles.size === 0
-                  ? cls.secondaryBtn
-                  : "bg-transparent text-amber-400 border border-amber-700 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:text-amber-300 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              }
-              onClick={() => setManualDoubles(new Set())}
-              disabled={manualDoubles.size === 0 || addingPastSeason}
-            >
-              Clear Manual Overrides
-            </button>
+          <div className="flex gap-3 mt-5 flex-wrap justify-center">
             <button
               className={cls.primaryBtn}
               onClick={handleGenerate}
