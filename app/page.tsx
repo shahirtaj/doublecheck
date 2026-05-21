@@ -77,17 +77,6 @@ function platformLabel(platform: ImportPlatform): string {
   return platform.charAt(0).toUpperCase() + platform.slice(1);
 }
 
-function formatImportSuccess(seasons: ImportedSeasonRecord[], format: SelectedFormat): string {
-  const count = seasons.length;
-  const years = seasons.map((s) => s.seasonYear || "?").join(", ");
-  const leagueLabel = (seasons[0]?.seasonName || "").trim();
-  const formatLabel = `${format.teamCount}-team / ${format.weekCount}-week`;
-  const headline = leagueLabel
-    ? `${leagueLabel} (${formatLabel})`
-    : `${formatLabel} play`;
-  return `Fetched ${count} season${count > 1 ? "s" : ""} of ${headline}: ${years}.`;
-}
-
 // ── Types ─────────────────────────────────────────────────
 
 type ImportedSeasonRecord = {
@@ -602,7 +591,7 @@ export default function GeneratePage() {
       }
       setImportPreview({ platform, seasons: detected.seasons });
       setImportStatus("ready");
-      setImportMsg(formatImportSuccess(detected.seasons, detected.detected));
+      setImportMsg("");
     } catch (e) {
       setImportStatus("error");
       setImportMsg((e as Error).message || "Fetch failed.");
@@ -636,7 +625,7 @@ export default function GeneratePage() {
       }
       setImportPreview({ platform: "sleeper", seasons: detected.seasons });
       setImportStatus("ready");
-      setImportMsg(formatImportSuccess(detected.seasons, detected.detected));
+      setImportMsg("");
     } catch (e) {
       setImportStatus("error");
       setImportMsg((e as Error).message || "Fetch failed.");
@@ -677,7 +666,7 @@ export default function GeneratePage() {
       }
       setImportPreview({ platform: "yahoo", seasons: detected.seasons });
       setImportStatus("ready");
-      setImportMsg(formatImportSuccess(detected.seasons, detected.detected));
+      setImportMsg("");
     } catch (e) {
       if (platformRef.current !== "yahoo") return;
       setImportStatus("error");
@@ -1267,51 +1256,68 @@ export default function GeneratePage() {
             ), then try again. Or, choose Manual entry to import without changing any ESPN settings.
           </p>
         ) : (
-          importMsg && (
+          importMsg && !importPreview && (
             <p className={`text-[11px] mt-2 text-center ${statusToneClass(importStatus)}`}>{importMsg}</p>
           )
         )}
       </div>
 
       {/* Shared import preview */}
-      {importPreview && (
-        <div className="mt-2.5 mb-3 px-3 py-2.5 bg-slate-800 rounded-md border border-emerald-700">
-          <p className="text-xs text-slate-200 mb-1">
-            Ready to apply: {importPreview.seasons.length} season
-            {importPreview.seasons.length > 1 ? "s" : ""} from{" "}
-            <strong className="text-emerald-400">
-              {platformLabel(importPreview.platform)}
-            </strong>
-            {importPreview.seasons[0]!.seasonName?.trim()
-              ? ` (${importPreview.seasons[0]!.seasonName!.trim()})`
-              : ""}
-            .
-          </p>
-          <p className="text-[11px] text-slate-400 mb-2">
-            Most recent: {importPreview.seasons[0]!.seasonYear || "unknown"}
-          </p>
-          <p className="text-[11px] text-slate-500 mb-2">
-            Managers:{" "}
-            {[...importPreview.seasons[0]!.teamNames]
-              .sort((a, b) => a.localeCompare(b))
-              .join(", ")}
-          </p>
-          <div className="flex gap-2 flex-wrap items-center justify-center">
-            <button className={cls.primaryBtn} onClick={handleApplyImport}>
-              Apply
-            </button>
-            <button
-              className={cls.secondaryBtn}
-              onClick={() => setImportPreview(null)}
-            >
-              Cancel
-            </button>
-            {selectedFormat && teams.some((t, i) => t !== `Team ${i + 1}`) && (
-              <span className="text-[10px] text-slate-500">Keeps your custom names</span>
-            )}
-          </div>
-        </div>
-      )}
+      {importPreview &&
+        (() => {
+          const mostRecent = importPreview.seasons[0]!;
+          const detected = detectFormatFromImport(mostRecent);
+          if (!detected) return null;
+          const leagueLabel = (mostRecent.seasonName || "").trim();
+          const platformName = platformLabel(importPreview.platform);
+          const formatLabel = `${detected.teamCount}-team / ${detected.weekCount}-week`;
+          const seasonCount = importPreview.seasons.length;
+          const years = importPreview.seasons
+            .map((s) => s.seasonYear || "?")
+            .join(", ");
+          const sortedManagers = [...mostRecent.teamNames].sort((a, b) =>
+            a.localeCompare(b),
+          );
+          return (
+            <div className="mt-2.5 mb-3 px-3 py-2.5 bg-slate-800 rounded-md border border-emerald-700">
+              <p className="text-xs text-slate-200 mb-1">
+                {leagueLabel ? (
+                  <>
+                    <strong className="text-emerald-400">{leagueLabel}</strong>
+                    <span className="text-slate-500"> · </span>
+                    {platformName}
+                  </>
+                ) : (
+                  <strong className="text-emerald-400">{platformName}</strong>
+                )}
+                <span className="text-slate-500"> · </span>
+                {formatLabel}
+              </p>
+              <p className="text-[11px] text-slate-400 mb-2">
+                {seasonCount} season{seasonCount > 1 ? "s" : ""}: {years}
+              </p>
+              <p className="text-[11px] text-slate-500 mb-2">
+                Managers: {sortedManagers.join(", ")}
+              </p>
+              <div className="flex gap-2 flex-wrap items-center justify-center">
+                <button className={cls.primaryBtn} onClick={handleApplyImport}>
+                  Apply
+                </button>
+                <button
+                  className={cls.secondaryBtn}
+                  onClick={() => setImportPreview(null)}
+                >
+                  Cancel
+                </button>
+                {selectedFormat && teams.some((t, i) => t !== `Team ${i + 1}`) && (
+                  <span className="text-[10px] text-slate-500">
+                    Keeps your custom names
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
     </>
   );
 
