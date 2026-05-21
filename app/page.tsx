@@ -1307,13 +1307,17 @@ export default function GeneratePage() {
                   <>
                     <strong className="text-emerald-400">{leagueLabel}</strong>
                     <span className="text-slate-500"> · </span>
+                    {formatLabel}
+                    <span className="text-slate-500"> · </span>
                     {platformName}
                   </>
                 ) : (
-                  <strong className="text-emerald-400">{platformName}</strong>
+                  <>
+                    <strong className="text-emerald-400">{platformName}</strong>
+                    <span className="text-slate-500"> · </span>
+                    {formatLabel}
+                  </>
                 )}
-                <span className="text-slate-500"> · </span>
-                {formatLabel}
               </p>
               <p className="text-[11px] text-slate-400 mb-2">
                 {seasonCount} season{seasonCount > 1 ? "s" : ""}: {years}
