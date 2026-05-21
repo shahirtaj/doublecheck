@@ -2494,9 +2494,13 @@ export default function GeneratePage() {
                   .map(
                     (week: Matching, wi: number) =>
                       `Week ${wi + 1}\n` +
-                      [...week]
-                        .sort((x, y) => teams[x[0]]!.localeCompare(teams[y[0]]!))
-                        .map(([a, b]: [number, number]) => `  ${teams[a]}  vs  ${teams[b]}`)
+                      week
+                        .map(([a, b]: [number, number]) =>
+                          teams[a]!.localeCompare(teams[b]!) <= 0
+                            ? `  ${teams[a]}  vs  ${teams[b]}`
+                            : `  ${teams[b]}  vs  ${teams[a]}`,
+                        )
+                        .sort((x, y) => x.localeCompare(y))
                         .join("\n"),
                   )
                   .join("\n\n")
