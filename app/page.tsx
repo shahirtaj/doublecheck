@@ -1464,17 +1464,7 @@ export default function GeneratePage() {
           {history.length > 0 && (
             <div className="bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 mb-4">
               <strong className="text-slate-200">Lookback Window</strong>
-              <p className="mt-1 text-[11px] text-slate-400">
-                Using last{" "}
-                <strong className="text-slate-200">{effectiveLookbackTotal}</strong>{" "}
-                season{effectiveLookbackTotal !== 1 ? "s" : ""} (recommended for {teamCount}-team /{" "}
-                {weekCount}-week
-                {effectiveLookbackTotal !== recommendedLookbackTotal && (
-                  <span className="text-amber-400"> is {recommendedLookbackTotal}</span>
-                )}
-                )
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2 items-center text-[11px]">
+              <div className="mt-1 flex flex-wrap gap-2 items-center text-[11px]">
                 <label htmlFor="lookback-override" className="text-slate-500">
                   Lookback:
                 </label>
@@ -1513,6 +1503,19 @@ export default function GeneratePage() {
                   )}
                 </span>
               </div>
+              <p className="mt-1.5 text-[11px] text-slate-500">
+                Recommended:{" "}
+                <span
+                  className={
+                    effectiveLookbackTotal !== recommendedLookbackTotal
+                      ? "text-amber-400"
+                      : "text-slate-400"
+                  }
+                >
+                  {recommendedLookbackTotal}
+                </span>{" "}
+                for {teamCount}-team / {weekCount}-week
+              </p>
             </div>
           )}
 
