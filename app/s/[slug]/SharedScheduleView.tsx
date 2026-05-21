@@ -47,7 +47,7 @@ export function SharedScheduleView({
     placementByWeekPair.set(`${pairKey(p.teamA, p.teamB)}@${p.placedWeek}`, p);
   }
   const summaryTitle =
-    rivalryPlacements.length > 0 ? "Rival & Double Matchups" : "Double Matchups";
+    rivalryPlacements.length > 0 ? "Double & Rival Matchups" : "Double Matchups";
 
   const trimmedName = leagueName?.trim();
   const yearLabel = seasonYear ? `${seasonYear} ` : "";
