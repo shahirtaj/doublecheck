@@ -2032,7 +2032,7 @@ export default function GeneratePage() {
                 <div className="flex flex-wrap gap-2 items-stretch">
                   <select
                     aria-label="Week"
-                    className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                    className="w-full sm:w-auto bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
                     value={pinWeek === null ? "any" : String(pinWeek)}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -2056,7 +2056,7 @@ export default function GeneratePage() {
                   </select>
                   <select
                     aria-label="First team"
-                    className="flex-1 min-w-[8rem] bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                    className="w-[calc(50%-0.25rem)] sm:w-auto sm:flex-1 sm:min-w-[8rem] bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
                     value={safeA}
                     onChange={(e) => {
                       const newA = Number(e.target.value);
@@ -2076,7 +2076,7 @@ export default function GeneratePage() {
                   </select>
                   <select
                     aria-label="Second team"
-                    className="flex-1 min-w-[8rem] bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                    className="w-[calc(50%-0.25rem)] sm:w-auto sm:flex-1 sm:min-w-[8rem] bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
                     value={safeB}
                     onChange={(e) => {
                       const newB = Number(e.target.value);
@@ -2092,7 +2092,7 @@ export default function GeneratePage() {
                   </select>
                   <button
                     type="button"
-                    className={cls.primaryBtn}
+                    className={`${cls.primaryBtn} w-full sm:w-auto`}
                     disabled={addDisabled}
                     onClick={() => {
                       if (addDisabled) return;
