@@ -306,7 +306,7 @@ export function SharedScheduleView({
           href="/"
           className="inline-block bg-transparent text-emerald-400 border border-emerald-700 px-5 py-2.5 rounded-md text-[13px] font-semibold hover:border-emerald-600 hover:text-emerald-300"
         >
-          Generate your own →
+          Generate Your Own →
         </Link>
       </div>
     </>
