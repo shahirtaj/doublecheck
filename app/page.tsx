@@ -1503,19 +1503,13 @@ export default function GeneratePage() {
                   )}
                 </span>
               </div>
-              <p className="mt-1.5 text-[11px] text-slate-500">
-                Recommended:{" "}
-                <span
-                  className={
-                    effectiveLookbackTotal !== recommendedLookbackTotal
-                      ? "text-amber-400"
-                      : "text-slate-400"
-                  }
-                >
-                  {recommendedLookbackTotal}
-                </span>{" "}
-                for {teamCount}-team / {weekCount}-week
-              </p>
+              {effectiveLookbackTotal !== recommendedLookbackTotal && (
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  Recommended:{" "}
+                  <span className="text-amber-400">{recommendedLookbackTotal}</span>{" "}
+                  for {teamCount}-team / {weekCount}-week
+                </p>
+              )}
             </div>
           )}
 
