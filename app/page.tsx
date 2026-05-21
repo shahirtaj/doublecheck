@@ -1784,7 +1784,7 @@ export default function GeneratePage() {
                 onClick={() => setManualDoubles(new Set())}
                 disabled={addingPastSeason}
               >
-                Clear Manual Overrides
+                Clear Manual Avoids
               </button>
             </div>
           )}
