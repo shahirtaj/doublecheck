@@ -125,7 +125,7 @@ function NotFoundView() {
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 max-w-[700px] mx-auto text-center">
       <h2 className="text-base font-bold text-emerald-50 mb-2">Link Expired or Not Found</h2>
-      <p className="text-xs text-slate-400 leading-relaxed">
+      <p className="text-xs text-slate-400 leading-relaxed mb-4">
         Shared schedules expire after 365 days. Ask whoever sent you the link to regenerate it
         at{" "}
         <a
@@ -136,6 +136,12 @@ function NotFoundView() {
         </a>
         .
       </p>
+      <Link
+        href="/"
+        className="inline-block bg-transparent text-emerald-400 border border-emerald-700 px-5 py-2.5 rounded-md text-[13px] font-semibold hover:border-emerald-600 hover:text-emerald-300"
+      >
+        Generate Your Own →
+      </Link>
     </div>
   );
 }
