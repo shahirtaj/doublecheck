@@ -2103,8 +2103,9 @@ export default function GeneratePage() {
                       setRivalryPins(nextPins);
                       // Keep the week as-is and advance the team defaults:
                       // Team A returns to 0, Team B picks the lowest other
-                      // team where neither team is already pinned in the
-                      // kept week. Falls back to 1 if nothing qualifies.
+                      // team that isn't already pinned in the kept week —
+                      // skipping the partner we just used so the form
+                      // visibly advances even if team 0 was in the pin.
                       const isBusyInWeek = (t: number): boolean => {
                         if (pinWeek === null) return false;
                         return nextPins.some(
@@ -2114,12 +2115,10 @@ export default function GeneratePage() {
                         );
                       };
                       let nextB = 1;
-                      if (!isBusyInWeek(0)) {
-                        for (let i = 1; i < teamCount; i++) {
-                          if (!isBusyInWeek(i)) {
-                            nextB = i;
-                            break;
-                          }
+                      for (let i = 1; i < teamCount; i++) {
+                        if (!isBusyInWeek(i)) {
+                          nextB = i;
+                          break;
                         }
                       }
                       setPinTeamA(0);
