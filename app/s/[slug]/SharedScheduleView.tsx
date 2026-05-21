@@ -92,15 +92,6 @@ export function SharedScheduleView({
       <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 max-w-[700px] mx-auto">
         <h2 className="text-base font-bold text-emerald-50 mb-3">{heading}</h2>
 
-        <div className="bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 mb-4">
-          <strong className="text-slate-200 text-[13px]">Managers</strong>
-          <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-            {[...teams]
-              .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-              .join(", ")}
-          </p>
-        </div>
-
         <div className="flex gap-1 flex-wrap mb-4">
           {weeks.map((_, i) => (
             <button
