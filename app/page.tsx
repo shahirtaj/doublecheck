@@ -366,11 +366,6 @@ export default function GeneratePage() {
     return { hard, soft };
   }
 
-  function getAvoidDisplay() {
-    const { hard, soft } = getAvoidSets();
-    return { hard: hard.size, soft: soft.size, total: hard.size + soft.size };
-  }
-
   function handleGenerate() {
     setGenError("");
     setSaved(false);
@@ -1034,7 +1029,6 @@ export default function GeneratePage() {
     );
   }
 
-  const avoidInfo = getAvoidDisplay();
   const importBusy = importStatus === "loading";
   const usedSeasonYears = new Set(history.map((h) => h.season));
   const availablePastSeasonYears = PAST_SEASON_YEARS.filter(
@@ -1478,7 +1472,7 @@ export default function GeneratePage() {
                 {effectiveLookbackTotal !== recommendedLookbackTotal && (
                   <span className="text-amber-400"> is {recommendedLookbackTotal}</span>
                 )}
-                ).
+                )
               </p>
               <div className="mt-2 flex flex-wrap gap-2 items-center text-[11px]">
                 <label htmlFor="lookback-override" className="text-slate-500">
@@ -1519,12 +1513,6 @@ export default function GeneratePage() {
                   )}
                 </span>
               </div>
-              <p className="mt-1.5 text-[11px] text-slate-500">
-                {history.length} season{history.length > 1 ? "s" : ""} in history ·{" "}
-                {avoidInfo.total} total pairs avoided (
-                <span className="text-red-400">{avoidInfo.hard} hard</span>,{" "}
-                <span className="text-amber-400">{avoidInfo.soft} soft</span>)
-              </p>
             </div>
           )}
 
@@ -1554,9 +1542,6 @@ export default function GeneratePage() {
                     className="px-2 py-1.5 border-b border-slate-700 text-xs flex flex-wrap gap-2 items-center"
                   >
                     <strong className="text-slate-200">{h.season}</strong>
-                    <span className="text-slate-400">
-                      {(h.doubles || []).length} doubled pairs
-                    </span>
                     <span className={`text-[10px] ${tone}`}>{label}</span>
                     {h.format !== "userid" && (
                       <span className="ml-auto flex gap-1">
