@@ -2167,7 +2167,7 @@ export default function GeneratePage() {
                   </select>
                   <button
                     type="button"
-                    className="bg-sky-500 text-sky-50 border-0 px-5 py-2.5 rounded-md text-[13px] font-semibold cursor-pointer hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+                    className="bg-sky-500 text-sky-50 border-0 px-5 py-2.5 rounded-md text-[13px] font-semibold cursor-pointer hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed mx-auto sm:mx-0"
                     disabled={addDisabled}
                     onClick={() => {
                       if (addDisabled) return;
