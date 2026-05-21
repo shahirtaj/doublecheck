@@ -2421,7 +2421,7 @@ export default function GeneratePage() {
             <p className={cls.error}>{shareError}</p>
           )}
 
-          <p className="text-[11px] text-slate-300 mt-4">
+          <p className="text-[11px] text-slate-300 mt-4 text-center">
             {platform === "sleeper" ? (
               <>
                 To apply this schedule, edit your matchups in Sleeper&apos;s League Settings (
