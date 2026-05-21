@@ -2547,7 +2547,9 @@ export default function GeneratePage() {
                 className="bg-transparent text-amber-400 border border-amber-700 px-3 py-1.5 rounded-md text-[11px] cursor-pointer hover:text-amber-300 hover:border-amber-600"
                 onClick={() => {
                   if (step === "teams") {
-                    handleResetEverything();
+                    setSelectedFormat(null);
+                    setStep("teams");
+                    setFurthestStep("teams");
                   } else {
                     setStep(step === "schedule" ? "doubles" : "teams");
                   }
