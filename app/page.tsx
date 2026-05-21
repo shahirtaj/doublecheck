@@ -815,12 +815,6 @@ export default function GeneratePage() {
     setPinTeamA(0);
     setPinTeamB(1);
     setPinWeek(null);
-    setImportPreview(null);
-    setLeagueId("");
-    setImportStatus("");
-    setImportMsg("");
-    setSleeperLeagues(null);
-    setSelectedSleeperLeague("");
   }
 
   function handleManualStart() {
