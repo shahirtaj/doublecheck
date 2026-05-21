@@ -1391,9 +1391,9 @@ export default function GeneratePage() {
       <div className="flex justify-center gap-1 mb-5 flex-wrap">
         {(
           [
-            ["teams", "1 · Import"],
-            ["doubles", "2 · Review"],
-            ["schedule", "3 · Schedule"],
+            ["teams", "1. Import"],
+            ["doubles", "2. Review"],
+            ["schedule", "3. Schedule"],
           ] as [Step, string][]
         ).map(([key, label]) => {
           const disabled = STEP_ORDER.indexOf(key) > STEP_ORDER.indexOf(furthestStep);
