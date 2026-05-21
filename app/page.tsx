@@ -190,6 +190,7 @@ export default function GeneratePage() {
   const [shareUrl, setShareUrl] = useState("");
   const [shareError, setShareError] = useState("");
   const [shareCopied, setShareCopied] = useState(false);
+  const [scheduleCopied, setScheduleCopied] = useState(false);
 
   // League import (server-side via /api/import/<platform>)
   const [platform, setPlatform] = useState<ImportPlatform>("sleeper");
@@ -515,6 +516,40 @@ export default function GeneratePage() {
     } catch {
       // Clipboard may be unavailable (insecure context); leave the URL
       // selectable in the input as fallback.
+    }
+  }
+
+  // Reads the same text that the Copy Full Schedule textarea displays, so the
+  // dedicated Copy button stays in lockstep with what the user sees there.
+  function formatScheduleText(): string {
+    if (!schedule) return "";
+    const heading = leagueName ? `${leagueName} ${scheduleYear} Schedule\n\n` : "";
+    return (
+      heading +
+      (displayWeeks ?? schedule.weeks)
+        .map(
+          (week, wi) =>
+            `Week ${wi + 1}\n` +
+            week
+              .map(
+                ([a, b]: [number, number]) =>
+                  `  ${teams[a]}  vs  ${teams[b]}`,
+              )
+              .join("\n"),
+        )
+        .join("\n\n")
+    );
+  }
+
+  async function handleCopySchedule() {
+    if (!schedule) return;
+    try {
+      await navigator.clipboard.writeText(formatScheduleText());
+      setScheduleCopied(true);
+      setTimeout(() => setScheduleCopied(false), 2000);
+    } catch {
+      // Clipboard may be unavailable (insecure context); user can still
+      // select and copy the textarea contents manually.
     }
   }
 
@@ -2516,26 +2551,14 @@ export default function GeneratePage() {
             <textarea
               readOnly
               className="w-full bg-slate-900 text-slate-400 border border-slate-700 rounded-md p-2.5 text-[11px] font-mono resize-y mt-2 box-border"
-              value={
-                (leagueName ? `${leagueName} ${scheduleYear} Schedule\n\n` : "") +
-                (displayWeeks ?? schedule.weeks)
-                  .map(
-                    (week, wi) =>
-                      `Week ${wi + 1}\n` +
-                      week
-                        .map(
-                          ([a, b]: [number, number]) =>
-                            `  ${teams[a]}  vs  ${teams[b]}`,
-                        )
-                        .join("\n"),
-                  )
-                  .join("\n\n")
-              }
+              value={formatScheduleText()}
               rows={12}
-              onClick={(e: MouseEvent<HTMLTextAreaElement>) =>
-                (e.target as HTMLTextAreaElement).select()
-              }
             />
+            <div className="mt-2 flex justify-center">
+              <button className={cls.secondaryBtn} onClick={handleCopySchedule}>
+                {scheduleCopied ? "✓ Copied" : "Copy"}
+              </button>
+            </div>
           </details>
         </div>
       )}
