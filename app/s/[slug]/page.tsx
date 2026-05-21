@@ -21,6 +21,9 @@ type SharedPayload = {
   format: { teamCount: number; weekCount: number };
   leagueName?: string;
   seasonYear?: number;
+  // Source platform — drives the apply-instructions line. Optional for
+  // backward compat with share links created before this field was added.
+  platform?: string;
   teams: string[];
   schedule: {
     weeks: [number, number][][];
@@ -51,6 +54,7 @@ function isValidPayload(v: unknown): v is SharedPayload {
   ) {
     return false;
   }
+  if (obj.platform !== undefined && typeof obj.platform !== "string") return false;
   if (!Array.isArray(obj.teams)) return false;
   const schedule = obj.schedule as Record<string, unknown> | undefined;
   if (!schedule) return false;
@@ -162,6 +166,7 @@ export default async function SharePage({
           format={data.format}
           leagueName={data.leagueName}
           seasonYear={data.seasonYear}
+          platform={data.platform}
           teams={data.teams}
           weeks={data.schedule.weeks}
           displayWeeks={data.schedule.displayWeeks}

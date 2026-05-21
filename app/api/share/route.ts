@@ -63,6 +63,14 @@ function validatePayload(body: unknown): string | null {
     return "seasonYear must be an integer when provided.";
   }
 
+  // platform is optional (older clients won't send it). Used by the shared
+  // view to render platform-specific apply instructions; we don't restrict
+  // the string set here in case the client adds more platforms before the
+  // server is redeployed.
+  if (body.platform !== undefined && typeof body.platform !== "string") {
+    return "platform must be a string when provided.";
+  }
+
   if (!Array.isArray(body.userIds)) return "userIds must be an array.";
   if (!Array.isArray(body.history)) return "history must be an array.";
   if (!Array.isArray(body.manualDoubles)) return "manualDoubles must be an array.";

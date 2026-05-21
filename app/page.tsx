@@ -476,6 +476,7 @@ export default function GeneratePage() {
         format: selectedFormat,
         leagueName,
         seasonYear: scheduleYear,
+        platform,
         teams,
         userIds,
         history: nextHistory,

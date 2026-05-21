@@ -15,6 +15,9 @@ type Props = {
   format: { teamCount: number; weekCount: number };
   leagueName?: string;
   seasonYear?: number;
+  // Source platform of the originating import — drives the apply-
+  // instructions line. Optional for backward compat with older share links.
+  platform?: string;
   teams: string[];
   weeks: [number, number][][];
   // Optional: home/away display assignments. Older share links predate
@@ -28,6 +31,7 @@ export function SharedScheduleView({
   format,
   leagueName,
   seasonYear,
+  platform,
   teams,
   weeks,
   displayWeeks,
@@ -39,6 +43,7 @@ export function SharedScheduleView({
   // honors the home/away assignment.
   const viewerWeeks = displayWeeks ?? weeks;
   const [selectedWeek, setSelectedWeek] = useState(0);
+  const [scheduleCopied, setScheduleCopied] = useState(false);
   const doubledSet = new Set(doubledPairs);
   // Keyed by `${pairKey}@${week}` so we can ask "is this specific pair-week
   // appearance pinned?" Natural double weeks aren't in this map and render red.
@@ -54,6 +59,33 @@ export function SharedScheduleView({
   const heading = trimmedName
     ? `${trimmedName} ${yearLabel}Schedule`
     : `${format.teamCount}-team / ${format.weekCount}-week Schedule`;
+
+  function formatScheduleText(): string {
+    const headingPrefix = trimmedName ? `${heading}\n\n` : "";
+    return (
+      headingPrefix +
+      viewerWeeks
+        .map(
+          (week, wi) =>
+            `Week ${wi + 1}\n` +
+            week
+              .map(([a, b]) => `  ${teams[a]}  vs  ${teams[b]}`)
+              .join("\n"),
+        )
+        .join("\n\n")
+    );
+  }
+
+  async function handleCopySchedule() {
+    try {
+      await navigator.clipboard.writeText(formatScheduleText());
+      setScheduleCopied(true);
+      setTimeout(() => setScheduleCopied(false), 2000);
+    } catch {
+      // Clipboard may be unavailable (insecure context); the textarea is
+      // still selectable manually as a fallback.
+    }
+  }
 
   return (
     <>
@@ -195,6 +227,73 @@ export function SharedScheduleView({
                 </div>
               );
             })}
+          </div>
+        </details>
+
+        <p className="text-[11px] text-slate-300 mt-4 text-center">
+          {platform === "sleeper" ? (
+            <>
+              To apply this schedule, edit your matchups in Sleeper&apos;s League Settings (
+              <a
+                href="https://support.sleeper.com/en/articles/1955931-can-i-randomize-my-league-s-schedule"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-300 underline hover:text-slate-200"
+              >
+                see instructions
+              </a>
+              ).
+            </>
+          ) : platform === "espn" ? (
+            <>
+              To apply this schedule, go to LM Tools &gt; Edit Head-to-Head Schedule and update
+              each week&apos;s matchups (
+              <a
+                href="https://support.espn.com/hc/en-us/articles/115003914792-Change-League-Schedule-and-or-Head-to-Head-Matchups-LM-Leagues"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-300 underline hover:text-slate-200"
+              >
+                see instructions
+              </a>
+              ).
+            </>
+          ) : platform === "yahoo" ? (
+            <>
+              To apply this schedule, go to Commissioner &gt; Schedules &amp; Playoffs &gt; Edit
+              Schedules and update each week&apos;s matchups (
+              <a
+                href="https://help.yahoo.com/kb/edit-season-schedules-head-to-head-leagues-sln6320.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-300 underline hover:text-slate-200"
+              >
+                see instructions
+              </a>
+              ).
+            </>
+          ) : (
+            <>To apply this schedule, enter these matchups in your league settings.</>
+          )}
+        </p>
+
+        <details className="mt-4">
+          <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
+            Copy Full Schedule as Text
+          </summary>
+          <textarea
+            readOnly
+            className="w-full bg-slate-900 text-slate-400 border border-slate-700 rounded-md p-2.5 text-[11px] font-mono resize-y mt-2 box-border"
+            value={formatScheduleText()}
+            rows={12}
+          />
+          <div className="mt-2 flex justify-center">
+            <button
+              className="bg-transparent text-slate-400 border border-slate-600 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:border-slate-500 hover:text-slate-300"
+              onClick={handleCopySchedule}
+            >
+              {scheduleCopied ? "✓ Copied" : "Copy"}
+            </button>
           </div>
         </details>
       </div>
