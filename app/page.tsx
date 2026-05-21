@@ -2101,11 +2101,11 @@ export default function GeneratePage() {
                         { teamA: safeA, teamB: safeB, week: pinWeek },
                       ];
                       setRivalryPins(nextPins);
-                      // Keep the week as-is and advance the team defaults:
-                      // Team A returns to 0, Team B picks the lowest other
-                      // team that isn't already pinned in the kept week —
-                      // skipping the partner we just used so the form
-                      // visibly advances even if team 0 was in the pin.
+                      // Keep the week and advance both team defaults so the
+                      // next pin can fit without manual fiddling. Team A is
+                      // the lowest team still free in the kept week; Team B
+                      // is the lowest free team after that. Falls back to
+                      // 0 and 1 if no free teams remain that week.
                       const isBusyInWeek = (t: number): boolean => {
                         if (pinWeek === null) return false;
                         return nextPins.some(
@@ -2114,14 +2114,21 @@ export default function GeneratePage() {
                             (p.teamA === t || p.teamB === t),
                         );
                       };
-                      let nextB = 1;
-                      for (let i = 1; i < teamCount; i++) {
+                      let nextA = 0;
+                      for (let i = 0; i < teamCount; i++) {
+                        if (!isBusyInWeek(i)) {
+                          nextA = i;
+                          break;
+                        }
+                      }
+                      let nextB = nextA === 0 ? 1 : 0;
+                      for (let i = nextA + 1; i < teamCount; i++) {
                         if (!isBusyInWeek(i)) {
                           nextB = i;
                           break;
                         }
                       }
-                      setPinTeamA(0);
+                      setPinTeamA(nextA);
                       setPinTeamB(nextB);
                       setPinJustAdded(true);
                     }}
