@@ -50,12 +50,13 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 - **ESPN** - public leagues by league ID. Private leagues must be set to public by the commissioner before import.
 - **Yahoo** - sign in with Yahoo (OAuth 2.0). Tokens are stored in an encrypted httpOnly cookie - no database, no account needed.
 - **Manual entry** - for unsupported platforms (NFL.com, CBS, etc.). Pick your league format, name your teams, and click the doubled matchups from each past season on an interactive grid.
+- **Restore from link** - returning users paste a previously-saved share URL (full URL, `/s/slug` path, or bare 8-char slug) to bring a league back into a fresh browser. Restores teams, userIds, league name, history, manual avoids, and rivalry pins from the share payload; the old schedule is dropped so you regenerate against current avoidance constraints.
 
 ## Quick start
 
 The tool is a three-step flow at [doublecheckff.com](https://doublecheckff.com):
 
-1. **Import.** Pick your platform and enter your league ID (or, for Sleeper, your username - DoubleCheck lists your leagues to pick from). League format is auto-detected from imported data. For platforms without automatic import (NFL.com, CBS, etc.), choose **Manual** and enter your league info directly.
+1. **Import or restore.** Pick your platform and enter your league ID (or, for Sleeper, your username - DoubleCheck lists your leagues to pick from). League format is auto-detected from imported data. For platforms without automatic import (NFL.com, CBS, etc.), choose **Manual** and enter your league info directly. Returning users can pick **Restore from link** and paste a previously-saved share URL to bring a league back into a fresh browser - teams, history, manual avoids, and rivalry pins all come back so you can add the new season and regenerate.
 2. **Review.** See the lookback window (with optional override if you want to weight more or fewer prior seasons), scan past season history, review the avoidance matrix, and optionally pin rivalry matchups to specific weeks.
 3. **Schedule.** Browse the generated schedule week-by-week (pinned rivalry matchups are highlighted), click **Save & Share** to get a read-only `/s/{slug}` link your league members can open from any device, or click **Copy Full Schedule as Text** for a plain-text dump. Links expire after 365 days.
 
