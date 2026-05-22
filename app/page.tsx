@@ -1022,9 +1022,9 @@ export default function GeneratePage() {
         ),
       }),
     );
-    const remappedManual: PairKey[] = (linkPreview.manualDoubles ?? []).map(
-      (k) => (typeof k === "string" ? remapKey(k) : k),
-    );
+    // manualDoubles intentionally dropped on restore: they're one-time
+    // overrides for the season they were set in, and silently carrying
+    // them forward would over-constrain the next generation.
     const remappedRivalryPins: RivalryPin[] = (linkPreview.rivalryPins ?? []).map(
       (p) => ({
         teamA: oldToNew[p.teamA]!,
@@ -1051,7 +1051,7 @@ export default function GeneratePage() {
     setUserIds(nextUserIds);
     setLeagueName(restoredLeagueName);
     setHistory(remappedHistory);
-    setManualDoubles(new Set(remappedManual));
+    setManualDoubles(new Set());
     setRivalryPins(remappedRivalryPins);
     setPinTeamA(0);
     setPinTeamB(1);
@@ -1085,7 +1085,7 @@ export default function GeneratePage() {
       userIds: nextUserIds,
       leagueName: restoredLeagueName,
       history: remappedHistory,
-      manualDoubles: remappedManual,
+      manualDoubles: [],
       lookbackOverride: null,
     });
   }
