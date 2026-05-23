@@ -2343,50 +2343,54 @@ export default function GeneratePage() {
             </div>
           )}
 
-          {/* Per-team summary below the matrix — collapsed by default. */}
-          <details className="mt-3">
-            <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
-              Avoidance by Team
-            </summary>
-            <div className="mt-2 flex flex-col gap-1">
-              {[...teams.entries()]
-                .sort((a, b) =>
-                  a[1].localeCompare(b[1], undefined, { numeric: true }),
-                )
-                .map(([i, t]) => {
-                  const partners: { name: string; tone: string; sortKey: number }[] = [];
-                  for (let j = 0; j < teamCount; j++) {
-                    if (j === i) continue;
-                    const at = cellAvoidType(i, j);
-                    const isManual = manualDoubles.has(pairKey(i, j));
-                    if (isManual) {
-                      partners.push({ name: teams[j]!, tone: "text-purple-400", sortKey: 0 });
-                    } else if (at === "hard") {
-                      partners.push({ name: teams[j]!, tone: "text-red-400", sortKey: 1 });
-                    } else if (at === "soft") {
-                      partners.push({ name: teams[j]!, tone: "text-amber-400", sortKey: 2 });
+          {/* Per-team summary below the matrix - collapsed by default. Hidden entirely when no team has any avoidance so the section doesn't expand to empty. */}
+          {(manualDoubles.size > 0 ||
+            avoidSets.hard.size > 0 ||
+            avoidSets.soft.size > 0) && (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
+                Avoidance by Team
+              </summary>
+              <div className="mt-2 flex flex-col gap-1">
+                {[...teams.entries()]
+                  .sort((a, b) =>
+                    a[1].localeCompare(b[1], undefined, { numeric: true }),
+                  )
+                  .map(([i, t]) => {
+                    const partners: { name: string; tone: string; sortKey: number }[] = [];
+                    for (let j = 0; j < teamCount; j++) {
+                      if (j === i) continue;
+                      const at = cellAvoidType(i, j);
+                      const isManual = manualDoubles.has(pairKey(i, j));
+                      if (isManual) {
+                        partners.push({ name: teams[j]!, tone: "text-purple-400", sortKey: 0 });
+                      } else if (at === "hard") {
+                        partners.push({ name: teams[j]!, tone: "text-red-400", sortKey: 1 });
+                      } else if (at === "soft") {
+                        partners.push({ name: teams[j]!, tone: "text-amber-400", sortKey: 2 });
+                      }
                     }
-                  }
-                  if (partners.length === 0) return null;
-                  partners.sort(
-                    (a, b) => a.sortKey - b.sortKey || a.name.localeCompare(b.name),
-                  );
-                  return (
-                    <div key={i} className="text-xs px-2 py-1 bg-slate-900 rounded">
-                      <div className="text-slate-200 font-semibold">{t}</div>
-                      <div>
-                        {partners.map((p, k) => (
-                          <span key={k}>
-                            {k > 0 ? ", " : ""}
-                            <span className={p.tone}>{p.name}</span>
-                          </span>
-                        ))}
+                    if (partners.length === 0) return null;
+                    partners.sort(
+                      (a, b) => a.sortKey - b.sortKey || a.name.localeCompare(b.name),
+                    );
+                    return (
+                      <div key={i} className="text-xs px-2 py-1 bg-slate-900 rounded">
+                        <div className="text-slate-200 font-semibold">{t}</div>
+                        <div>
+                          {partners.map((p, k) => (
+                            <span key={k}>
+                              {k > 0 ? ", " : ""}
+                              <span className={p.tone}>{p.name}</span>
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-            </div>
-          </details>
+                    );
+                  })}
+              </div>
+            </details>
+          )}
 
           {(() => {
             // Derive valid team indices. safeB is forced to differ from safeA
