@@ -63,6 +63,9 @@ export function computeDisplayWeeks(
   teams: ReadonlyArray<string>,
 ): [number, number][][] {
   const leftCount = new Array<number>(teams.length).fill(0);
+  // NOTE: Order-dependent — leftCount is mutated during iteration so each
+  // matchup's home/away assignment depends on assignments made in earlier
+  // weeks. Do not parallelize or reorder.
   return weeks.map((week, weekIndex) => {
     const assigned: [number, number][] = week.map(([a, b]) => {
       let left: number;
