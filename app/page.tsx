@@ -2313,9 +2313,14 @@ export default function GeneratePage() {
           </div>
 
           <p className="text-[10px] text-slate-500 mt-2">
-            <span className="text-purple-400">✕</span> manual avoid{"  "}
-            <span className="text-red-400">H</span> hard avoid (last {effectiveLookback.hard}{" "}
-            season{effectiveLookback.hard !== 1 ? "s" : ""})
+            <span className="text-purple-400">✕</span> manual avoid
+            {effectiveLookback.hard > 0 && (
+              <>
+                {"  "}
+                <span className="text-red-400">H</span> hard avoid (last {effectiveLookback.hard}{" "}
+                season{effectiveLookback.hard !== 1 ? "s" : ""})
+              </>
+            )}
             {effectiveLookback.soft > 0 && (
               <>
                 {"  "}
