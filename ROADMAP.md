@@ -31,7 +31,7 @@ In a 12-team, 14-week fantasy football league, each team plays 3 opponents twice
 ## Supported formats
 
 | Format | Doubles/team | Singles/team | Rotation cycle | Notes |
-|--------|-------------|-------------|----------------|-------|
+| ------ | ------------ | ------------ | -------------- | ----- |
 | 8 / 13 | 6 | 1 | ~7 years | Inverted problem (who do you NOT double) |
 | 10 / 13 | 4 | 5 | ~3 years | |
 | 10 / 14 | 5 | 4 | ~2 years | |
@@ -51,7 +51,7 @@ Odd-number leagues and 16+ team leagues are out of scope.
 ## Platform landscape
 
 | Platform | Users | API | Auth | Status |
-|----------|-------|-----|------|--------|
+| -------- | ----- | --- | ---- | ------ |
 | Sleeper | Fastest growing | Fully public, free | None | ✅ Integrated |
 | ESPN | ~13M | Undocumented, fragile | Cookies for private leagues | ✅ Integrated (public leagues) |
 | Yahoo | ~5-10M | Official, OAuth 2.0 | Developer app registration | ✅ Integrated (OAuth 2.0) |
@@ -65,7 +65,7 @@ No write APIs exist on any platform for schedule input. Commissioners enter the 
 ## Tech stack
 
 | Layer | Choice | Rationale |
-|-------|--------|-----------|
+| ----- | ------ | --------- |
 | Framework | Next.js 16 (App Router, Turbopack default) | SSR for SEO landing page, API routes for proxy, React for app |
 | UI | React 19 | Latest stable React runtime |
 | Language | TypeScript | Type safety for the algorithm and API integrations |
@@ -86,6 +86,7 @@ localStorage for local state. Upstash Redis for shareable links.
 ## Phases
 
 ### Phase 1: Generalize the algorithm ✅
+
 **Tool:** Claude Code
 
 Parameterized the core algorithm by `(teamCount, weekCount)`. Covers all 7 supported formats with derived double counts, rotation cycles, lookback windows, spacing constraints, and decomposition proofs.
@@ -95,6 +96,7 @@ Parameterized the core algorithm by `(teamCount, weekCount)`. Covers all 7 suppo
 ---
 
 ### Phase 2: Next.js project ✅
+
 **Tool:** Claude Code
 
 Next.js (App Router) with Tailwind CSS. Tool is the homepage (`app/page.tsx`). Responsive UI - matrix grid scrolls horizontally on mobile, week navigator wraps. localStorage for persistence. Originally shipped on Next.js 14; later upgraded through 15 to **Next.js 16** (Turbopack default for both dev and build, React 19). Lint moved to ESLint 9 flat config (`eslint.config.mjs`) because Next 16 removed `next lint`.
@@ -104,6 +106,7 @@ Next.js (App Router) with Tailwind CSS. Tool is the homepage (`app/page.tsx`). R
 ---
 
 ### Phase 3: Platform integrations ✅
+
 **Tool:** Claude Code
 
 Server-side API routes at `/api/import/sleeper` and `/api/import/espn`. Walk the season-history chain and fetch up to the format's recommended lookback (clamped to `MAX_SEASONS_CAP = 13` to bound the chain walk on long-running leagues), normalize doubled pairs into `ImportedSeasonRecord` shape. IP-based rate limiting via `lib/api/rate-limit.ts`.
@@ -117,6 +120,7 @@ Server-side API routes at `/api/import/sleeper` and `/api/import/espn`. Walk the
 ---
 
 ### Phase 4: GitHub ✅
+
 **Tool:** Claude Code
 
 Public repo at `github.com/shahirtaj/doublecheck`. README explains the fairness problem, math, supported formats, and algorithm. MIT license. GitHub Actions CI (typecheck + test + build on push/PR).
@@ -126,6 +130,7 @@ Public repo at `github.com/shahirtaj/doublecheck`. README explains the fairness 
 ---
 
 ### Phase 5: Deploy ✅
+
 **Tool:** Vercel
 
 Deployed on Vercel with auto-deploy from `main`. Custom domain `doublecheckff.com` configured. Framework preset: Next.js.
@@ -135,6 +140,7 @@ Deployed on Vercel with auto-deploy from `main`. Custom domain `doublecheckff.co
 ---
 
 ### Phase 6: SEO, auto-detection, lookback override, favicon ✅
+
 **Tool:** Claude Code
 
 Generic positioning across the surface: a "Fair schedules for fantasy football leagues" tagline, an inline-SVG favicon (dark slate rounded square with two emerald checkmarks - the "double check" pun), Open Graph and Twitter meta tags for social sharing, and an SEO title of "DoubleCheck - Fair Fantasy Football Schedules". League format is now auto-detected from imported data (team count from roster size, week count from regWeeks) rather than picked manually, so the pre-import view shows an "Import a league to get started" prompt with Sleeper/ESPN options and edge-case formats (pure round-robin, complete double round-robin) get their own explanatory messages instead of running the algorithm needlessly. Step 2 (Review) gained a lookback window override dropdown ("Using last N seasons (recommended for X-team / Y-week)") capped at the format-recommended maximum, and every `TEAM_COUNT`/`WEEK_COUNT` constant was replaced with dynamic state derived from the import. The platform selector consolidated into a single dropdown (Sleeper/ESPN/Yahoo) instead of separate sections, step navigation allows backward navigation but blocks forward jumps past unreached steps, and the footer picked up a GitHub Issues bug-report link and a Buy Me a Coffee link. Duplicate import prevention skips entries with the same year and identical doubles, and smaller polish landed alongside (simplified copy, destructive button styling, season history scoped to the Review step).
@@ -144,6 +150,7 @@ Generic positioning across the surface: a "Fair schedules for fantasy football l
 ---
 
 ### Phase 6.5: Yahoo integration ✅
+
 **Tool:** Claude Code
 
 Yahoo's official Fantasy Sports API requires a registered developer app and the full OAuth 2.0 user-consent flow. The Yahoo Developer app is registered with the `fspt-r` (Fantasy Sports Read) scope. `/api/auth/yahoo/start` and `/api/auth/yahoo/callback` handle the redirect dance with a CSRF state cookie; access and refresh tokens are encrypted with AES-256-GCM (keyed off `YAHOO_TOKEN_SECRET`) and stored in an httpOnly cookie, so there's no database and no user accounts. `/api/import/yahoo` runs in two modes - an empty body lists the user's NFL leagues for a picker, while `{leagueKey}` walks the league's renew chain and returns `ImportedSeasonRecord[]` for completed seasons. Expired access tokens auto-refresh and the cookie gets rewritten before the response goes out. The Yahoo dropdown option now shows a "Connect Yahoo" button instead of "coming soon".
@@ -153,6 +160,7 @@ Yahoo's official Fantasy Sports API requires a registered developer app and the 
 ---
 
 ### Phase 7: Shareable links ✅
+
 **Tool:** Claude Code
 
 Upstash Redis backs shareable read-only league links - the viral loop. Eleven managers see the tool, some are commissioners in other leagues, they take it back to theirs. No auth, no accounts, no Postgres: the share link itself is the identifier. The "Save & Share" button in Step 3 serializes the current league state (format, teams, userIds, history, manualDoubles, schedule) and POSTs to `/api/share`, which writes the payload to Upstash Redis under an 8-char alphanumeric slug and returns `/s/{slug}`. The `/s/[slug]` route server-renders a read-only view from Upstash Redis - league format, manager list, week navigator, matchup list, and double-matchup summary - with no edit, save, or import controls. Entries carry a 365-day TTL; expired or missing slugs render a "Link expired or not found" message. IP-based rate limiting caps shares at 5 per hour, namespaced separately from the import quota. Local-first usage stays on localStorage; Upstash Redis is opt-in per share.
@@ -162,6 +170,7 @@ Upstash Redis backs shareable read-only league links - the viral loop. Eleven ma
 ---
 
 ### Phase 8: Analytics ✅
+
 **Tool:** Claude Code
 
 Vercel Web Analytics (free tier) gives privacy-friendly traffic insights - no cookies, no PII, zero-config when deployed on Vercel. The `@vercel/analytics/next` `<Analytics />` component is mounted in the root layout so every page (including `/s/[slug]` share views) reports pageviews. The IP-based rate limiting already in place from Phase 3 (`lib/api/rate-limit.ts`) covers abuse vectors. The numbers shape post-launch priorities: which platforms people use, which formats dominate, Reddit referral traffic, and share-link reach.
@@ -171,6 +180,7 @@ Vercel Web Analytics (free tier) gives privacy-friendly traffic insights - no co
 ---
 
 ### Phase 9: Reddit launch (Wave 1 ✅)
+
 **Tool:** Claude chat
 
 Two waves, different audiences and timing. **Wave 1 (May 2026, complete):** r/FFCommish landed 12 upvotes, 6 comments, and 3.4K views with positive reception. r/DynastyNerds (1.6K views) and r/SleeperApp (743 views) shipped with the link in comments after the inline link got filtered as spam - modmail's open at r/SleeperApp for a fresh post approval. r/fantasyfootball took off: 547 upvotes, 135 comments, 358K views, 1.3K shares, 88% upvote ratio on a 3.4M-subscriber subreddit. The top comment (164 pts) requested rivalry weeks, Sleeper username lookup shipped live in the thread, and manual entry shipped in response to NFL.com/CBS requests in the same thread. r/DynastyFF landed in the Friday megathread (Rule 11 restricts tools to the megathread; the standalone post was denied by mods). Shipped alongside Wave 1: platform-specific how-to-apply instructions on the schedule step (Sleeper / ESPN / Yahoo / Manual, each deep-linking to the platform's docs), ESPN private-league error improvements (active-voice message, inline "see instructions" link, Manual entry fallback), mobile viewport fixes (Step 1 dropdown/input wrap, Start button stays on row in Manual entry), avoidance list styling (opponents wrap below team name, sorted hard > soft > alphabetical), soft-avoid color contrast bump in the matrix, and input clearing on platform switch. Site metrics for the first 3 days: 2,300+ unique visitors, 3,500+ pageviews, 84 shared schedules, 81 Yahoo OAuth completions, 82% mobile traffic, with top referrers from reddit.com (651 visitors across reddit.com, com.reddit.frontpage, and old.reddit.com). **Wave 2 (late July/August 2026):** r/DynastyFF (megathread), r/FFCommish, r/DynastyNerds, r/SleeperApp, r/Fantasy_Football. Redraft league setup season, fresh angle for the second round.
@@ -180,6 +190,7 @@ Two waves, different audiences and timing. **Wave 1 (May 2026, complete):** r/FF
 ---
 
 ### Phase 10: Rivalry weeks ✅
+
 **Tool:** Claude Code
 
 Top requested feature from the r/fantasyfootball thread (164-point top comment). Commissioners can pin specific matchups to specific weeks, creating designated rivalry weeks where chosen opponents always face each other regardless of the normal avoidance rotation, and the algorithm honors those locks while continuing to rotate the remaining doubles fairly. `buildSchedule` accepts an optional `rivalryPins` array of `RivalryPin` objects (`teamA`, `teamB`, `week` or null for "any week"), and `resolvePins()` runs in four passes: a 2-pin both-specific pair gets forced into a double at both weeks; a 1-pin specific lands at the pinned week (doubling naturally if it sits on a block boundary); a 2-pin with any-week lets the algorithm pick the second week optimally; and a 1-pin any-week picks a compatible week, preferring middle (single) weeks for spread. Pins override hard- and soft-avoid (a hard-avoided pair pinned to a week still plays that week - one pin + hard-avoid is a forced single, two pins fully override avoidance and force a double). Per-pair pin cap is `ceil(weekCount / (teamCount - 1))`, currently 2 for all supported formats. Full-week pins (every team paired once at a single week) work across all 7 formats, including with hard-avoided pairs mixed in, and multi-week rivalry scenarios are supported via independent matchings per pinned week. `RivalryPlacement` output tracks where each pin landed (`pinnedWeek` vs `placedWeek`) for UI display, and non-partner-week doubles use `recordNonPartner` bookkeeping so slot assignment stays consistent. Types added: `RivalryPin` (`{teamA, teamB, week: number | null}`), `RivalryPlacement` (`{teamA, teamB, pinnedWeek: number | null, placedWeek: number}`), plus `ScheduleConfig.rivalryPins` and `ScheduleSuccess.rivalryPlacements`. The pin builder in Step 2 (Review) has Team A / Team B / Week selectors with smart disabling: weeks where either team is already pinned show "(pinned)", exact-pair duplicates show "(already pinned)", dp=1 formats restrict the second pin to the natural partner week, and weeks with no valid partner show "(unavailable)". Adding a pin for a hard-avoided pair surfaces an amber warning explaining the override behavior; the pin list has inline remove buttons; pins clear on reset, reimport, or new manual flow; and a `pinJustAdded` flag suppresses stale validation errors immediately after a successful pin. Share links carry `rivalryPlacements` so the read-only view renders them, with pre-Phase-10 links treated as empty for backward compat. The test suite gained 57 new rivalry-pin tests (149 total), covering single-pin and double-pin scenarios, any-week placement, avoidance override behavior, full-week pins across every supported format (with and without a hard-avoided pair in the mix), multi-week rivalry partitions, 14-team edge cases (pure round-robin 14/13 and minimal-double 14/14), mixed scenarios with full-week and individual pins coexisting, non-partner pins (independent matchings, separation-floor checks, dp=1 infeasibility detection), and rejection paths for exact duplicates, over-cap pins, and unsolvable configurations.
@@ -189,6 +200,7 @@ Top requested feature from the r/fantasyfootball thread (164-point top comment).
 ---
 
 ### Phase 11: UI polish ✅
+
 **Tool:** Claude Code + Claude chat
 
 Comprehensive polish pass across the main app and shared schedule views. Manager names sort alphabetically at import time and in every display-only context (numeric-aware `localeCompare` throughout, so "Team 10" lands after "Team 2"), with team indices remapped consistently so the algorithm sees the same alphabetized roster as the UI. The redundant green fetch-success status line collapsed into a single import preview box that shows league name · format · platform, the season list, the sorted Managers list, and Apply/Cancel actions. The lookback box flipped to control-first layout, with the "Recommended" reference line appearing only when the dropdown deviates from the format default; the now-redundant pair-count summary and trailing period went away. Season history rows shed the constant doubled-pair count and divider rules. Matchup cards got a deterministic home/away display assignment via a greedy post-pass that lands every team at 7/7 left appearances in 14-week formats and 7/8 in 15-week formats; the assignment is computed once at generation and persisted in share payloads as `displayWeeks` so recipients see the same layout. The Copy Full Schedule textarea picked up a dedicated Copy button (with "✓ Copied" confirmation) replacing the click-to-select handler that was interfering with mobile scrolling. The schedule year is now pinned to the current calendar year (no more rollforward on regenerate), Save & Share short-circuits when a link already exists for the current schedule, and the per-IP share rate limit went from 5 to 15 per hour. The reimport branch that preserved custom names is gone - fresh imported data always wins. Back on Step 1 returns to the import view (with the previous picker and preview intact) instead of nuking everything; the Reset button stays the nuclear option. Apply/Cancel and similar button rows normalized to the right-primary convention, the share link bookmark hint shows for every platform (since rivalry pins live in the share payload), and shared schedule pages picked up platform-specific apply instructions, the Copy Full Schedule section, and the platform field in the payload while dropping the Managers section that duplicated names already visible in the matchup cards. Avoidance matrix improvements: filled both halves of the triangle so any team's full row shows all their avoids, symmetric clicking that toggles the same pair from either cell, darkened diagonal cells for cleaner separation, hover crosshair highlighting gated behind a `(hover: hover)` media query so touch devices don't flash the highlight on tap, and a neutral-slate CT row on the Add Past Season matrix (no color coding against the current format since past seasons may not conform). The Avoidance by Team section hides entirely when no team has any avoidance, the hard-avoid legend entry hides when the hard lookback window is zero (mirroring the existing soft-avoid hide), and the Add Past Season pair count went away since the CT row already provides per-team feedback. Copy and label tweaks rounded out the pass: "Double & Rival Matchups", "Clear Manual Avoids", "Generate Your Own →", "Import Your League", title-cased headings on the error / not-found / expired pages, "Restore from link" dropdown label, and a mobile-constrained Pin button that no longer stretches full-width.
@@ -198,6 +210,7 @@ Comprehensive polish pass across the main app and shared schedule views. Manager
 ---
 
 ### Phase 12: Share link restore ✅
+
 **Tool:** Claude Code + Claude chat
 
 "Restore from link" added to the import platform dropdown lets returning users paste a share URL (full URL, `/s/slug` path, or bare 8-character slug) to bring a previously-shared league back into a fresh browser. A new GET `/api/share/[slug]` route reads the payload out of Upstash Redis (rate-limited at 30/hour per IP, namespaced separately from share creation, 404 on missing/expired). The client uses the same Fetch → preview → Apply → Step 1 flow as platform imports: the preview box confirms league name · format · platform plus the season list and sorted managers, Apply hydrates `format`/`teams`/`userIds`/`leagueName`/`history`/`rivalryPins` (sorting alphabetically and remapping team indices the same way platform imports do; `manualDoubles` are intentionally dropped because they're one-time overrides for a specific season and carrying them forward would silently over-constrain the next generation), then lands on Step 1 so the user can verify names, add the new season, and regenerate. The old schedule is not pre-loaded - it's stale by next season anyway, so the user runs Generate fresh against the current avoidance constraints. `rivalryPins` were added to the share payload so commissioner pin configurations survive the round-trip, completing the year-over-year continuity story for manual-entry leagues that don't have a platform API to re-import from. Older share links missing the new fields are treated as empty arrays so the restore path stays backward-compatible. A Buy Me a Coffee link was wired into `.github/FUNDING.yml` so the GitHub repo's Sponsor button surfaces it.
@@ -207,6 +220,7 @@ Comprehensive polish pass across the main app and shared schedule views. Manager
 ---
 
 ### Phase 13: Component refactor ✅
+
 **Tool:** Claude Code
 
 Refactored `app/page.tsx` from a single 3,153-line client component into a modular structure under `app/components/`. New files: `constants.ts` (`STORAGE_KEY`, `CURRENT_YEAR`, `STEP_ORDER`), `types.ts` (all shared types - `ImportPlatform`, `ImportPreview`, `LinkPreview`, `SelectedFormat`, and friends), `utils.ts` (pure helpers - `platformLabel`, `extractSlug`, `detectFormatFromImport`, `deriveLookback`, `computeDisplayWeeks`, `abbrev`), `styles.ts` (Tailwind class atoms and `statusToneClass`), `state.ts` (single `useReducer` state with `State`, `Action`, `reducer`, `initialState`, plus `Patch` and `SaveToStorageFn` aliases), `StepImport.tsx` (Step 1 import UI plus all import handlers - `handleFetch`, `handleApplyImport`, `handleManualStart`, `handleFetchLink`, `handleApplyLinkImport`, `fetchYahooLeagues`, `fetchYahooLeagueSeasons`, `fetchSleeperLeagueSeasons`, `resetImportUi`, `filterToDetectedFormat`), `StepReview.tsx` (Step 2 avoidance matrix, past-season editor, and the rivalry pin builder broken out as a `RivalryPinBuilder` subcomponent with its smart-disabling logic), and `StepSchedule.tsx` (Step 3 schedule viewer with share and copy flows - `handleSaveAndShare`, `handleCopyShareLink`, `handleCopySchedule`, `formatScheduleText`). `page.tsx` shrank to 525 lines containing only the shared `useReducer` state, derived values (`format`, `avoidSets`, `effectiveLookback`, `recommendedLookbackTotal`, `scheduleYear`), step navigation tabs, back and reset buttons, footer, the floating tooltip div, hydration and Yahoo OAuth effects, `saveToStorage`, and `handleGenerate` - the last one passed as `onGenerate` to both StepReview and StepSchedule so the Regenerate button in Step 3 shares the same logic as Step 2's Generate Schedule button. The reducer uses a single `patch` action type plus a `reset` action; per-field wrapper setters (`setStep`, `setFurthestStep`, `setSelectedFormat`, `setConfirmReset`) wrap `patch` so the back/reset button call sites in page.tsx read like the old `useState` API. A `pendingYahooConnect` state flag bridges the OAuth callback `useEffect` in `page.tsx` to `fetchYahooLeagues` inside `StepImport` (page sets the flag on return from OAuth, StepImport's `useEffect` watches the flag and runs the fetch). No behavior, UI, or test changes - all 149 tests continue to pass and the production build succeeds.

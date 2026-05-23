@@ -1043,7 +1043,7 @@ describe("buildSchedule rivalry pins", () => {
       expect(anyPlacement).toBeDefined();
       expect(anyPlacement!.placedWeek).toBe(14);
       // Week 3 and Week 14 share the entire matching (standard partner-pair
-      // behaviour), so the intersection has 6 pairs not 1.
+      // behavior), so the intersection has 6 pairs not 1.
       const w3 = pairAt(r, 3);
       const w14 = pairAt(r, 14);
       let overlap = 0;

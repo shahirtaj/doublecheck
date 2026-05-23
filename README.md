@@ -24,7 +24,7 @@ The tool generates each year's doubles to satisfy that rotation, with the lookba
 ## Supported formats
 
 | Format | Doubles/team | Singles/team | Rotation cycle | Notes |
-|--------|--------------|--------------|----------------|-------|
+| ------ | ------------ | ------------ | -------------- | ----- |
 | 8 / 13 | 6 | 1 | ~7 years | Inverted problem (who do you NOT double) |
 | 10 / 13 | 4 | 5 | ~3 years | |
 | 10 / 14 | 5 | 4 | ~2 years | |
