@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 // /s/[slug] pages are intentionally excluded: slugs are private share links
-// (365-day TTL in Vercel KV), so listing them in the sitemap would defeat
+// (365-day TTL in Upstash Redis), so listing them in the sitemap would defeat
 // their unguessable nature and pollute crawlers with ephemeral URLs.
 
 export default function sitemap(): MetadataRoute.Sitemap {
