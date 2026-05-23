@@ -2024,9 +2024,6 @@ export default function GeneratePage() {
                     ))
                   )}
                 </select>
-                <span className="text-[10px] text-slate-500">
-                  {pastSeasonDoubles.size} pair{pastSeasonDoubles.size === 1 ? "" : "s"} selected
-                </span>
               </div>
               <div className="overflow-x-auto -mx-3.5 px-3.5">
                 <div className="inline-block min-w-fit">
@@ -2128,7 +2125,7 @@ export default function GeneratePage() {
                       })}
                     </div>
                   ))}
-                  {/* Running per-team doubles count so the user can sanity-check against format.doublesPerTeam while building the season. */}
+                  {/* Per-team count of selected doubles. Neutral coloring on purpose - past seasons can come from a different format, so checking against the current format.doublesPerTeam would mis-flag valid entries. */}
                   <div className="flex">
                     <div className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10">
                       CT
@@ -2138,15 +2135,7 @@ export default function GeneratePage() {
                       return (
                         <div
                           key={i}
-                          className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[8px] font-semibold border border-slate-800 box-border ${inHoverCol ? "bg-slate-700" : "bg-slate-900"} ${
-                            c === format.doublesPerTeam
-                              ? "text-emerald-400"
-                              : c > format.doublesPerTeam
-                                ? "text-red-400"
-                                : c === 0
-                                  ? "text-slate-600"
-                                  : "text-slate-400"
-                          }`}
+                          className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[8px] font-semibold border border-slate-800 box-border ${inHoverCol ? "bg-slate-700" : "bg-slate-900"} ${c === 0 ? "text-slate-600" : "text-slate-400"}`}
                         >
                           {c}
                         </div>
