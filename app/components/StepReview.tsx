@@ -220,16 +220,6 @@ export function StepReview(props: StepReviewProps) {
     saveToStorage({ history: nextHistory });
   }
 
-  function doublesPerTeam() {
-    const counts = Array(teamCount).fill(0);
-    manualDoubles.forEach((key) => {
-      const [a, b] = unpackPairKey(key);
-      counts[a]++;
-      counts[b]++;
-    });
-    return counts;
-  }
-
   function pastSeasonDoublesPerTeam() {
     const counts = Array(teamCount).fill(0);
     pastSeasonDoubles.forEach((key) => {
@@ -663,32 +653,6 @@ export function StepReview(props: StepReviewProps) {
               })}
             </div>
           ))}
-          {manualDoubles.size > 0 && (
-            <div className="flex">
-              <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10">
-                CT
-              </div>
-              {doublesPerTeam().map((c, i) => {
-                const inHoverCol = hoveredAvoidCell?.col === i;
-                return (
-                  <div
-                    key={i}
-                    className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-[8px] font-semibold border border-slate-800 box-border ${inHoverCol ? "bg-slate-700" : "bg-slate-900"} ${
-                      c === format.doublesPerTeam
-                        ? "text-emerald-400"
-                        : c > format.doublesPerTeam
-                          ? "text-red-400"
-                          : c === 0
-                            ? "text-slate-600"
-                            : "text-slate-400"
-                    }`}
-                  >
-                    {c}
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
       </div>
 
