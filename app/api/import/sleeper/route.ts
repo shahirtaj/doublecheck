@@ -242,11 +242,16 @@ async function fetchSeason(
     ? settings.playoff_week_start - 1
     : 14;
 
+  const weekResults = await Promise.all(
+    Array.from({ length: regWeeks }, (_, i) =>
+      fetchJson<SleeperMatchup[]>(
+        `${BASE}/league/${leagueId}/matchups/${i + 1}`,
+      ),
+    ),
+  );
+
   const allPairs: [number, number][] = [];
-  for (let week = 1; week <= regWeeks; week++) {
-    const matchups = await fetchJson<SleeperMatchup[]>(
-      `${BASE}/league/${leagueId}/matchups/${week}`,
-    );
+  for (const matchups of weekResults) {
     if (!Array.isArray(matchups)) continue;
     const groups: Record<number, number[]> = {};
     matchups.forEach((m) => {

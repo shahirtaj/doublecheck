@@ -269,28 +269,35 @@ export async function POST(req: Request) {
         ? Math.floor(body.seasonId)
         : new Date().getFullYear() - 1;
 
-    const results = [];
+    const years = Array.from(
+      { length: seasonsCount },
+      (_, i) => startSeason - i,
+    );
+    const settled = await Promise.allSettled(
+      years.map((year) => fetchEspnSeason(leagueId, year)),
+    );
+
+    const results: Awaited<ReturnType<typeof fetchEspnSeason>>[] = [];
     const errors: string[] = [];
     let allPrivate = true;
 
-    for (let i = 0; i < seasonsCount; i++) {
-      const year = startSeason - i;
-      try {
-        const data = await fetchEspnSeason(leagueId, year);
-        results.push(data);
+    settled.forEach((result, i) => {
+      const year = years[i]!;
+      if (result.status === "fulfilled") {
+        results.push(result.value);
         allPrivate = false;
-      } catch (e) {
+      } else {
         const msg =
-          e instanceof Error
-            ? e.message
-            : typeof e === "string"
-              ? e
+          result.reason instanceof Error
+            ? result.reason.message
+            : typeof result.reason === "string"
+              ? result.reason
               : "unknown error";
         if (!msg.includes("is private.") && !msg.includes("not found"))
           allPrivate = false;
         errors.push(`${year}: ${msg}`);
       }
-    }
+    });
 
     if (results.length === 0) {
       // If every season failed because the league is private, surface that as
