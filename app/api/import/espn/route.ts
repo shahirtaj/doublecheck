@@ -42,15 +42,22 @@ type EspnLeague = {
 
 // ESPN signals "this league is private" inconsistently: sometimes 401, often
 // 403, and occasionally a 200 with an AUTH_LEAGUE_NOT_VISIBLE message in the
-// body. Checking the substring covers all known shapes (top-level `messages`
-// array, nested `details`, single-message envelopes) without coupling to a
-// specific schema we don't control.
+// body.
 function hasAuthLeagueNotVisible(data: unknown): boolean {
-  try {
-    return JSON.stringify(data).includes("AUTH_LEAGUE_NOT_VISIBLE");
-  } catch {
-    return false;
-  }
+  if (!data || typeof data !== "object") return false;
+  const obj = data as Record<string, unknown>;
+  // ESPN wraps auth errors in a top-level `messages` array or a `details`
+  // array, sometimes inside a 200 body. Check known paths rather than
+  // stringifying the whole response (which could false-positive on a team
+  // name containing the error string).
+  const candidates: unknown[] = [];
+  if (Array.isArray(obj.messages)) candidates.push(...obj.messages);
+  if (Array.isArray(obj.details)) candidates.push(...obj.details);
+  if (typeof obj.message === "string") candidates.push(obj.message);
+  if (candidates.length === 0) return false;
+  return candidates.some(
+    (c) => typeof c === "string" && c.includes("AUTH_LEAGUE_NOT_VISIBLE"),
+  );
 }
 
 function privateLeagueError(seasonId: number): Error {
