@@ -2,9 +2,15 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
 
+**[→ doublecheckff.com](https://doublecheckff.com)**
+
 Fair schedules for fantasy football leagues. No team gets doubled against the same opponent year after year.
 
 ---
+
+## What it looks like
+
+![DoubleCheck schedule view](public/screenshot.png)
 
 ## The problem
 
@@ -68,10 +74,24 @@ No platform exposes a write API for league schedules, so commissioners enter the
 - **React 19**
 - **Tailwind CSS** for styling
 - **ESLint 9** with flat config (`eslint.config.mjs`)
-- **Vitest** for the algorithm test suite (149 tests across 7 supported formats, including rivalry-pin coverage)
+- **Vitest** for the algorithm test suite (188 tests across 7 supported formats, including rivalry-pin coverage)
 - **Vercel** for deployment
 
 See [ROADMAP.md](ROADMAP.md) for the full product roadmap and current state.
+
+## Development
+
+```bash
+git clone https://github.com/shahirtaj/doublecheck.git
+cd doublecheck
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+The app runs without any environment variables configured — Yahoo OAuth, ESPN imports, and share links won't work, but the manual entry flow and schedule generation are fully functional locally.
+
+Run `npm test` to execute the algorithm test suite (188 tests). See `CLAUDE.md` for the full command reference and project structure.
 
 ## Support
 
