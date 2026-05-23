@@ -91,7 +91,7 @@ npm run dev
 
 The app runs without any environment variables configured — Yahoo OAuth, ESPN imports, and share links won't work, but the manual entry flow and schedule generation are fully functional locally.
 
-Run `npm test` to execute the algorithm test suite (188 tests). See `CLAUDE.md` for the full command reference and project structure.
+Run `npm test` to execute the algorithm test suite (188 tests). See [CLAUDE.md](CLAUDE.md) for the full command reference and project structure.
 
 ## Support
 
