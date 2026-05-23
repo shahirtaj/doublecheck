@@ -318,6 +318,18 @@ export default function GeneratePage() {
     row: number;
     col: number;
   } | null>(null);
+  // Touch devices fire mouseenter briefly on tap, which would flash the
+  // crosshair every time a cell toggles - meaningless and noisy. Only attach
+  // the matrix hover handlers on devices with a precise pointer.
+  const [canHover, setCanHover] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: hover)");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- matchMedia is unavailable during SSR; we read it once on mount and then subscribe to changes
+    setCanHover(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setCanHover(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   // Hydrate from localStorage on mount.
   useEffect(() => {
@@ -2025,14 +2037,22 @@ export default function GeneratePage() {
                       return (
                         <div
                           key={i}
-                          onMouseEnter={(e) => {
-                            showHeaderTooltip(t, e.currentTarget);
-                            setHoveredPastSeasonCell({ row: -1, col: i });
-                          }}
-                          onMouseLeave={() => {
-                            hideHeaderTooltip();
-                            setHoveredPastSeasonCell(null);
-                          }}
+                          onMouseEnter={
+                            canHover
+                              ? (e) => {
+                                  showHeaderTooltip(t, e.currentTarget);
+                                  setHoveredPastSeasonCell({ row: -1, col: i });
+                                }
+                              : undefined
+                          }
+                          onMouseLeave={
+                            canHover
+                              ? () => {
+                                  hideHeaderTooltip();
+                                  setHoveredPastSeasonCell(null);
+                                }
+                              : undefined
+                          }
                           className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-700" : "bg-slate-900"}`}
                         >
                           {abbrev(t)}
@@ -2043,14 +2063,22 @@ export default function GeneratePage() {
                   {teams.map((t, i) => (
                     <div key={i} className="flex">
                       <div
-                        onMouseEnter={(e) => {
-                          showHeaderTooltip(t, e.currentTarget);
-                          setHoveredPastSeasonCell({ row: i, col: -1 });
-                        }}
-                        onMouseLeave={() => {
-                          hideHeaderTooltip();
-                          setHoveredPastSeasonCell(null);
-                        }}
+                        onMouseEnter={
+                          canHover
+                            ? (e) => {
+                                showHeaderTooltip(t, e.currentTarget);
+                                setHoveredPastSeasonCell({ row: i, col: -1 });
+                              }
+                            : undefined
+                        }
+                        onMouseLeave={
+                          canHover
+                            ? () => {
+                                hideHeaderTooltip();
+                                setHoveredPastSeasonCell(null);
+                              }
+                            : undefined
+                        }
                         className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredPastSeasonCell?.row === i ? "bg-slate-700" : "bg-slate-900"}`}
                       >
                         {abbrev(t)}
@@ -2080,10 +2108,17 @@ export default function GeneratePage() {
                           <button
                             key={j}
                             type="button"
-                            onMouseEnter={() =>
-                              setHoveredPastSeasonCell({ row: i, col: j })
+                            onMouseEnter={
+                              canHover
+                                ? () =>
+                                    setHoveredPastSeasonCell({ row: i, col: j })
+                                : undefined
                             }
-                            onMouseLeave={() => setHoveredPastSeasonCell(null)}
+                            onMouseLeave={
+                              canHover
+                                ? () => setHoveredPastSeasonCell(null)
+                                : undefined
+                            }
                             onClick={() => togglePastSeasonDouble(i, j)}
                             className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none cursor-pointer ${bg} ${selected ? "text-emerald-400 font-bold" : "text-slate-500"}`}
                           >
@@ -2154,14 +2189,22 @@ export default function GeneratePage() {
                   return (
                     <div
                       key={i}
-                      onMouseEnter={(e) => {
-                        showHeaderTooltip(t, e.currentTarget);
-                        setHoveredAvoidCell({ row: -1, col: i });
-                      }}
-                      onMouseLeave={() => {
-                        hideHeaderTooltip();
-                        setHoveredAvoidCell(null);
-                      }}
+                      onMouseEnter={
+                        canHover
+                          ? (e) => {
+                              showHeaderTooltip(t, e.currentTarget);
+                              setHoveredAvoidCell({ row: -1, col: i });
+                            }
+                          : undefined
+                      }
+                      onMouseLeave={
+                        canHover
+                          ? () => {
+                              hideHeaderTooltip();
+                              setHoveredAvoidCell(null);
+                            }
+                          : undefined
+                      }
                       className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-700" : "bg-slate-900"}`}
                     >
                       {abbrev(t)}
@@ -2172,14 +2215,22 @@ export default function GeneratePage() {
               {teams.map((t, i) => (
                 <div key={i} className="flex">
                   <div
-                    onMouseEnter={(e) => {
-                      showHeaderTooltip(t, e.currentTarget);
-                      setHoveredAvoidCell({ row: i, col: -1 });
-                    }}
-                    onMouseLeave={() => {
-                      hideHeaderTooltip();
-                      setHoveredAvoidCell(null);
-                    }}
+                    onMouseEnter={
+                      canHover
+                        ? (e) => {
+                            showHeaderTooltip(t, e.currentTarget);
+                            setHoveredAvoidCell({ row: i, col: -1 });
+                          }
+                        : undefined
+                    }
+                    onMouseLeave={
+                      canHover
+                        ? () => {
+                            hideHeaderTooltip();
+                            setHoveredAvoidCell(null);
+                          }
+                        : undefined
+                    }
                     className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredAvoidCell?.row === i ? "bg-slate-700" : "bg-slate-900"}`}
                   >
                     {abbrev(t)}
@@ -2223,10 +2274,16 @@ export default function GeneratePage() {
                       <button
                         key={j}
                         type="button"
-                        onMouseEnter={() =>
-                          setHoveredAvoidCell({ row: i, col: j })
+                        onMouseEnter={
+                          canHover
+                            ? () => setHoveredAvoidCell({ row: i, col: j })
+                            : undefined
                         }
-                        onMouseLeave={() => setHoveredAvoidCell(null)}
+                        onMouseLeave={
+                          canHover
+                            ? () => setHoveredAvoidCell(null)
+                            : undefined
+                        }
                         onClick={() => toggleDouble(i, j)}
                         disabled={cellDisabled}
                         className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none ${cellDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${bg} ${textCls}`}
