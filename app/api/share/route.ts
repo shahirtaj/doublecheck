@@ -187,6 +187,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
+  const payloadSize = JSON.stringify(body).length;
+  if (payloadSize > 512_000) {
+    return NextResponse.json({ error: "Payload too large." }, { status: 413 });
+  }
+
   const validationError = validatePayload(body);
   if (validationError) {
     return NextResponse.json({ error: validationError }, { status: 400 });
