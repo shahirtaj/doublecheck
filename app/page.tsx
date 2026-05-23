@@ -307,6 +307,18 @@ export default function GeneratePage() {
     setTooltipInfo(null);
   }, []);
 
+  // Hovered cell driving the row+column crosshair highlight on the Step 2
+  // matrices. row or col of -1 marks a header-only hover so only the
+  // relevant axis lights up.
+  const [hoveredAvoidCell, setHoveredAvoidCell] = useState<{
+    row: number;
+    col: number;
+  } | null>(null);
+  const [hoveredPastSeasonCell, setHoveredPastSeasonCell] = useState<{
+    row: number;
+    col: number;
+  } | null>(null);
+
   // Hydrate from localStorage on mount.
   useEffect(() => {
     try {
@@ -425,10 +437,20 @@ export default function GeneratePage() {
     () => (format ? deriveLookback(effectiveLookbackTotal, format.lookback) : { hard: 0, soft: 0 }),
     [effectiveLookbackTotal, format],
   );
+  // The Step 2 matrix renders both triangles and queries every cell, so we
+  // materialize the auto-avoid sets once per render instead of inside
+  // cellAvoidType.
+  const avoidSets = useMemo(
+    () => buildAvoidMap(history, userIds, effectiveLookback),
+    [history, userIds, effectiveLookback],
+  );
   const scheduleYear = new Date().getFullYear();
 
   function getAvoidSets() {
-    const { hard, soft } = buildAvoidMap(history, userIds, effectiveLookback);
+    // Clone so the manual-doubles overlay doesn't mutate the memoized sets,
+    // which are also consumed by cellAvoidType.
+    const hard = new Set(avoidSets.hard);
+    const soft = new Set(avoidSets.soft);
     manualDoubles.forEach((key) => {
       hard.add(key);
       soft.delete(key);
@@ -1252,6 +1274,16 @@ export default function GeneratePage() {
     return counts;
   }
 
+  function pastSeasonDoublesPerTeam() {
+    const counts = Array(teamCount).fill(0);
+    pastSeasonDoubles.forEach((key) => {
+      const [a, b] = unpackPairKey(key);
+      counts[a]++;
+      counts[b]++;
+    });
+    return counts;
+  }
+
   function abbrev(name: string) {
     return name.length > 7 ? name.slice(0, 7) : name;
   }
@@ -1259,9 +1291,8 @@ export default function GeneratePage() {
   function cellAvoidType(i: number, j: number): "manual" | "hard" | "soft" | "none" {
     const key = pairKey(i, j);
     if (manualDoubles.has(key)) return "manual";
-    const { hard, soft } = buildAvoidMap(history, userIds, effectiveLookback);
-    if (hard.has(key)) return "hard";
-    if (soft.has(key)) return "soft";
+    if (avoidSets.hard.has(key)) return "hard";
+    if (avoidSets.soft.has(key)) return "soft";
     return "none";
   }
 
@@ -1989,46 +2020,72 @@ export default function GeneratePage() {
                 <div className="inline-block min-w-fit">
                   <div className="flex sticky top-0 z-20">
                     <div className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
-                    {teams.map((t, i) => (
-                      <div
-                        key={i}
-                        onMouseEnter={(e) => showHeaderTooltip(t, e.currentTarget)}
-                        onMouseLeave={hideHeaderTooltip}
-                        className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
-                      >
-                        {abbrev(t)}
-                      </div>
-                    ))}
+                    {teams.map((t, i) => {
+                      const inHoverCol = hoveredPastSeasonCell?.col === i;
+                      return (
+                        <div
+                          key={i}
+                          onMouseEnter={(e) => {
+                            showHeaderTooltip(t, e.currentTarget);
+                            setHoveredPastSeasonCell({ row: -1, col: i });
+                          }}
+                          onMouseLeave={() => {
+                            hideHeaderTooltip();
+                            setHoveredPastSeasonCell(null);
+                          }}
+                          className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-700" : "bg-slate-900"}`}
+                        >
+                          {abbrev(t)}
+                        </div>
+                      );
+                    })}
                   </div>
                   {teams.map((t, i) => (
                     <div key={i} className="flex">
                       <div
-                        onMouseEnter={(e) => showHeaderTooltip(t, e.currentTarget)}
-                        onMouseLeave={hideHeaderTooltip}
-                        className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap"
+                        onMouseEnter={(e) => {
+                          showHeaderTooltip(t, e.currentTarget);
+                          setHoveredPastSeasonCell({ row: i, col: -1 });
+                        }}
+                        onMouseLeave={() => {
+                          hideHeaderTooltip();
+                          setHoveredPastSeasonCell(null);
+                        }}
+                        className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredPastSeasonCell?.row === i ? "bg-slate-700" : "bg-slate-900"}`}
                       >
                         {abbrev(t)}
                       </div>
                       {teams.map((_, j) => {
-                        if (j <= i) {
+                        const inHoverPath =
+                          hoveredPastSeasonCell !== null &&
+                          (hoveredPastSeasonCell.row === i ||
+                            hoveredPastSeasonCell.col === j);
+                        if (j === i) {
                           return (
                             <div
                               key={j}
-                              className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 bg-slate-900 border border-slate-800 box-border"
+                              className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 border border-slate-800 box-border ${inHoverPath ? "bg-slate-800" : "bg-slate-950"}`}
                             />
                           );
                         }
                         const selected = pastSeasonDoubles.has(pairKey(i, j));
+                        const bg = selected
+                          ? inHoverPath
+                            ? "bg-emerald-800"
+                            : "bg-emerald-900"
+                          : inHoverPath
+                            ? "bg-slate-700"
+                            : "bg-slate-800";
                         return (
                           <button
                             key={j}
                             type="button"
+                            onMouseEnter={() =>
+                              setHoveredPastSeasonCell({ row: i, col: j })
+                            }
+                            onMouseLeave={() => setHoveredPastSeasonCell(null)}
                             onClick={() => togglePastSeasonDouble(i, j)}
-                            className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none cursor-pointer ${
-                              selected
-                                ? "bg-emerald-900 text-emerald-400 font-bold"
-                                : "bg-slate-800 text-slate-500 hover:bg-slate-700"
-                            }`}
+                            className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none cursor-pointer ${bg} ${selected ? "text-emerald-400 font-bold" : "text-slate-500"}`}
                           >
                             {selected ? "✕" : ""}
                           </button>
@@ -2036,6 +2093,31 @@ export default function GeneratePage() {
                       })}
                     </div>
                   ))}
+                  {/* Running per-team doubles count so the user can sanity-check against format.doublesPerTeam while building the season. */}
+                  <div className="flex">
+                    <div className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10">
+                      CT
+                    </div>
+                    {pastSeasonDoublesPerTeam().map((c, i) => {
+                      const inHoverCol = hoveredPastSeasonCell?.col === i;
+                      return (
+                        <div
+                          key={i}
+                          className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[8px] font-semibold border border-slate-800 box-border ${inHoverCol ? "bg-slate-700" : "bg-slate-900"} ${
+                            c === format.doublesPerTeam
+                              ? "text-emerald-400"
+                              : c > format.doublesPerTeam
+                                ? "text-red-400"
+                                : c === 0
+                                  ? "text-slate-600"
+                                  : "text-slate-400"
+                          }`}
+                        >
+                          {c}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
               <div className="flex gap-2 mt-3 flex-wrap">
@@ -2062,150 +2144,52 @@ export default function GeneratePage() {
             </div>
           ) : null}
 
-          {/* Matrix grid (horizontal scroll on mobile) */}
-          <div className="overflow-x-auto -mx-2 px-2 mt-4">
-            <div className="inline-block min-w-fit">
-              <div className="flex sticky top-0 z-20">
-                <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
-                {teams.map((t, i) => (
-                  <div
-                    key={i}
-                    onMouseEnter={(e) => showHeaderTooltip(t, e.currentTarget)}
-                    onMouseLeave={hideHeaderTooltip}
-                    className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap"
-                  >
-                    {abbrev(t)}
-                  </div>
-                ))}
-              </div>
-              {teams.map((t, i) => (
-                <div key={i} className="flex">
-                  <div
-                    onMouseEnter={(e) => showHeaderTooltip(t, e.currentTarget)}
-                    onMouseLeave={hideHeaderTooltip}
-                    className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap"
-                  >
-                    {abbrev(t)}
-                  </div>
-                  {teams.map((_, j) => {
-                    if (j <= i) {
-                      return (
-                        <div
-                          key={j}
-                          className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 bg-slate-900 border border-slate-800 box-border"
-                        />
-                      );
-                    }
-                    const at = cellAvoidType(i, j);
-                    const isManual = manualDoubles.has(pairKey(i, j));
-                    const isLocked = at === "hard" || at === "soft";
-                    let cellTone = "bg-slate-800 text-slate-500 hover:bg-slate-700";
-                    let glyph = "";
-                    if (isManual) {
-                      cellTone = "bg-purple-900 text-purple-400 font-bold";
-                      glyph = "✕";
-                    } else if (at === "hard") {
-                      cellTone = "bg-red-950 text-red-400 font-bold";
-                      glyph = "H";
-                    } else if (at === "soft") {
-                      cellTone = "bg-amber-900 text-amber-400 font-semibold";
-                      glyph = "S";
-                    }
-                    const cellDisabled = isLocked || addingPastSeason;
-                    return (
-                      <button
-                        key={j}
-                        type="button"
-                        onClick={() => toggleDouble(i, j)}
-                        disabled={cellDisabled}
-                        className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none ${cellDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${cellTone}`}
-                      >
-                        {glyph}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-              {manualDoubles.size > 0 && (
-                <div className="flex">
-                  <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10">
-                    CT
-                  </div>
-                  {doublesPerTeam().map((c, i) => (
-                    <div
-                      key={i}
-                      className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-[8px] font-semibold border border-slate-800 box-border ${
-                        c === format.doublesPerTeam
-                          ? "text-emerald-400"
-                          : c > format.doublesPerTeam
-                            ? "text-red-400"
-                            : c === 0
-                              ? "text-slate-600"
-                              : "text-slate-400"
-                      }`}
-                    >
-                      {c}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <p className="text-[10px] text-slate-500 mt-2">
-            <span className="text-purple-400">✕</span> manual avoid{"  "}
-            <span className="text-red-400">H</span> hard avoid (last {effectiveLookback.hard}{" "}
-            season{effectiveLookback.hard !== 1 ? "s" : ""})
-            {effectiveLookback.soft > 0 && (
-              <>
-                {"  "}
-                <span className="text-amber-400">S</span> soft avoid (next{" "}
-                {effectiveLookback.soft} season
-                {effectiveLookback.soft !== 1 ? "s" : ""})
-              </>
-            )}
-          </p>
-
-          {manualDoubles.size > 0 && (
-            <div className="mt-3">
-              <button
-                className="bg-transparent text-amber-400 border border-amber-700 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:text-amber-300 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => setManualDoubles(new Set())}
-                disabled={addingPastSeason}
-              >
-                Clear Manual Avoids
-              </button>
-            </div>
-          )}
-
-          {/* Mobile-friendly per-team summary */}
-          <details className="mt-3">
-            <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
-              Avoidance by Team
-            </summary>
-            <div className="mt-2 flex flex-col gap-1">
-              {[...teams.entries()]
-                .sort((a, b) => a[1].localeCompare(b[1], undefined, { numeric: true }))
-                .map(([i, t]) => {
-                const partners: { name: string; tone: string; sortKey: number }[] = [];
+          {/* Primary per-team avoidance breakdown — rendered above the matrix because it's the scannable view most users need. */}
+          {(() => {
+            const rows = [...teams.entries()]
+              .sort((a, b) =>
+                a[1].localeCompare(b[1], undefined, { numeric: true }),
+              )
+              .map(([i, t]) => {
+                const partners: {
+                  name: string;
+                  tone: string;
+                  sortKey: number;
+                }[] = [];
                 for (let j = 0; j < teamCount; j++) {
                   if (j === i) continue;
                   const at = cellAvoidType(i, j);
                   const isManual = manualDoubles.has(pairKey(i, j));
                   if (isManual) {
-                    partners.push({ name: teams[j]!, tone: "text-purple-400", sortKey: 0 });
+                    partners.push({
+                      name: teams[j]!,
+                      tone: "text-purple-400",
+                      sortKey: 0,
+                    });
                   } else if (at === "hard") {
-                    partners.push({ name: teams[j]!, tone: "text-red-400", sortKey: 1 });
+                    partners.push({
+                      name: teams[j]!,
+                      tone: "text-red-400",
+                      sortKey: 1,
+                    });
                   } else if (at === "soft") {
-                    partners.push({ name: teams[j]!, tone: "text-amber-400", sortKey: 2 });
+                    partners.push({
+                      name: teams[j]!,
+                      tone: "text-amber-400",
+                      sortKey: 2,
+                    });
                   }
                 }
                 if (partners.length === 0) return null;
                 partners.sort(
-                  (a, b) => a.sortKey - b.sortKey || a.name.localeCompare(b.name),
+                  (a, b) =>
+                    a.sortKey - b.sortKey || a.name.localeCompare(b.name),
                 );
                 return (
-                  <div key={i} className="text-xs px-2 py-1 bg-slate-900 rounded">
+                  <div
+                    key={i}
+                    className="text-xs px-2 py-1 bg-slate-900 rounded"
+                  >
                     <div className="text-slate-200 font-semibold">{t}</div>
                     <div>
                       {partners.map((p, k) => (
@@ -2217,8 +2201,168 @@ export default function GeneratePage() {
                     </div>
                   </div>
                 );
-              })}
+              })
+              .filter((x) => x !== null);
+            if (rows.length === 0) return null;
+            return (
+              <div className="mt-4">
+                <h3 className={cls.sectionTitle}>Avoidance by Team</h3>
+                <div className="flex flex-col gap-1">{rows}</div>
+              </div>
+            );
+          })()}
+
+          {/* Full matrix view — collapsed by default since the per-team list above usually answers the question. */}
+          <details className="mt-3">
+            <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
+              Avoidance Matrix
+            </summary>
+            <div className="overflow-x-auto -mx-2 px-2 mt-2">
+              <div className="inline-block min-w-fit">
+                <div className="flex sticky top-0 z-20">
+                  <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
+                  {teams.map((t, i) => {
+                    const inHoverCol = hoveredAvoidCell?.col === i;
+                    return (
+                      <div
+                        key={i}
+                        onMouseEnter={(e) => {
+                          showHeaderTooltip(t, e.currentTarget);
+                          setHoveredAvoidCell({ row: -1, col: i });
+                        }}
+                        onMouseLeave={() => {
+                          hideHeaderTooltip();
+                          setHoveredAvoidCell(null);
+                        }}
+                        className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-700" : "bg-slate-900"}`}
+                      >
+                        {abbrev(t)}
+                      </div>
+                    );
+                  })}
+                </div>
+                {teams.map((t, i) => (
+                  <div key={i} className="flex">
+                    <div
+                      onMouseEnter={(e) => {
+                        showHeaderTooltip(t, e.currentTarget);
+                        setHoveredAvoidCell({ row: i, col: -1 });
+                      }}
+                      onMouseLeave={() => {
+                        hideHeaderTooltip();
+                        setHoveredAvoidCell(null);
+                      }}
+                      className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredAvoidCell?.row === i ? "bg-slate-700" : "bg-slate-900"}`}
+                    >
+                      {abbrev(t)}
+                    </div>
+                    {teams.map((_, j) => {
+                      const inHoverPath =
+                        hoveredAvoidCell !== null &&
+                        (hoveredAvoidCell.row === i ||
+                          hoveredAvoidCell.col === j);
+                      if (j === i) {
+                        return (
+                          <div
+                            key={j}
+                            className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 border border-slate-800 box-border ${inHoverPath ? "bg-slate-800" : "bg-slate-950"}`}
+                          />
+                        );
+                      }
+                      const at = cellAvoidType(i, j);
+                      const isManual = manualDoubles.has(pairKey(i, j));
+                      const isLocked = at === "hard" || at === "soft";
+                      let bg: string;
+                      let textCls = "text-slate-500";
+                      let glyph = "";
+                      if (isManual) {
+                        bg = inHoverPath ? "bg-purple-800" : "bg-purple-900";
+                        textCls = "text-purple-400 font-bold";
+                        glyph = "✕";
+                      } else if (at === "hard") {
+                        bg = inHoverPath ? "bg-red-900" : "bg-red-950";
+                        textCls = "text-red-400 font-bold";
+                        glyph = "H";
+                      } else if (at === "soft") {
+                        bg = inHoverPath ? "bg-amber-800" : "bg-amber-900";
+                        textCls = "text-amber-400 font-semibold";
+                        glyph = "S";
+                      } else {
+                        bg = inHoverPath ? "bg-slate-700" : "bg-slate-800";
+                      }
+                      const cellDisabled = isLocked || addingPastSeason;
+                      return (
+                        <button
+                          key={j}
+                          type="button"
+                          onMouseEnter={() =>
+                            setHoveredAvoidCell({ row: i, col: j })
+                          }
+                          onMouseLeave={() => setHoveredAvoidCell(null)}
+                          onClick={() => toggleDouble(i, j)}
+                          disabled={cellDisabled}
+                          className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none ${cellDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${bg} ${textCls}`}
+                        >
+                          {glyph}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+                {manualDoubles.size > 0 && (
+                  <div className="flex">
+                    <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10">
+                      CT
+                    </div>
+                    {doublesPerTeam().map((c, i) => {
+                      const inHoverCol = hoveredAvoidCell?.col === i;
+                      return (
+                        <div
+                          key={i}
+                          className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-[8px] font-semibold border border-slate-800 box-border ${inHoverCol ? "bg-slate-700" : "bg-slate-900"} ${
+                            c === format.doublesPerTeam
+                              ? "text-emerald-400"
+                              : c > format.doublesPerTeam
+                                ? "text-red-400"
+                                : c === 0
+                                  ? "text-slate-600"
+                                  : "text-slate-400"
+                          }`}
+                        >
+                          {c}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
+
+            <p className="text-[10px] text-slate-500 mt-2">
+              <span className="text-purple-400">✕</span> manual avoid{"  "}
+              <span className="text-red-400">H</span> hard avoid (last {effectiveLookback.hard}{" "}
+              season{effectiveLookback.hard !== 1 ? "s" : ""})
+              {effectiveLookback.soft > 0 && (
+                <>
+                  {"  "}
+                  <span className="text-amber-400">S</span> soft avoid (next{" "}
+                  {effectiveLookback.soft} season
+                  {effectiveLookback.soft !== 1 ? "s" : ""})
+                </>
+              )}
+            </p>
+
+            {manualDoubles.size > 0 && (
+              <div className="mt-3">
+                <button
+                  className="bg-transparent text-amber-400 border border-amber-700 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:text-amber-300 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => setManualDoubles(new Set())}
+                  disabled={addingPastSeason}
+                >
+                  Clear Manual Avoids
+                </button>
+              </div>
+            )}
           </details>
 
           {(() => {
