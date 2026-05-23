@@ -264,11 +264,11 @@ export default function GeneratePage() {
     () => buildAvoidMap(history, userIds, effectiveLookback),
     [history, userIds, effectiveLookback],
   );
-  const scheduleYear = new Date().getFullYear();
-
-  function getAvoidSets() {
-    // Clone so the manual-doubles overlay doesn't mutate the memoized sets,
-    // which are also consumed by cellAvoidType.
+  // Auto-avoid sets composed with the manual overlay. Consumed by the
+  // schedule generator and by the rivalry-pin avoidance warning. Kept
+  // separate from avoidSets because cellAvoidType needs the un-merged
+  // version to distinguish manual cells from hard/soft cells.
+  const mergedAvoidSets = useMemo(() => {
     const hard = new Set(avoidSets.hard);
     const soft = new Set(avoidSets.soft);
     manualDoubles.forEach((key) => {
@@ -276,10 +276,11 @@ export default function GeneratePage() {
       soft.delete(key);
     });
     return { hard, soft };
-  }
+  }, [avoidSets, manualDoubles]);
+  const scheduleYear = new Date().getFullYear();
 
   function handleGenerate() {
-    const { hard, soft } = getAvoidSets();
+    const { hard, soft } = mergedAvoidSets;
     const result = buildSchedule({
       teamCount,
       weekCount,
@@ -433,6 +434,7 @@ export default function GeneratePage() {
               saveToStorage={saveToStorage}
               format={format}
               avoidSets={avoidSets}
+              mergedAvoidSets={mergedAvoidSets}
               effectiveLookback={effectiveLookback}
               effectiveLookbackTotal={effectiveLookbackTotal}
               recommendedLookbackTotal={recommendedLookbackTotal}

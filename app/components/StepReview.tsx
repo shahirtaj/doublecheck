@@ -22,6 +22,7 @@ type StepReviewProps = {
   saveToStorage: SaveToStorageFn;
   format: FormatProperties;
   avoidSets: AvoidSets;
+  mergedAvoidSets: AvoidSets;
   effectiveLookback: LookbackWindow;
   effectiveLookbackTotal: number;
   recommendedLookbackTotal: number;
@@ -40,6 +41,7 @@ export function StepReview(props: StepReviewProps) {
     saveToStorage,
     format,
     avoidSets,
+    mergedAvoidSets,
     effectiveLookback,
     effectiveLookbackTotal,
     recommendedLookbackTotal,
@@ -90,20 +92,6 @@ export function StepReview(props: StepReviewProps) {
     addingPastSeason &&
     editingSeasonIndex === null &&
     history.length >= recommendedLookbackTotal;
-
-  // Composes the auto-avoid sets with the manual overlay. Used both by the
-  // rivalry-pin "this pair is avoided" warning and by the generate handler.
-  function getAvoidSets() {
-    // Clone so the manual-doubles overlay doesn't mutate the memoized sets,
-    // which are also consumed by cellAvoidType.
-    const hard = new Set(avoidSets.hard);
-    const soft = new Set(avoidSets.soft);
-    manualDoubles.forEach((key) => {
-      hard.add(key);
-      soft.delete(key);
-    });
-    return { hard, soft };
-  }
 
   function toggleDouble(i: number, j: number) {
     const key = pairKey(i, j);
@@ -816,7 +804,7 @@ export function StepReview(props: StepReviewProps) {
         pinWeek={pinWeek}
         pinJustAdded={pinJustAdded}
         addingPastSeason={addingPastSeason}
-        getAvoidSets={getAvoidSets}
+        mergedAvoidSets={mergedAvoidSets}
         patch={patch}
       />
 
@@ -845,7 +833,7 @@ type RivalryPinBuilderProps = {
   pinWeek: number | null;
   pinJustAdded: boolean;
   addingPastSeason: boolean;
-  getAvoidSets: () => AvoidSets;
+  mergedAvoidSets: AvoidSets;
   patch: Patch;
 };
 
@@ -861,7 +849,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
     pinWeek,
     pinJustAdded,
     addingPastSeason,
-    getAvoidSets,
+    mergedAvoidSets,
     patch,
   } = props;
 
@@ -1061,7 +1049,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
   // active pinError or the post-add suppression flag.
   let avoidWarning = "";
   {
-    const { hard, soft } = getAvoidSets();
+    const { hard, soft } = mergedAvoidSets;
     if (hard.has(pinAKey)) {
       avoidWarning =
         "This pair is hard-avoided. This pin forces one game between them - they won't play again.";
