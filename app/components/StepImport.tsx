@@ -17,11 +17,7 @@ import type {
   SleeperLeagueOption,
   YahooLeagueOption,
 } from "./types";
-import {
-  detectFormatFromImport,
-  extractSlug,
-  platformLabel,
-} from "./utils";
+import { detectFormatFromImport, extractSlug, platformLabel } from "./utils";
 import type { Patch, SaveToStorageFn, State } from "./state";
 
 type ImportSectionsProps = {
@@ -41,12 +37,15 @@ function filterToDetectedFormat(seasons: ImportedSeasonRecord[]): {
 } | null {
   const detected = detectFormatFromImport(seasons[0]!);
   if (!detected) return null;
-  const filtered = seasons.filter((s) => s.teamNames?.length === detected.teamCount);
+  const filtered = seasons.filter(
+    (s) => s.teamNames?.length === detected.teamCount,
+  );
   return { detected, seasons: filtered };
 }
 
 export function ImportSections(props: ImportSectionsProps) {
-  const { state, patch, saveToStorage, platformRef, recommendedLookbackTotal } = props;
+  const { state, patch, saveToStorage, platformRef, recommendedLookbackTotal } =
+    props;
   const {
     platform,
     importSource,
@@ -149,7 +148,8 @@ export function ImportSections(props: ImportSectionsProps) {
       );
       const data = await res.json();
       if (!res.ok) {
-        if (typeof data?.helpUrl === "string") patch({ importHelpUrl: data.helpUrl });
+        if (typeof data?.helpUrl === "string")
+          patch({ importHelpUrl: data.helpUrl });
         throw new Error(data?.error || `HTTP ${res.status}`);
       }
       const seasons = data as ImportedSeasonRecord[];
@@ -381,7 +381,8 @@ export function ImportSections(props: ImportSectionsProps) {
         importDoubles = season.doubles;
       }
 
-      const candidateYear = season.seasonYear || String(new Date().getFullYear() - 1);
+      const candidateYear =
+        season.seasonYear || String(new Date().getFullYear() - 1);
       const candidateDoublesStr = [...importDoubles].sort().join(",");
       const isDuplicate = newHistory.some(
         (entry) =>
@@ -402,7 +403,9 @@ export function ImportSections(props: ImportSectionsProps) {
     const nextLeagueName = (mostRecent.seasonName || "").trim();
 
     patch({
-      ...(formatChanged ? { selectedFormat: detected, lookbackOverride: null } : {}),
+      ...(formatChanged
+        ? { selectedFormat: detected, lookbackOverride: null }
+        : {}),
       teams: nextTeams,
       userIds: nextUserIds,
       history: newHistory,
@@ -533,13 +536,13 @@ export function ImportSections(props: ImportSectionsProps) {
     // manualDoubles intentionally dropped on restore: they're one-time
     // overrides for the season they were set in, and silently carrying
     // them forward would over-constrain the next generation.
-    const remappedRivalryPins: RivalryPin[] = (linkPreview.rivalryPins ?? []).map(
-      (p) => ({
-        teamA: oldToNew[p.teamA]!,
-        teamB: oldToNew[p.teamB]!,
-        week: p.week,
-      }),
-    );
+    const remappedRivalryPins: RivalryPin[] = (
+      linkPreview.rivalryPins ?? []
+    ).map((p) => ({
+      teamA: oldToNew[p.teamA]!,
+      teamB: oldToNew[p.teamB]!,
+      week: p.week,
+    }));
 
     const restoredPlatform: ImportPlatform =
       linkPreview.platform === "sleeper" ||
@@ -605,7 +608,10 @@ export function ImportSections(props: ImportSectionsProps) {
     const wc = manualWeekCount;
     const name = manualLeagueName.trim();
     const initialTeams = Array.from({ length: tc }, (_, i) => `Team ${i + 1}`);
-    const initialUserIds = Array.from({ length: tc }, () => null) as (string | null)[];
+    const initialUserIds = Array.from({ length: tc }, () => null) as (
+      | string
+      | null
+    )[];
     // Mirror the handleApplyImport sort path so index 0 is always the
     // alphabetically-first team. No-op for the numbered defaults, but
     // keeps the code path consistent if the default naming changes.
@@ -669,13 +675,14 @@ export function ImportSections(props: ImportSectionsProps) {
             </>
           ) : platform === "espn" ? (
             <>
-              Enter your league ID from fantasy.espn.com/football/league?leagueId=
+              Enter your league ID from
+              fantasy.espn.com/football/league?leagueId=
               <strong>YOUR_ID</strong> (public leagues only).
             </>
           ) : platform === "manual" ? (
             <>
-              For leagues on platforms without automatic import. Enter your league
-              info, then add past seasons manually in the next step.
+              For leagues on platforms without automatic import. Enter your
+              league info, then add past seasons manually in the next step.
             </>
           ) : (
             <>Sign in with Yahoo to import your fantasy leagues.</>
@@ -749,7 +756,9 @@ export function ImportSections(props: ImportSectionsProps) {
                 <select
                   className={cls.leagueInput}
                   value={selectedYahooLeague}
-                  onChange={(e) => patch({ selectedYahooLeague: e.target.value })}
+                  onChange={(e) =>
+                    patch({ selectedYahooLeague: e.target.value })
+                  }
                 >
                   <option value="">- pick a league -</option>
                   {yahooLeagues.map((l) => (
@@ -792,7 +801,9 @@ export function ImportSections(props: ImportSectionsProps) {
                 <select
                   className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
                   value={manualTeamCount}
-                  onChange={(e) => patch({ manualTeamCount: Number(e.target.value) })}
+                  onChange={(e) =>
+                    patch({ manualTeamCount: Number(e.target.value) })
+                  }
                 >
                   <option value={8}>8 teams</option>
                   <option value={10}>10 teams</option>
@@ -802,7 +813,9 @@ export function ImportSections(props: ImportSectionsProps) {
                 <select
                   className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
                   value={manualWeekCount}
-                  onChange={(e) => patch({ manualWeekCount: Number(e.target.value) })}
+                  onChange={(e) =>
+                    patch({ manualWeekCount: Number(e.target.value) })
+                  }
                 >
                   <option value={13}>13 weeks</option>
                   <option value={14}>14 weeks</option>
@@ -817,12 +830,16 @@ export function ImportSections(props: ImportSectionsProps) {
                 </button>
               </div>
             </>
-          ) : platform === "sleeper" && sleeperLeagues && sleeperLeagues.length > 1 ? (
+          ) : platform === "sleeper" &&
+            sleeperLeagues &&
+            sleeperLeagues.length > 1 ? (
             <>
               <select
                 className={cls.leagueInput}
                 value={selectedSleeperLeague}
-                onChange={(e) => patch({ selectedSleeperLeague: e.target.value })}
+                onChange={(e) =>
+                  patch({ selectedSleeperLeague: e.target.value })
+                }
               >
                 <option value="">- pick a league -</option>
                 {sleeperLeagues.map((l) => (
@@ -886,11 +903,18 @@ export function ImportSections(props: ImportSectionsProps) {
             >
               see instructions
             </a>
-            ), then try again. Or, choose Manual entry to import without changing any ESPN settings.
+            ), then try again. Or, choose Manual entry to import without
+            changing any ESPN settings.
           </p>
         ) : (
-          importMsg && !importPreview && !linkPreview && (
-            <p className={`text-[11px] mt-2 text-center ${statusToneClass(importStatus)}`}>{importMsg}</p>
+          importMsg &&
+          !importPreview &&
+          !linkPreview && (
+            <p
+              className={`text-[11px] mt-2 text-center ${statusToneClass(importStatus)}`}
+            >
+              {importMsg}
+            </p>
           )
         )}
       </div>
@@ -966,9 +990,7 @@ export function ImportSections(props: ImportSectionsProps) {
           const formatLabel = `${linkPreview.format.teamCount}-team / ${linkPreview.format.weekCount}-week`;
           const historyEntries = linkPreview.history ?? [];
           const seasonCount = historyEntries.length;
-          const years = historyEntries
-            .map((h) => h.season || "?")
-            .join(", ");
+          const years = historyEntries.map((h) => h.season || "?").join(", ");
           const sortedManagers = [...linkPreview.teams].sort((a, b) =>
             a.localeCompare(b, undefined, { numeric: true }),
           );

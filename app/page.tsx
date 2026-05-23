@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-} from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import Link from "next/link";
 import {
   buildAvoidMap,
@@ -64,7 +58,9 @@ export default function GeneratePage() {
       if (typeof v === "function") {
         dispatch({
           type: "patch",
-          patch: { furthestStep: (v as (prev: Step) => Step)(state.furthestStep) },
+          patch: {
+            furthestStep: (v as (prev: Step) => Step)(state.furthestStep),
+          },
         });
       } else {
         patch({ furthestStep: v });
@@ -76,7 +72,10 @@ export default function GeneratePage() {
     (v: SelectedFormat | null) => patch({ selectedFormat: v }),
     [patch],
   );
-  const setConfirmReset = useCallback((v: boolean) => patch({ confirmReset: v }), [patch]);
+  const setConfirmReset = useCallback(
+    (v: boolean) => patch({ confirmReset: v }),
+    [patch],
+  );
 
   const teamCount = selectedFormat?.teamCount ?? 0;
   const weekCount = selectedFormat?.weekCount ?? 0;
@@ -86,7 +85,8 @@ export default function GeneratePage() {
   );
   const isEdgeCaseFormat =
     !!format &&
-    (format.variant === "pure-round-robin" || format.variant === "complete-double-round-robin");
+    (format.variant === "pure-round-robin" ||
+      format.variant === "complete-double-round-robin");
 
   // Mirrors `platform` so in-flight Yahoo fetches can detect when the user
   // has switched platforms mid-request and bail out instead of stomping on
@@ -157,14 +157,17 @@ export default function GeneratePage() {
           storedTeamCount = d.format.teamCount;
         }
         if (storedTeamCount > 0) {
-          if (Array.isArray(d.teams) && d.teams.length === storedTeamCount) hydration.teams = d.teams;
+          if (Array.isArray(d.teams) && d.teams.length === storedTeamCount)
+            hydration.teams = d.teams;
           if (Array.isArray(d.userIds) && d.userIds.length === storedTeamCount)
             hydration.userIds = d.userIds;
           if (Array.isArray(d.history)) hydration.history = d.history;
-          if (Array.isArray(d.manualDoubles)) hydration.manualDoubles = new Set(d.manualDoubles);
+          if (Array.isArray(d.manualDoubles))
+            hydration.manualDoubles = new Set(d.manualDoubles);
           if (typeof d.lookbackOverride === "number")
             hydration.lookbackOverride = d.lookbackOverride;
-          if (typeof d.leagueName === "string") hydration.leagueName = d.leagueName;
+          if (typeof d.leagueName === "string")
+            hydration.leagueName = d.leagueName;
           hydration.furthestStep = "doubles";
         }
         patch({ ...hydration, loading: false });
@@ -223,10 +226,20 @@ export default function GeneratePage() {
         // Storage may be full or unavailable; ignore.
       }
     },
-    [teams, userIds, history, manualDoubles, selectedFormat, lookbackOverride, leagueName],
+    [
+      teams,
+      userIds,
+      history,
+      manualDoubles,
+      selectedFormat,
+      lookbackOverride,
+      leagueName,
+    ],
   );
 
-  const recommendedLookbackTotal = format ? format.lookback.hard + format.lookback.soft : 0;
+  const recommendedLookbackTotal = format
+    ? format.lookback.hard + format.lookback.soft
+    : 0;
   // Override may only dial the lookback down. Anything higher than the per-format
   // recommendation gets clamped so an over-constrained avoid set can't sneak in
   // from stale localStorage either. The window is also capped at the number of
@@ -238,7 +251,10 @@ export default function GeneratePage() {
     history.length,
   );
   const effectiveLookback = useMemo<LookbackWindow>(
-    () => (format ? deriveLookback(effectiveLookbackTotal, format.lookback) : { hard: 0, soft: 0 }),
+    () =>
+      format
+        ? deriveLookback(effectiveLookbackTotal, format.lookback)
+        : { hard: 0, soft: 0 },
     [effectiveLookbackTotal, format],
   );
   // The Step 2 matrix renders both triangles and queries every cell, so we
@@ -350,9 +366,9 @@ export default function GeneratePage() {
               <strong className="text-slate-200">
                 {teamCount}-team / {weekCount}-week
               </strong>
-              : a pure round-robin where every team plays every opponent exactly once. There are no
-              doubled matchups, so there&apos;s no fairness problem to solve and no rotational
-              schedule needed.
+              : a pure round-robin where every team plays every opponent exactly
+              once. There are no doubled matchups, so there&apos;s no fairness
+              problem to solve and no rotational schedule needed.
             </p>
           ) : (
             <p className={cls.hint}>
@@ -360,9 +376,10 @@ export default function GeneratePage() {
               <strong className="text-slate-200">
                 {teamCount}-team / {weekCount}-week
               </strong>
-              : a complete double round-robin where every team plays every opponent exactly twice.
-              The schedule is fully determined - every pair is doubled - so there&apos;s no
-              rotational fairness problem to solve.
+              : a complete double round-robin where every team plays every
+              opponent exactly twice. The schedule is fully determined - every
+              pair is doubled - so there&apos;s no rotational fairness problem
+              to solve.
             </p>
           )}
           <p className="text-[11px] text-slate-500 mt-3">
@@ -371,71 +388,70 @@ export default function GeneratePage() {
         </div>
       ) : (
         <>
+          <div className="flex justify-center gap-1 mb-5 flex-wrap">
+            {(
+              [
+                ["teams", "1. Import"],
+                ["doubles", "2. Review"],
+                ["schedule", "3. Schedule"],
+              ] as [Step, string][]
+            ).map(([key, label]) => {
+              const disabled =
+                STEP_ORDER.indexOf(key) > STEP_ORDER.indexOf(furthestStep);
+              return (
+                <button
+                  key={key}
+                  onClick={() => setStep(key)}
+                  disabled={disabled}
+                  className={`bg-transparent border px-3.5 py-1.5 rounded-md text-xs font-mono cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
+                    step === key
+                      ? "bg-emerald-800 border-emerald-600 text-emerald-50"
+                      : "border-slate-700 text-slate-400 hover:border-slate-500"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
 
-      <div className="flex justify-center gap-1 mb-5 flex-wrap">
-        {(
-          [
-            ["teams", "1. Import"],
-            ["doubles", "2. Review"],
-            ["schedule", "3. Schedule"],
-          ] as [Step, string][]
-        ).map(([key, label]) => {
-          const disabled = STEP_ORDER.indexOf(key) > STEP_ORDER.indexOf(furthestStep);
-          return (
-            <button
-              key={key}
-              onClick={() => setStep(key)}
-              disabled={disabled}
-              className={`bg-transparent border px-3.5 py-1.5 rounded-md text-xs font-mono cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
-                step === key
-                  ? "bg-emerald-800 border-emerald-600 text-emerald-50"
-                  : "border-slate-700 text-slate-400 hover:border-slate-500"
-              }`}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+          {/* ═══ STEP 1: IMPORT ═══ */}
+          {step === "teams" && (
+            <StepImport
+              state={state}
+              patch={patch}
+              saveToStorage={saveToStorage}
+              stepOrder={STEP_ORDER}
+            />
+          )}
 
-      {/* ═══ STEP 1: IMPORT ═══ */}
-      {step === "teams" && (
-        <StepImport
-          state={state}
-          patch={patch}
-          saveToStorage={saveToStorage}
-          stepOrder={STEP_ORDER}
-        />
-      )}
+          {/* ═══ STEP 2: AVOID ═══ */}
+          {step === "doubles" && format && (
+            <StepReview
+              state={state}
+              patch={patch}
+              saveToStorage={saveToStorage}
+              format={format}
+              avoidSets={avoidSets}
+              effectiveLookback={effectiveLookback}
+              effectiveLookbackTotal={effectiveLookbackTotal}
+              recommendedLookbackTotal={recommendedLookbackTotal}
+              showHeaderTooltip={showHeaderTooltip}
+              hideHeaderTooltip={hideHeaderTooltip}
+              onGenerate={handleGenerate}
+            />
+          )}
 
-      {/* ═══ STEP 2: AVOID ═══ */}
-      {step === "doubles" && format && (
-        <StepReview
-          state={state}
-          patch={patch}
-          saveToStorage={saveToStorage}
-          format={format}
-          avoidSets={avoidSets}
-          effectiveLookback={effectiveLookback}
-          effectiveLookbackTotal={effectiveLookbackTotal}
-          recommendedLookbackTotal={recommendedLookbackTotal}
-          showHeaderTooltip={showHeaderTooltip}
-          hideHeaderTooltip={hideHeaderTooltip}
-          onGenerate={handleGenerate}
-        />
-      )}
-
-      {/* ═══ STEP 3: SCHEDULE ═══ */}
-      {step === "schedule" && (
-        <StepSchedule
-          state={state}
-          patch={patch}
-          saveToStorage={saveToStorage}
-          scheduleYear={scheduleYear}
-          onGenerate={handleGenerate}
-        />
-      )}
-
+          {/* ═══ STEP 3: SCHEDULE ═══ */}
+          {step === "schedule" && (
+            <StepSchedule
+              state={state}
+              patch={patch}
+              saveToStorage={saveToStorage}
+              scheduleYear={scheduleYear}
+              onGenerate={handleGenerate}
+            />
+          )}
         </>
       )}
 

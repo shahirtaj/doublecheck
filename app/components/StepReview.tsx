@@ -144,8 +144,14 @@ export function StepReview(props: StepReviewProps) {
         });
         entryFormat = "userid";
       }
-      const updated: SeasonHistory = { season: year, doubles, format: entryFormat };
-      nextHistory = history.map((h, i) => (i === editingSeasonIndex ? updated : h));
+      const updated: SeasonHistory = {
+        season: year,
+        doubles,
+        format: entryFormat,
+      };
+      nextHistory = history.map((h, i) =>
+        i === editingSeasonIndex ? updated : h,
+      );
     } else {
       const entry: SeasonHistory = {
         season: year,
@@ -246,7 +252,10 @@ export function StepReview(props: StepReviewProps) {
     return counts;
   }
 
-  function cellAvoidType(i: number, j: number): "manual" | "hard" | "soft" | "none" {
+  function cellAvoidType(
+    i: number,
+    j: number,
+  ): "manual" | "hard" | "soft" | "none" {
     const key = pairKey(i, j);
     if (manualDoubles.has(key)) return "manual";
     if (avoidSets.hard.has(key)) return "hard";
@@ -287,7 +296,8 @@ export function StepReview(props: StepReviewProps) {
             <span className="text-slate-500">
               ={" "}
               <span className="text-red-400">
-                {effectiveLookback.hard} hard season{effectiveLookback.hard === 1 ? "" : "s"}
+                {effectiveLookback.hard} hard season
+                {effectiveLookback.hard === 1 ? "" : "s"}
               </span>
               {effectiveLookback.soft > 0 && (
                 <>
@@ -367,12 +377,14 @@ export function StepReview(props: StepReviewProps) {
         <div className={`${cls.subSection} mt-4`}>
           {showLookbackNote && (
             <p className="text-[11px] text-amber-400 mb-2">
-              Additional seasons beyond the lookback window won&apos;t affect schedule
-              generation.
+              Additional seasons beyond the lookback window won&apos;t affect
+              schedule generation.
             </p>
           )}
           <h3 className={cls.sectionTitle}>
-            {editingSeasonIndex !== null ? "Edit Past Season" : "Add Past Season"}
+            {editingSeasonIndex !== null
+              ? "Edit Past Season"
+              : "Add Past Season"}
           </h3>
           <p className={cls.hint}>
             {editingSeasonIndex !== null
@@ -410,7 +422,9 @@ export function StepReview(props: StepReviewProps) {
                         canHover
                           ? (e) => {
                               showHeaderTooltip(t, e.currentTarget);
-                              patch({ hoveredPastSeasonCell: { row: -1, col: i } });
+                              patch({
+                                hoveredPastSeasonCell: { row: -1, col: i },
+                              });
                             }
                           : undefined
                       }
@@ -436,7 +450,9 @@ export function StepReview(props: StepReviewProps) {
                       canHover
                         ? (e) => {
                             showHeaderTooltip(t, e.currentTarget);
-                            patch({ hoveredPastSeasonCell: { row: i, col: -1 } });
+                            patch({
+                              hoveredPastSeasonCell: { row: i, col: -1 },
+                            });
                           }
                         : undefined
                     }
@@ -480,7 +496,9 @@ export function StepReview(props: StepReviewProps) {
                         onMouseEnter={
                           canHover
                             ? () =>
-                                patch({ hoveredPastSeasonCell: { row: i, col: j } })
+                                patch({
+                                  hoveredPastSeasonCell: { row: i, col: j },
+                                })
                             : undefined
                         }
                         onMouseLeave={
@@ -517,7 +535,10 @@ export function StepReview(props: StepReviewProps) {
             </div>
           </div>
           <div className="flex gap-2 mt-3 flex-wrap">
-            <button className={cls.secondaryBtn} onClick={handleCancelPastSeason}>
+            <button
+              className={cls.secondaryBtn}
+              onClick={handleCancelPastSeason}
+            >
               Cancel
             </button>
             <button
@@ -599,8 +620,7 @@ export function StepReview(props: StepReviewProps) {
               {teams.map((_, j) => {
                 const inHoverPath =
                   hoveredAvoidCell !== null &&
-                  (hoveredAvoidCell.row === i ||
-                    hoveredAvoidCell.col === j);
+                  (hoveredAvoidCell.row === i || hoveredAvoidCell.col === j);
                 if (j === i) {
                   return (
                     <div
@@ -689,8 +709,9 @@ export function StepReview(props: StepReviewProps) {
         {effectiveLookback.hard > 0 && (
           <>
             {"  "}
-            <span className="text-red-400">H</span> hard avoid (last {effectiveLookback.hard}{" "}
-            season{effectiveLookback.hard !== 1 ? "s" : ""})
+            <span className="text-red-400">H</span> hard avoid (last{" "}
+            {effectiveLookback.hard} season
+            {effectiveLookback.hard !== 1 ? "s" : ""})
           </>
         )}
         {effectiveLookback.soft > 0 && (
@@ -729,25 +750,45 @@ export function StepReview(props: StepReviewProps) {
                 a[1].localeCompare(b[1], undefined, { numeric: true }),
               )
               .map(([i, t]) => {
-                const partners: { name: string; tone: string; sortKey: number }[] = [];
+                const partners: {
+                  name: string;
+                  tone: string;
+                  sortKey: number;
+                }[] = [];
                 for (let j = 0; j < teamCount; j++) {
                   if (j === i) continue;
                   const at = cellAvoidType(i, j);
                   const isManual = manualDoubles.has(pairKey(i, j));
                   if (isManual) {
-                    partners.push({ name: teams[j]!, tone: "text-purple-400", sortKey: 0 });
+                    partners.push({
+                      name: teams[j]!,
+                      tone: "text-purple-400",
+                      sortKey: 0,
+                    });
                   } else if (at === "hard") {
-                    partners.push({ name: teams[j]!, tone: "text-red-400", sortKey: 1 });
+                    partners.push({
+                      name: teams[j]!,
+                      tone: "text-red-400",
+                      sortKey: 1,
+                    });
                   } else if (at === "soft") {
-                    partners.push({ name: teams[j]!, tone: "text-amber-400", sortKey: 2 });
+                    partners.push({
+                      name: teams[j]!,
+                      tone: "text-amber-400",
+                      sortKey: 2,
+                    });
                   }
                 }
                 if (partners.length === 0) return null;
                 partners.sort(
-                  (a, b) => a.sortKey - b.sortKey || a.name.localeCompare(b.name),
+                  (a, b) =>
+                    a.sortKey - b.sortKey || a.name.localeCompare(b.name),
                 );
                 return (
-                  <div key={i} className="text-xs px-2 py-1 bg-slate-900 rounded">
+                  <div
+                    key={i}
+                    className="text-xs px-2 py-1 bg-slate-900 rounded"
+                  >
                     <div className="text-slate-200 font-semibold">{t}</div>
                     <div>
                       {partners.map((p, k) => (
@@ -831,7 +872,11 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
   const safeBCandidate =
     pinTeamB < teamCount ? pinTeamB : Math.min(1, Math.max(0, teamCount - 1));
   const safeB =
-    safeBCandidate === safeA ? (safeA === 0 ? Math.min(1, teamCount - 1) : 0) : safeBCandidate;
+    safeBCandidate === safeA
+      ? safeA === 0
+        ? Math.min(1, teamCount - 1)
+        : 0
+      : safeBCandidate;
   const pinAKey = pairKey(safeA, safeB);
   const sameTeam = safeA === safeB;
   const maxPinsPerPair = Math.max(
@@ -873,8 +918,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
   // the algorithm route the rematch.
   const existingPinForPair =
     existingPinsForPair === 1
-      ? rivalryPins.find((p) => pairKey(p.teamA, p.teamB) === pinAKey) ??
-        null
+      ? (rivalryPins.find((p) => pairKey(p.teamA, p.teamB) === pinAKey) ?? null)
       : null;
   const noPartnerWeekForPair: boolean =
     !!format &&
@@ -886,7 +930,9 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
 
   // Per-week option state. Order matters: an exact-pair duplicate
   // takes priority over the generic team-conflict label.
-  const weekOptionState = (W: number): { disabled: boolean; suffix: string } => {
+  const weekOptionState = (
+    W: number,
+  ): { disabled: boolean; suffix: string } => {
     const exactDup = rivalryPins.some(
       (p) => p.week === W && pairKey(p.teamA, p.teamB) === pinAKey,
     );
@@ -968,9 +1014,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
   }
   // Too many matchups in one week. A full week is teamCount / 2.
   if (!pinError && pinWeek !== null) {
-    const matchupsInWeek = rivalryPins.filter(
-      (p) => p.week === pinWeek,
-    ).length;
+    const matchupsInWeek = rivalryPins.filter((p) => p.week === pinWeek).length;
     const fullWeek = Math.floor(teamCount / 2);
     if (matchupsInWeek >= fullWeek) {
       pinError = `Week ${pinWeek} already has ${matchupsInWeek} matchups pinned — that fills the entire week.`;
@@ -1122,9 +1166,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
             const isBusyInWeek = (t: number): boolean => {
               if (pinWeek === null) return false;
               return nextPins.some(
-                (p) =>
-                  p.week === pinWeek &&
-                  (p.teamA === t || p.teamB === t),
+                (p) => p.week === pinWeek && (p.teamA === t || p.teamB === t),
               );
             };
             let nextA = 0;

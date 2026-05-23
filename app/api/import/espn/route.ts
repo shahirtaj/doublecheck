@@ -54,7 +54,9 @@ function hasAuthLeagueNotVisible(data: unknown): boolean {
 }
 
 function privateLeagueError(seasonId: number): Error {
-  return new Error(`Season ${seasonId} is private. Public leagues only for now.`);
+  return new Error(
+    `Season ${seasonId} is private. Public leagues only for now.`,
+  );
 }
 
 async function fetchEspnSeason(leagueId: string, seasonId: number) {
@@ -90,13 +92,17 @@ async function fetchEspnSeason(leagueId: string, seasonId: number) {
     raw = await res.text();
   } catch (e) {
     const msg = e instanceof Error ? e.message : "stream error";
-    throw new Error(`Could not read ESPN response body for season ${seasonId}: ${msg}.`);
+    throw new Error(
+      `Could not read ESPN response body for season ${seasonId}: ${msg}.`,
+    );
   }
 
   let data: unknown;
   if (raw.length === 0) {
     if (!res.ok) {
-      throw new Error(`ESPN HTTP ${res.status} for season ${seasonId} (empty response).`);
+      throw new Error(
+        `ESPN HTTP ${res.status} for season ${seasonId} (empty response).`,
+      );
     }
     throw new Error(`Empty response from ESPN for season ${seasonId}.`);
   }
@@ -146,11 +152,14 @@ async function fetchEspnSeason(leagueId: string, seasonId: number) {
   teams.forEach((t, idx) => {
     teamIdToIdx[t.id] = idx;
     const composed = `${t.location || ""} ${t.nickname || ""}`.trim();
-    const name = (t.name && String(t.name).trim()) || composed || `Team ${t.id}`;
+    const name =
+      (t.name && String(t.name).trim()) || composed || `Team ${t.id}`;
     teamNames.push(name);
     const owner =
       (typeof t.primaryOwner === "string" && t.primaryOwner) ||
-      (Array.isArray(t.owners) && typeof t.owners[0] === "string" && t.owners[0]) ||
+      (Array.isArray(t.owners) &&
+        typeof t.owners[0] === "string" &&
+        t.owners[0]) ||
       null;
     userIds.push(owner);
   });
@@ -195,7 +204,9 @@ async function fetchEspnSeason(leagueId: string, seasonId: number) {
     .map(([k]) => k);
 
   const settingsName =
-    league.settings && typeof league.settings === "object" && typeof league.settings.name === "string"
+    league.settings &&
+    typeof league.settings === "object" &&
+    typeof league.settings.name === "string"
       ? league.settings.name.trim()
       : "";
 
@@ -236,13 +247,19 @@ export async function POST(req: Request) {
     try {
       body = (await req.json()) as { leagueId?: string; seasonId?: number };
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid JSON body." },
+        { status: 400 },
+      );
     }
 
     const leagueId = (body.leagueId || "").trim();
     if (!leagueId || !/^\d+$/.test(leagueId) || /^0+$/.test(leagueId)) {
       return NextResponse.json(
-        { error: "leagueId is required and must be a positive numeric ESPN league ID." },
+        {
+          error:
+            "leagueId is required and must be a positive numeric ESPN league ID.",
+        },
         { status: 400 },
       );
     }
@@ -264,8 +281,13 @@ export async function POST(req: Request) {
         allPrivate = false;
       } catch (e) {
         const msg =
-          e instanceof Error ? e.message : typeof e === "string" ? e : "unknown error";
-        if (!msg.includes("is private.") && !msg.includes("not found")) allPrivate = false;
+          e instanceof Error
+            ? e.message
+            : typeof e === "string"
+              ? e
+              : "unknown error";
+        if (!msg.includes("is private.") && !msg.includes("not found"))
+          allPrivate = false;
         errors.push(`${year}: ${msg}`);
       }
     }

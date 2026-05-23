@@ -20,7 +20,10 @@ export type RateLimitOptions = {
   namespace?: string;
 };
 
-export function checkRateLimit(ip: string, opts: RateLimitOptions = {}): RateLimitResult {
+export function checkRateLimit(
+  ip: string,
+  opts: RateLimitOptions = {},
+): RateLimitResult {
   const windowMs = opts.windowMs ?? DEFAULT_WINDOW_MS;
   const max = opts.max ?? DEFAULT_MAX_PER_WINDOW;
   const key = opts.namespace ? `${opts.namespace}:${ip}` : ip;

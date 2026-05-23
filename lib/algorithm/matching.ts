@@ -112,7 +112,13 @@ export function tryGenerateMatchings(
       const avail = new Set<PairKey>();
       for (const e of allEdges) if (!used.has(e)) avail.add(e);
       const must = slotMustInclude?.[m] ?? null;
-      const matching = findPerfectMatching(n, avail, effectiveSoftAvoid, shuffle, must);
+      const matching = findPerfectMatching(
+        n,
+        avail,
+        effectiveSoftAvoid,
+        shuffle,
+        must,
+      );
       if (!matching) {
         ok = false;
         break;

@@ -118,7 +118,10 @@ function buildLeagueKeyFromRenew(renew: unknown): string | null {
   return null;
 }
 
-async function fetchYahooJson(url: string, accessToken: string): Promise<unknown> {
+async function fetchYahooJson(
+  url: string,
+  accessToken: string,
+): Promise<unknown> {
   const sep = url.includes("?") ? "&" : "?";
   const res = await fetch(`${url}${sep}format=json`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -131,9 +134,8 @@ async function fetchYahooJson(url: string, accessToken: string): Promise<unknown
 function parseLeaguesList(json: unknown): YahooLeagueMeta[] {
   const result: YahooLeagueMeta[] = [];
   const root = json as Record<string, unknown> | undefined;
-  const users = (root?.fantasy_content as Record<string, unknown> | undefined)?.users as
-    | Record<string, unknown>
-    | undefined;
+  const users = (root?.fantasy_content as Record<string, unknown> | undefined)
+    ?.users as Record<string, unknown> | undefined;
   const userArr = (users?.["0"] as Record<string, unknown> | undefined)?.user;
   if (!Array.isArray(userArr)) return result;
   const games = (userArr[1] as Record<string, unknown> | undefined)?.games as
@@ -145,13 +147,14 @@ function parseLeaguesList(json: unknown): YahooLeagueMeta[] {
     const gameWrapper = games[String(g)] as Record<string, unknown> | undefined;
     const gameArr = gameWrapper?.game;
     if (!Array.isArray(gameArr)) continue;
-    const leagues = (gameArr[1] as Record<string, unknown> | undefined)?.leagues as
-      | Record<string, unknown>
-      | undefined;
+    const leagues = (gameArr[1] as Record<string, unknown> | undefined)
+      ?.leagues as Record<string, unknown> | undefined;
     if (!leagues) continue;
     const leagueCount = asNumber(leagues.count);
     for (let l = 0; l < leagueCount; l++) {
-      const leagueWrapper = leagues[String(l)] as Record<string, unknown> | undefined;
+      const leagueWrapper = leagues[String(l)] as
+        | Record<string, unknown>
+        | undefined;
       const leagueArr = leagueWrapper?.league;
       if (!leagueArr) continue;
       const meta = flattenYahooMeta(leagueArr);
@@ -177,7 +180,9 @@ function parseLeaguesList(json: unknown): YahooLeagueMeta[] {
 
 function parseLeagueDetails(json: unknown): YahooLeagueDetails | null {
   const root = json as Record<string, unknown> | undefined;
-  const leagueArr = (root?.fantasy_content as Record<string, unknown> | undefined)?.league;
+  const leagueArr = (
+    root?.fantasy_content as Record<string, unknown> | undefined
+  )?.league;
   if (!Array.isArray(leagueArr)) return null;
   const meta = flattenYahooMeta(leagueArr[0]);
   const leagueKey = String(meta.league_key || "");
@@ -211,18 +216,21 @@ function parseLeagueDetails(json: unknown): YahooLeagueDetails | null {
 function parseTeams(json: unknown): YahooTeam[] {
   const result: YahooTeam[] = [];
   const root = json as Record<string, unknown> | undefined;
-  const leagueArr = (root?.fantasy_content as Record<string, unknown> | undefined)?.league;
+  const leagueArr = (
+    root?.fantasy_content as Record<string, unknown> | undefined
+  )?.league;
   if (!Array.isArray(leagueArr)) return result;
-  const teamsObj = (leagueArr[1] as Record<string, unknown> | undefined)?.teams as
-    | Record<string, unknown>
-    | undefined;
+  const teamsObj = (leagueArr[1] as Record<string, unknown> | undefined)
+    ?.teams as Record<string, unknown> | undefined;
   if (!teamsObj) return result;
   const count = asNumber(teamsObj.count);
   for (let i = 0; i < count; i++) {
     const wrapper = teamsObj[String(i)] as Record<string, unknown> | undefined;
     const teamArr = wrapper?.team;
     if (!teamArr) continue;
-    const meta = flattenYahooMeta(Array.isArray(teamArr) ? teamArr[0] : teamArr);
+    const meta = flattenYahooMeta(
+      Array.isArray(teamArr) ? teamArr[0] : teamArr,
+    );
     const teamKey = String(meta.team_key || "");
     const teamId = asNumber(meta.team_id, NaN);
     const name = String(meta.name || "");
@@ -243,35 +251,40 @@ function parseTeams(json: unknown): YahooTeam[] {
 function parseScoreboard(json: unknown): YahooMatchup[] {
   const result: YahooMatchup[] = [];
   const root = json as Record<string, unknown> | undefined;
-  const leagueArr = (root?.fantasy_content as Record<string, unknown> | undefined)?.league;
+  const leagueArr = (
+    root?.fantasy_content as Record<string, unknown> | undefined
+  )?.league;
   if (!Array.isArray(leagueArr)) return result;
-  const sb = (leagueArr[1] as Record<string, unknown> | undefined)?.scoreboard as
-    | Record<string, unknown>
-    | undefined;
+  const sb = (leagueArr[1] as Record<string, unknown> | undefined)
+    ?.scoreboard as Record<string, unknown> | undefined;
   if (!sb) return result;
-  const matchupsObj = (sb["0"] as Record<string, unknown> | undefined)?.matchups as
-    | Record<string, unknown>
-    | undefined;
+  const matchupsObj = (sb["0"] as Record<string, unknown> | undefined)
+    ?.matchups as Record<string, unknown> | undefined;
   if (!matchupsObj) return result;
   const count = asNumber(matchupsObj.count);
   for (let i = 0; i < count; i++) {
-    const wrapper = matchupsObj[String(i)] as Record<string, unknown> | undefined;
+    const wrapper = matchupsObj[String(i)] as
+      | Record<string, unknown>
+      | undefined;
     const matchup = wrapper?.matchup as Record<string, unknown> | undefined;
     if (!matchup) continue;
     const meta = flattenYahooMeta(matchup);
     const week = asNumber(meta.week, NaN);
     const isPlayoffs = isTruthyFlag(meta.is_playoffs);
-    const teamsHolder = (matchup["0"] as Record<string, unknown> | undefined)?.teams as
-      | Record<string, unknown>
-      | undefined;
+    const teamsHolder = (matchup["0"] as Record<string, unknown> | undefined)
+      ?.teams as Record<string, unknown> | undefined;
     if (!teamsHolder) continue;
     const teamCount = asNumber(teamsHolder.count);
     const teamIds: number[] = [];
     for (let t = 0; t < teamCount; t++) {
-      const tWrapper = teamsHolder[String(t)] as Record<string, unknown> | undefined;
+      const tWrapper = teamsHolder[String(t)] as
+        | Record<string, unknown>
+        | undefined;
       const teamArr = tWrapper?.team;
       if (!teamArr) continue;
-      const tMeta = flattenYahooMeta(Array.isArray(teamArr) ? teamArr[0] : teamArr);
+      const tMeta = flattenYahooMeta(
+        Array.isArray(teamArr) ? teamArr[0] : teamArr,
+      );
       const tId = asNumber(tMeta.team_id, NaN);
       if (Number.isFinite(tId)) teamIds.push(tId);
     }
@@ -326,7 +339,9 @@ async function fetchSeasonRecord(
   });
 
   const regWeeks =
-    details.playoffStartWeek > 0 ? details.playoffStartWeek - 1 : details.endWeek;
+    details.playoffStartWeek > 0
+      ? details.playoffStartWeek - 1
+      : details.endWeek;
   if (regWeeks <= 0) return null;
 
   const weekParam = Array.from({ length: regWeeks }, (_, i) => i + 1).join(",");
@@ -480,10 +495,16 @@ export async function POST(req: Request) {
         );
       }
 
-      const records = await fetchSeasonChain(leagueKey, tokens.accessToken, seasonsCount);
+      const records = await fetchSeasonChain(
+        leagueKey,
+        tokens.accessToken,
+        seasonsCount,
+      );
       if (records.length === 0) {
         return NextResponse.json(
-          { error: "No completed seasons found in this Yahoo league's history." },
+          {
+            error: "No completed seasons found in this Yahoo league's history.",
+          },
           { status: 404 },
         );
       }

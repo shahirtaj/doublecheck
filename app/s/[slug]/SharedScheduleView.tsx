@@ -52,7 +52,9 @@ export function SharedScheduleView({
     placementByWeekPair.set(`${pairKey(p.teamA, p.teamB)}@${p.placedWeek}`, p);
   }
   const summaryTitle =
-    rivalryPlacements.length > 0 ? "Double & Rival Matchups" : "Double Matchups";
+    rivalryPlacements.length > 0
+      ? "Double & Rival Matchups"
+      : "Double Matchups";
 
   const trimmedName = leagueName?.trim();
   const yearLabel = seasonYear ? `${seasonYear} ` : "";
@@ -68,9 +70,7 @@ export function SharedScheduleView({
         .map(
           (week, wi) =>
             `Week ${wi + 1}\n` +
-            week
-              .map(([a, b]) => `  ${teams[a]}  vs  ${teams[b]}`)
-              .join("\n"),
+            week.map(([a, b]) => `  ${teams[a]}  vs  ${teams[b]}`).join("\n"),
         )
         .join("\n\n")
     );
@@ -109,7 +109,9 @@ export function SharedScheduleView({
         </div>
 
         <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
-          <h3 className="text-sm font-bold text-emerald-50 mb-3 text-center">Week {selectedWeek + 1}</h3>
+          <h3 className="text-sm font-bold text-emerald-50 mb-3 text-center">
+            Week {selectedWeek + 1}
+          </h3>
           <div className="flex flex-col gap-2">
             {viewerWeeks[selectedWeek]!.map(([a, b], gi) => {
               const key = pairKey(a, b);
@@ -146,85 +148,97 @@ export function SharedScheduleView({
           </summary>
           <div className="flex flex-col gap-1 mt-2">
             {[...teams.entries()]
-              .sort((a, b) => a[1].localeCompare(b[1], undefined, { numeric: true }))
+              .sort((a, b) =>
+                a[1].localeCompare(b[1], undefined, { numeric: true }),
+              )
               .map(([i, t]) => {
-              type Appearance = { week: number; isPinned: boolean };
-              type Entry = {
-                opponentIdx: number;
-                name: string;
-                appearances: Appearance[];
-                anyPinned: boolean;
-              };
-              // Collect all appearances for team i, grouped by opponent.
-              const byOpponent = new Map<number, Appearance[]>();
-              weeks.forEach((week, wi) => {
-                const W = wi + 1;
-                for (const [a, b] of week) {
-                  const key = pairKey(a, b);
-                  const isDouble = doubledSet.has(key);
-                  const isPinned = placementByWeekPair.has(`${key}@${W}`);
-                  if (!isDouble && !isPinned) continue;
-                  const other = a === i ? b : b === i ? a : null;
-                  if (other === null) continue;
-                  let list = byOpponent.get(other);
-                  if (!list) {
-                    list = [];
-                    byOpponent.set(other, list);
+                type Appearance = { week: number; isPinned: boolean };
+                type Entry = {
+                  opponentIdx: number;
+                  name: string;
+                  appearances: Appearance[];
+                  anyPinned: boolean;
+                };
+                // Collect all appearances for team i, grouped by opponent.
+                const byOpponent = new Map<number, Appearance[]>();
+                weeks.forEach((week, wi) => {
+                  const W = wi + 1;
+                  for (const [a, b] of week) {
+                    const key = pairKey(a, b);
+                    const isDouble = doubledSet.has(key);
+                    const isPinned = placementByWeekPair.has(`${key}@${W}`);
+                    if (!isDouble && !isPinned) continue;
+                    const other = a === i ? b : b === i ? a : null;
+                    if (other === null) continue;
+                    let list = byOpponent.get(other);
+                    if (!list) {
+                      list = [];
+                      byOpponent.set(other, list);
+                    }
+                    list.push({ week: W, isPinned });
                   }
-                  list.push({ week: W, isPinned });
-                }
-              });
-              if (byOpponent.size === 0) return null;
-              const entries: Entry[] = [];
-              byOpponent.forEach((apps, opp) => {
-                apps.sort((x, y) => x.week - y.week);
-                entries.push({
-                  opponentIdx: opp,
-                  name: teams[opp]!,
-                  appearances: apps,
-                  anyPinned: apps.some((a) => a.isPinned),
                 });
-              });
-              entries.sort(
-                (x, y) =>
-                  (x.anyPinned ? 0 : 1) - (y.anyPinned ? 0 : 1) ||
-                  x.name.localeCompare(y.name),
-              );
-              return (
-                <div key={i} className="text-xs px-2 py-1 bg-slate-900 rounded">
-                  <div className="text-slate-200 font-semibold">{t}</div>
-                  <div className="text-slate-500">
-                    {entries.map((e, k) => (
-                      <span key={k}>
-                        {k > 0 ? ", " : ""}
-                        <span className={e.anyPinned ? "text-sky-400" : "text-red-400"}>
-                          {e.name}
-                        </span>
-                        {" ("}
-                        {e.appearances.map((app, j) => (
-                          <span key={j}>
-                            {j > 0 ? ", " : ""}
-                            <span
-                              className={app.isPinned ? "text-sky-400" : "text-red-400"}
-                            >
-                              Week {app.week}
-                            </span>
+                if (byOpponent.size === 0) return null;
+                const entries: Entry[] = [];
+                byOpponent.forEach((apps, opp) => {
+                  apps.sort((x, y) => x.week - y.week);
+                  entries.push({
+                    opponentIdx: opp,
+                    name: teams[opp]!,
+                    appearances: apps,
+                    anyPinned: apps.some((a) => a.isPinned),
+                  });
+                });
+                entries.sort(
+                  (x, y) =>
+                    (x.anyPinned ? 0 : 1) - (y.anyPinned ? 0 : 1) ||
+                    x.name.localeCompare(y.name),
+                );
+                return (
+                  <div
+                    key={i}
+                    className="text-xs px-2 py-1 bg-slate-900 rounded"
+                  >
+                    <div className="text-slate-200 font-semibold">{t}</div>
+                    <div className="text-slate-500">
+                      {entries.map((e, k) => (
+                        <span key={k}>
+                          {k > 0 ? ", " : ""}
+                          <span
+                            className={
+                              e.anyPinned ? "text-sky-400" : "text-red-400"
+                            }
+                          >
+                            {e.name}
                           </span>
-                        ))}
-                        {")"}
-                      </span>
-                    ))}
+                          {" ("}
+                          {e.appearances.map((app, j) => (
+                            <span key={j}>
+                              {j > 0 ? ", " : ""}
+                              <span
+                                className={
+                                  app.isPinned ? "text-sky-400" : "text-red-400"
+                                }
+                              >
+                                Week {app.week}
+                              </span>
+                            </span>
+                          ))}
+                          {")"}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </details>
 
         <p className="text-[11px] text-slate-300 mt-4 text-center">
           {platform === "sleeper" ? (
             <>
-              To apply this schedule, edit your matchups in Sleeper&apos;s League Settings (
+              To apply this schedule, edit your matchups in Sleeper&apos;s
+              League Settings (
               <a
                 href="https://support.sleeper.com/en/articles/1955931-can-i-randomize-my-league-s-schedule"
                 target="_blank"
@@ -237,8 +251,8 @@ export function SharedScheduleView({
             </>
           ) : platform === "espn" ? (
             <>
-              To apply this schedule, go to LM Tools &gt; Edit Head-to-Head Schedule and update
-              each week&apos;s matchups (
+              To apply this schedule, go to LM Tools &gt; Edit Head-to-Head
+              Schedule and update each week&apos;s matchups (
               <a
                 href="https://support.espn.com/hc/en-us/articles/115003914792-Change-League-Schedule-and-or-Head-to-Head-Matchups-LM-Leagues"
                 target="_blank"
@@ -251,8 +265,9 @@ export function SharedScheduleView({
             </>
           ) : platform === "yahoo" ? (
             <>
-              To apply this schedule, go to Commissioner &gt; Schedules &amp; Playoffs &gt; Edit
-              Schedules and update each week&apos;s matchups (
+              To apply this schedule, go to Commissioner &gt; Schedules &amp;
+              Playoffs &gt; Edit Schedules and update each week&apos;s matchups
+              (
               <a
                 href="https://help.yahoo.com/kb/edit-season-schedules-head-to-head-leagues-sln6320.html"
                 target="_blank"
@@ -264,7 +279,10 @@ export function SharedScheduleView({
               ).
             </>
           ) : (
-            <>To apply this schedule, enter these matchups in your league settings.</>
+            <>
+              To apply this schedule, enter these matchups in your league
+              settings.
+            </>
           )}
         </p>
 

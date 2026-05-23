@@ -57,20 +57,26 @@ export async function GET(req: Request) {
   const oauthError = url.searchParams.get("error");
 
   if (oauthError) {
-    const res = NextResponse.redirect(getHomeUrl(req, { yahoo: "error", reason: oauthError }));
+    const res = NextResponse.redirect(
+      getHomeUrl(req, { yahoo: "error", reason: oauthError }),
+    );
     clearStateCookie(res);
     return res;
   }
 
   if (!code || !state) {
-    const res = NextResponse.redirect(getHomeUrl(req, { yahoo: "error", reason: "missing_params" }));
+    const res = NextResponse.redirect(
+      getHomeUrl(req, { yahoo: "error", reason: "missing_params" }),
+    );
     clearStateCookie(res);
     return res;
   }
 
   const storedState = readCookie(req, STATE_COOKIE);
   if (!storedState || storedState !== state) {
-    const res = NextResponse.redirect(getHomeUrl(req, { yahoo: "error", reason: "state_mismatch" }));
+    const res = NextResponse.redirect(
+      getHomeUrl(req, { yahoo: "error", reason: "state_mismatch" }),
+    );
     clearStateCookie(res);
     return res;
   }
@@ -80,7 +86,9 @@ export async function GET(req: Request) {
     tokens = await exchangeAuthCode(code, getRedirectUri());
   } catch (e) {
     const reason = (e as Error).message || "token_exchange_failed";
-    const res = NextResponse.redirect(getHomeUrl(req, { yahoo: "error", reason }));
+    const res = NextResponse.redirect(
+      getHomeUrl(req, { yahoo: "error", reason }),
+    );
     clearStateCookie(res);
     return res;
   }
@@ -92,7 +100,9 @@ export async function GET(req: Request) {
       tokens = await refreshAccessToken(tokens.refreshToken);
     } catch (e) {
       const reason = (e as Error).message || "token_refresh_failed";
-      const res = NextResponse.redirect(getHomeUrl(req, { yahoo: "error", reason }));
+      const res = NextResponse.redirect(
+        getHomeUrl(req, { yahoo: "error", reason }),
+      );
       clearStateCookie(res);
       return res;
     }

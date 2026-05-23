@@ -76,7 +76,11 @@ export function StepSchedule(props: StepScheduleProps) {
         entryFormat = "index";
       }
 
-      const entry: SeasonHistory = { season: seasonLabel, doubles, format: entryFormat };
+      const entry: SeasonHistory = {
+        season: seasonLabel,
+        doubles,
+        format: entryFormat,
+      };
       nextHistory = [...history, entry];
       nextManualDoubles = [];
       patch({
@@ -147,7 +151,9 @@ export function StepSchedule(props: StepScheduleProps) {
   // dedicated Copy button stays in lockstep with what the user sees there.
   function formatScheduleText(): string {
     if (!schedule) return "";
-    const heading = leagueName ? `${leagueName} ${scheduleYear} Schedule\n\n` : "";
+    const heading = leagueName
+      ? `${leagueName} ${scheduleYear} Schedule\n\n`
+      : "";
     return (
       heading +
       (displayWeeks ?? schedule.weeks)
@@ -156,8 +162,7 @@ export function StepSchedule(props: StepScheduleProps) {
             `Week ${wi + 1}\n` +
             week
               .map(
-                ([a, b]: [number, number]) =>
-                  `  ${teams[a]}  vs  ${teams[b]}`,
+                ([a, b]: [number, number]) => `  ${teams[a]}  vs  ${teams[b]}`,
               )
               .join("\n"),
         )
@@ -180,19 +185,21 @@ export function StepSchedule(props: StepScheduleProps) {
   return (
     <div className={cls.card}>
       <h2 className={cls.cardTitle}>
-        {leagueName ? `${leagueName} ${scheduleYear} Schedule` : "Generated Schedule"}
+        {leagueName
+          ? `${leagueName} ${scheduleYear} Schedule`
+          : "Generated Schedule"}
       </h2>
 
       {schedule.hardRepeated.length > 0 && (
         <div className="bg-amber-950 border border-amber-800 rounded-md px-3 py-2 text-[11px] text-amber-400 mb-3">
-          ⚠ {schedule.hardRepeated.length} hard-avoid pair(s) couldn&apos;t be skipped
-          (marked ★). This shouldn&apos;t happen with clean history.
+          ⚠ {schedule.hardRepeated.length} hard-avoid pair(s) couldn&apos;t be
+          skipped (marked ★). This shouldn&apos;t happen with clean history.
         </div>
       )}
       {schedule.softRepeated.length > 0 && (
         <p className="text-[11px] text-slate-400 mb-3">
-          {schedule.softRepeated.length} pair(s) repeated from older seasons - this is
-          expected to maintain the rotation.
+          {schedule.softRepeated.length} pair(s) repeated from older seasons -
+          this is expected to maintain the rotation.
         </p>
       )}
 
@@ -224,7 +231,9 @@ export function StepSchedule(props: StepScheduleProps) {
           );
         }
         const hasRivalries = schedule.rivalryPlacements.length > 0;
-        const summaryTitle = hasRivalries ? "Double & Rival Matchups" : "Double Matchups";
+        const summaryTitle = hasRivalries
+          ? "Double & Rival Matchups"
+          : "Double Matchups";
         return (
           <>
             <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
@@ -253,7 +262,9 @@ export function StepSchedule(props: StepScheduleProps) {
                         <span className="flex-1 text-[13px] text-slate-200 text-center">
                           {teams[a]}
                         </span>
-                        <span className={`text-[11px] font-bold ${vsTone}`}>vs</span>
+                        <span className={`text-[11px] font-bold ${vsTone}`}>
+                          vs
+                        </span>
                         <span className="flex-1 text-[13px] text-slate-200 text-center">
                           {teams[b]}
                         </span>
@@ -273,85 +284,92 @@ export function StepSchedule(props: StepScheduleProps) {
               </summary>
               <div className="flex flex-col gap-1 mt-2">
                 {[...teams.entries()]
-                  .sort((a, b) => a[1].localeCompare(b[1], undefined, { numeric: true }))
+                  .sort((a, b) =>
+                    a[1].localeCompare(b[1], undefined, { numeric: true }),
+                  )
                   .map(([i, t]) => {
-                  type Appearance = { week: number; isPinned: boolean };
-                  type Entry = {
-                    opponentIdx: number;
-                    name: string;
-                    appearances: Appearance[];
-                    anyPinned: boolean;
-                  };
-                  // Collect all appearances for team i, grouped by opponent.
-                  const byOpponent = new Map<number, Appearance[]>();
-                  schedule.weeks.forEach((week, wi) => {
-                    const W = wi + 1;
-                    for (const [a, b] of week) {
-                      const key = pairKey(a, b);
-                      const isDouble = schedule.doubledPairs.has(key);
-                      const isPinned = placementByWeekPair.has(`${key}@${W}`);
-                      if (!isDouble && !isPinned) continue;
-                      const other = a === i ? b : b === i ? a : null;
-                      if (other === null) continue;
-                      let list = byOpponent.get(other);
-                      if (!list) {
-                        list = [];
-                        byOpponent.set(other, list);
+                    type Appearance = { week: number; isPinned: boolean };
+                    type Entry = {
+                      opponentIdx: number;
+                      name: string;
+                      appearances: Appearance[];
+                      anyPinned: boolean;
+                    };
+                    // Collect all appearances for team i, grouped by opponent.
+                    const byOpponent = new Map<number, Appearance[]>();
+                    schedule.weeks.forEach((week, wi) => {
+                      const W = wi + 1;
+                      for (const [a, b] of week) {
+                        const key = pairKey(a, b);
+                        const isDouble = schedule.doubledPairs.has(key);
+                        const isPinned = placementByWeekPair.has(`${key}@${W}`);
+                        if (!isDouble && !isPinned) continue;
+                        const other = a === i ? b : b === i ? a : null;
+                        if (other === null) continue;
+                        let list = byOpponent.get(other);
+                        if (!list) {
+                          list = [];
+                          byOpponent.set(other, list);
+                        }
+                        list.push({ week: W, isPinned });
                       }
-                      list.push({ week: W, isPinned });
-                    }
-                  });
-                  if (byOpponent.size === 0) return null;
-                  const entries: Entry[] = [];
-                  byOpponent.forEach((apps, opp) => {
-                    apps.sort((x, y) => x.week - y.week);
-                    entries.push({
-                      opponentIdx: opp,
-                      name: teams[opp]!,
-                      appearances: apps,
-                      anyPinned: apps.some((a) => a.isPinned),
                     });
-                  });
-                  // Pinned-rivalry entries first, then alphabetical by name.
-                  entries.sort(
-                    (x, y) =>
-                      (x.anyPinned ? 0 : 1) - (y.anyPinned ? 0 : 1) ||
-                      x.name.localeCompare(y.name),
-                  );
-                  return (
-                    <div key={i} className="text-xs px-2 py-1 bg-slate-900 rounded">
-                      <div className="text-slate-200 font-semibold">{t}</div>
-                      <div className="text-slate-500">
-                        {entries.map((e, k) => (
-                          <span key={k}>
-                            {k > 0 ? ", " : ""}
-                            <span
-                              className={
-                                e.anyPinned ? "text-sky-400" : "text-red-400"
-                              }
-                            >
-                              {e.name}
-                            </span>
-                            {" ("}
-                            {e.appearances.map((app, j) => (
-                              <span key={j}>
-                                {j > 0 ? ", " : ""}
-                                <span
-                                  className={
-                                    app.isPinned ? "text-sky-400" : "text-red-400"
-                                  }
-                                >
-                                  Week {app.week}
-                                </span>
+                    if (byOpponent.size === 0) return null;
+                    const entries: Entry[] = [];
+                    byOpponent.forEach((apps, opp) => {
+                      apps.sort((x, y) => x.week - y.week);
+                      entries.push({
+                        opponentIdx: opp,
+                        name: teams[opp]!,
+                        appearances: apps,
+                        anyPinned: apps.some((a) => a.isPinned),
+                      });
+                    });
+                    // Pinned-rivalry entries first, then alphabetical by name.
+                    entries.sort(
+                      (x, y) =>
+                        (x.anyPinned ? 0 : 1) - (y.anyPinned ? 0 : 1) ||
+                        x.name.localeCompare(y.name),
+                    );
+                    return (
+                      <div
+                        key={i}
+                        className="text-xs px-2 py-1 bg-slate-900 rounded"
+                      >
+                        <div className="text-slate-200 font-semibold">{t}</div>
+                        <div className="text-slate-500">
+                          {entries.map((e, k) => (
+                            <span key={k}>
+                              {k > 0 ? ", " : ""}
+                              <span
+                                className={
+                                  e.anyPinned ? "text-sky-400" : "text-red-400"
+                                }
+                              >
+                                {e.name}
                               </span>
-                            ))}
-                            {")"}
-                          </span>
-                        ))}
+                              {" ("}
+                              {e.appearances.map((app, j) => (
+                                <span key={j}>
+                                  {j > 0 ? ", " : ""}
+                                  <span
+                                    className={
+                                      app.isPinned
+                                        ? "text-sky-400"
+                                        : "text-red-400"
+                                    }
+                                  >
+                                    Week {app.week}
+                                  </span>
+                                </span>
+                              ))}
+                              {")"}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             </details>
           </>
@@ -395,8 +413,8 @@ export function StepSchedule(props: StepScheduleProps) {
             </button>
           </div>
           <p className="text-[11px] text-slate-400 mt-2">
-            Bookmark your share link — you can restore your league from it
-            next season on any device.
+            Bookmark your share link — you can restore your league from it next
+            season on any device.
           </p>
         </div>
       )}
@@ -407,7 +425,8 @@ export function StepSchedule(props: StepScheduleProps) {
       <p className="text-[11px] text-slate-300 mt-4 text-center">
         {platform === "sleeper" ? (
           <>
-            To apply this schedule, edit your matchups in Sleeper&apos;s League Settings (
+            To apply this schedule, edit your matchups in Sleeper&apos;s League
+            Settings (
             <a
               href="https://support.sleeper.com/en/articles/1955931-can-i-randomize-my-league-s-schedule"
               target="_blank"
@@ -420,8 +439,8 @@ export function StepSchedule(props: StepScheduleProps) {
           </>
         ) : platform === "espn" ? (
           <>
-            To apply this schedule, go to LM Tools &gt; Edit Head-to-Head Schedule and update
-            each week&apos;s matchups (
+            To apply this schedule, go to LM Tools &gt; Edit Head-to-Head
+            Schedule and update each week&apos;s matchups (
             <a
               href="https://support.espn.com/hc/en-us/articles/115003914792-Change-League-Schedule-and-or-Head-to-Head-Matchups-LM-Leagues"
               target="_blank"
@@ -434,8 +453,8 @@ export function StepSchedule(props: StepScheduleProps) {
           </>
         ) : platform === "yahoo" ? (
           <>
-            To apply this schedule, go to Commissioner &gt; Schedules &amp; Playoffs &gt; Edit
-            Schedules and update each week&apos;s matchups (
+            To apply this schedule, go to Commissioner &gt; Schedules &amp;
+            Playoffs &gt; Edit Schedules and update each week&apos;s matchups (
             <a
               href="https://help.yahoo.com/kb/edit-season-schedules-head-to-head-leagues-sln6320.html"
               target="_blank"
@@ -447,7 +466,10 @@ export function StepSchedule(props: StepScheduleProps) {
             ).
           </>
         ) : (
-          <>To apply this schedule, enter these matchups in your league settings.</>
+          <>
+            To apply this schedule, enter these matchups in your league
+            settings.
+          </>
         )}
       </p>
 

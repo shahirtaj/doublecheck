@@ -47,23 +47,31 @@ function isValidPayload(v: unknown): v is SharedPayload {
   ) {
     return false;
   }
-  if (obj.leagueName !== undefined && typeof obj.leagueName !== "string") return false;
+  if (obj.leagueName !== undefined && typeof obj.leagueName !== "string")
+    return false;
   if (
     obj.seasonYear !== undefined &&
     (typeof obj.seasonYear !== "number" || !Number.isInteger(obj.seasonYear))
   ) {
     return false;
   }
-  if (obj.platform !== undefined && typeof obj.platform !== "string") return false;
+  if (obj.platform !== undefined && typeof obj.platform !== "string")
+    return false;
   if (!Array.isArray(obj.teams)) return false;
   const schedule = obj.schedule as Record<string, unknown> | undefined;
   if (!schedule) return false;
   if (!Array.isArray(schedule.weeks)) return false;
   if (!Array.isArray(schedule.doubledPairs)) return false;
-  if (schedule.displayWeeks !== undefined && !Array.isArray(schedule.displayWeeks)) {
+  if (
+    schedule.displayWeeks !== undefined &&
+    !Array.isArray(schedule.displayWeeks)
+  ) {
     return false;
   }
-  if (schedule.rivalryPlacements !== undefined && !Array.isArray(schedule.rivalryPlacements)) {
+  if (
+    schedule.rivalryPlacements !== undefined &&
+    !Array.isArray(schedule.rivalryPlacements)
+  ) {
     return false;
   }
   return true;
@@ -87,7 +95,8 @@ export async function generateMetadata({
   const { slug } = await params;
   const data = await getShareData(slug);
   const fallbackTitle = "DoubleCheck - Shared Schedule";
-  const fallbackDescription = "View this shared fantasy football schedule on DoubleCheck";
+  const fallbackDescription =
+    "View this shared fantasy football schedule on DoubleCheck";
 
   if (!isValidPayload(data)) {
     return {
@@ -124,10 +133,12 @@ export async function generateMetadata({
 function NotFoundView() {
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 max-w-[700px] mx-auto text-center">
-      <h2 className="text-base font-bold text-emerald-50 mb-2">Link Expired or Not Found</h2>
+      <h2 className="text-base font-bold text-emerald-50 mb-2">
+        Link Expired or Not Found
+      </h2>
       <p className="text-xs text-slate-400 leading-relaxed mb-4">
-        Shared schedules expire after 365 days. Ask whoever sent you the link to regenerate it
-        at{" "}
+        Shared schedules expire after 365 days. Ask whoever sent you the link to
+        regenerate it at{" "}
         <a
           href="https://doublecheckff.com"
           className="text-emerald-400 hover:text-emerald-300"

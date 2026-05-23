@@ -26,7 +26,7 @@
 
 ## Subject Line Rules
 
-1. Complete the sentence: "If applied, this commit will ___"
+1. Complete the sentence: "If applied, this commit will \_\_\_"
 2. Use imperative mood: "Add" not "Added" or "Adds"
 3. Capitalize the first word after the type prefix
 4. No period at the end
@@ -95,22 +95,26 @@ Bad:
 ```
 updated stuff
 ```
+
 No type, no scope, no imperative mood, no specificity.
 
 ```
 fix: Fix the bug
 ```
+
 Which bug? This tells a future reader nothing.
 
 ```
 feat(auth): Add OAuth2 PKCE flow, update user model,
 refactor session handling, and fix token expiry bug
 ```
+
 This is four commits stuffed into one. Split it.
 
 ```
 address PR feedback
 ```
+
 Describe the actual changes, not the reason you're committing.
 
 ## Atomic Commits

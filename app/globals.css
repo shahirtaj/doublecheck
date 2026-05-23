@@ -7,5 +7,6 @@ body {
   background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
   min-height: 100vh;
   color: #e2e8f0;
-  font-family: "JetBrains Mono", "SF Mono", "Fira Code", ui-monospace, monospace;
+  font-family:
+    "JetBrains Mono", "SF Mono", "Fira Code", ui-monospace, monospace;
 }

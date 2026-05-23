@@ -1,10 +1,17 @@
 import type { LookbackWindow, Matching } from "@/lib/algorithm";
-import type { ImportPlatform, ImportedSeasonRecord, SelectedFormat } from "./types";
+import type {
+  ImportPlatform,
+  ImportedSeasonRecord,
+  SelectedFormat,
+} from "./types";
 
 // Map a single-number lookback override (the total of hard + soft) back into
 // the LookbackWindow shape buildAvoidMap expects. We preserve the format's
 // hard count when possible, with any extra falling into soft.
-export function deriveLookback(override: number, formatLookback: LookbackWindow): LookbackWindow {
+export function deriveLookback(
+  override: number,
+  formatLookback: LookbackWindow,
+): LookbackWindow {
   const total = Math.max(0, Math.floor(override));
   const hard = Math.min(total, formatLookback.hard);
   const soft = Math.max(0, total - hard);
@@ -14,7 +21,9 @@ export function deriveLookback(override: number, formatLookback: LookbackWindow)
 // Derive a format from an imported season record. Returns null if the season
 // doesn't carry enough information (missing regWeeks, odd team count, or week
 // count outside the round-robin range) for us to set the format from it.
-export function detectFormatFromImport(season: ImportedSeasonRecord): SelectedFormat | null {
+export function detectFormatFromImport(
+  season: ImportedSeasonRecord,
+): SelectedFormat | null {
   const teamCount = season.teamNames?.length ?? 0;
   const weekCount = season.regWeeks ?? 0;
   if (teamCount < 2 || teamCount % 2 !== 0) return null;

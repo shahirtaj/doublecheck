@@ -104,7 +104,10 @@ export type ScheduleFailure = {
   message: string;
 };
 
-export type ScheduleResult = ScheduleSuccess | ScheduleSkipped | ScheduleFailure;
+export type ScheduleResult =
+  | ScheduleSuccess
+  | ScheduleSkipped
+  | ScheduleFailure;
 
 // Identity format used to record a season's doubles for future avoidance.
 // "index": pair keys are "i-j" referring to team indices in this season's roster.

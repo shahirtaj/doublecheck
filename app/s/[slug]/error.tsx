@@ -32,10 +32,12 @@ export default function SharedScheduleError({
       </div>
 
       <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 max-w-[700px] mx-auto text-center">
-        <h2 className="text-base font-bold text-emerald-50 mb-2">Something went wrong</h2>
+        <h2 className="text-base font-bold text-emerald-50 mb-2">
+          Something went wrong
+        </h2>
         <p className="text-xs text-slate-400 leading-relaxed mb-4">
-          We couldn&apos;t load this shared schedule. Try resetting, or ask whoever sent
-          you the link to regenerate it at{" "}
+          We couldn&apos;t load this shared schedule. Try resetting, or ask
+          whoever sent you the link to regenerate it at{" "}
           <a
             href="https://doublecheckff.com"
             className="text-emerald-400 hover:text-emerald-300"
@@ -51,7 +53,9 @@ export default function SharedScheduleError({
           Reset
         </button>
         {error.digest && (
-          <p className="text-[10px] text-slate-600 mt-4">Error ID: {error.digest}</p>
+          <p className="text-[10px] text-slate-600 mt-4">
+            Error ID: {error.digest}
+          </p>
         )}
       </div>
     </div>

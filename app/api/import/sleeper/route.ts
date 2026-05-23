@@ -91,7 +91,9 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-async function lookupUserLeagues(username: string): Promise<SleeperLeagueOption[]> {
+async function lookupUserLeagues(
+  username: string,
+): Promise<SleeperLeagueOption[]> {
   let user: { user_id?: string } | null;
   try {
     user = await fetchJson<{ user_id?: string } | null>(
@@ -134,8 +136,9 @@ async function fetchUserLeaguesForYear(
   }
   if (!Array.isArray(leagues)) return [];
   return leagues
-    .filter((l): l is SleeperLeague & { league_id: string } =>
-      typeof l?.league_id === "string" && l.league_id.length > 0,
+    .filter(
+      (l): l is SleeperLeague & { league_id: string } =>
+        typeof l?.league_id === "string" && l.league_id.length > 0,
     )
     .map((l) => ({
       leagueId: l.league_id,
@@ -177,12 +180,15 @@ async function discoverChain(
 
     let week1: SleeperMatchup[] | null = null;
     try {
-      week1 = await fetchJson<SleeperMatchup[]>(`${BASE}/league/${currentId}/matchups/1`);
+      week1 = await fetchJson<SleeperMatchup[]>(
+        `${BASE}/league/${currentId}/matchups/1`,
+      );
     } catch {
       week1 = null;
     }
     const hasData =
-      Array.isArray(week1) && week1.some((m) => m.matchup_id != null && (m.points ?? 0) > 0);
+      Array.isArray(week1) &&
+      week1.some((m) => m.matchup_id != null && (m.points ?? 0) > 0);
 
     seasons.push({
       leagueId: league.league_id,
@@ -197,9 +203,16 @@ async function discoverChain(
   return seasons;
 }
 
-async function fetchSeason(leagueId: string, settings: DiscoveredSeason["settings"]) {
-  const users = await fetchJson<SleeperUser[]>(`${BASE}/league/${leagueId}/users`);
-  const rosters = await fetchJson<SleeperRoster[]>(`${BASE}/league/${leagueId}/rosters`);
+async function fetchSeason(
+  leagueId: string,
+  settings: DiscoveredSeason["settings"],
+) {
+  const users = await fetchJson<SleeperUser[]>(
+    `${BASE}/league/${leagueId}/users`,
+  );
+  const rosters = await fetchJson<SleeperRoster[]>(
+    `${BASE}/league/${leagueId}/rosters`,
+  );
 
   const usersArr = Array.isArray(users) ? users : [];
   const rostersArr = Array.isArray(rosters) ? rosters : [];
@@ -219,11 +232,15 @@ async function fetchSeason(leagueId: string, settings: DiscoveredSeason["setting
   const userIds: (string | null)[] = [];
   sorted.forEach((r, idx) => {
     rosterIdToIdx[r.roster_id] = idx;
-    teamNames.push((r.owner_id && ownerInfo[r.owner_id]) || `Roster ${r.roster_id}`);
+    teamNames.push(
+      (r.owner_id && ownerInfo[r.owner_id]) || `Roster ${r.roster_id}`,
+    );
     userIds.push(r.owner_id || null);
   });
 
-  const regWeeks = settings?.playoff_week_start ? settings.playoff_week_start - 1 : 14;
+  const regWeeks = settings?.playoff_week_start
+    ? settings.playoff_week_start - 1
+    : 14;
 
   const allPairs: [number, number][] = [];
   for (let week = 1; week <= regWeeks; week++) {
@@ -255,7 +272,13 @@ async function fetchSeason(leagueId: string, settings: DiscoveredSeason["setting
     .filter(([, v]) => v > 1)
     .map(([k]) => k);
 
-  return { teamNames, userIds, doubles, totalMatchups: allPairs.length, regWeeks };
+  return {
+    teamNames,
+    userIds,
+    doubles,
+    totalMatchups: allPairs.length,
+    regWeeks,
+  };
 }
 
 export async function POST(req: Request) {
@@ -284,14 +307,19 @@ export async function POST(req: Request) {
     try {
       body = (await req.json()) as { leagueId?: string; username?: string };
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid JSON body." },
+        { status: 400 },
+      );
     }
 
     const username = (body.username || "").trim();
     if (username) {
       if (username.length > MAX_USERNAME_LENGTH) {
         return NextResponse.json(
-          { error: `Username too long (max ${MAX_USERNAME_LENGTH} characters).` },
+          {
+            error: `Username too long (max ${MAX_USERNAME_LENGTH} characters).`,
+          },
           { status: 400 },
         );
       }
@@ -331,7 +359,10 @@ export async function POST(req: Request) {
     const leagueId = (body.leagueId || "").trim();
     if (!leagueId || !/^\d+$/.test(leagueId) || /^0+$/.test(leagueId)) {
       return NextResponse.json(
-        { error: "Provide a Sleeper username or a positive numeric Sleeper league ID." },
+        {
+          error:
+            "Provide a Sleeper username or a positive numeric Sleeper league ID.",
+        },
         { status: 400 },
       );
     }
@@ -345,7 +376,9 @@ export async function POST(req: Request) {
       }
       console.error("[/api/import/sleeper] discoverChain failed:", e);
       return NextResponse.json(
-        { error: `Failed to fetch league chain from Sleeper: ${(e as Error).message}` },
+        {
+          error: `Failed to fetch league chain from Sleeper: ${(e as Error).message}`,
+        },
         { status: 502 },
       );
     }

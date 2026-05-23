@@ -14,7 +14,8 @@ const FAVICON_DATA_URL = `data:image/svg+xml;utf8,${encodeURIComponent(FAVICON_S
 const SITE_TITLE = "DoubleCheck - Fair Fantasy Football Schedules";
 const SITE_DESCRIPTION =
   "Stop playing the same opponents twice every season. DoubleCheck generates mathematically fair rotational schedules for fantasy football leagues.";
-const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://doublecheckff.com";
+const SITE_URL =
+  process.env.NEXT_PUBLIC_BASE_URL ?? "https://doublecheckff.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

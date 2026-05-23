@@ -30,15 +30,15 @@ In a 12-team, 14-week fantasy football league, each team plays 3 opponents twice
 
 ## Supported formats
 
-| Format | Doubles/team | Singles/team | Rotation cycle | Notes |
-| ------ | ------------ | ------------ | -------------- | ----- |
-| 8 / 13 | 6 | 1 | ~7 years | Inverted problem (who do you NOT double) |
-| 10 / 13 | 4 | 5 | ~3 years | |
-| 10 / 14 | 5 | 4 | ~2 years | |
-| 12 / 13 | 2 | 9 | ~6 years | |
-| 12 / 14 | 3 | 8 | ~4 years | Most common league shape |
-| 14 / 14 | 1 | 12 | ~13 years | Minimal impact, tool should be transparent |
-| 14 / 15 | 2 | 11 | ~7 years | |
+| Format  | Doubles/team | Singles/team | Rotation cycle | Notes                                      |
+| ------- | ------------ | ------------ | -------------- | ------------------------------------------ |
+| 8 / 13  | 6            | 1            | ~7 years       | Inverted problem (who do you NOT double)   |
+| 10 / 13 | 4            | 5            | ~3 years       |                                            |
+| 10 / 14 | 5            | 4            | ~2 years       |                                            |
+| 12 / 13 | 2            | 9            | ~6 years       |                                            |
+| 12 / 14 | 3            | 8            | ~4 years       | Most common league shape                   |
+| 14 / 14 | 1            | 12           | ~13 years      | Minimal impact, tool should be transparent |
+| 14 / 15 | 2            | 11           | ~7 years       |                                            |
 
 Formats with zero doubles (e.g., 14-team / 13-week) are pure round-robins - the tool detects these and tells the user no schedule is needed.
 
@@ -50,13 +50,13 @@ Odd-number leagues and 16+ team leagues are out of scope.
 
 ## Platform landscape
 
-| Platform | Users | API | Auth | Status |
-| -------- | ----- | --- | ---- | ------ |
-| Sleeper | Fastest growing | Fully public, free | None | ✅ Integrated |
-| ESPN | ~13M | Undocumented, fragile | Cookies for private leagues | ✅ Integrated (public leagues) |
-| Yahoo | ~5-10M | Official, OAuth 2.0 | Developer app registration | ✅ Integrated (OAuth 2.0) |
-| NFL.com | Small | None | N/A | Not supported |
-| CBS | Small | None | N/A | Not supported |
+| Platform | Users           | API                   | Auth                        | Status                         |
+| -------- | --------------- | --------------------- | --------------------------- | ------------------------------ |
+| Sleeper  | Fastest growing | Fully public, free    | None                        | ✅ Integrated                  |
+| ESPN     | ~13M            | Undocumented, fragile | Cookies for private leagues | ✅ Integrated (public leagues) |
+| Yahoo    | ~5-10M          | Official, OAuth 2.0   | Developer app registration  | ✅ Integrated (OAuth 2.0)      |
+| NFL.com  | Small           | None                  | N/A                         | Not supported                  |
+| CBS      | Small           | None                  | N/A                         | Not supported                  |
 
 No write APIs exist on any platform for schedule input. Commissioners enter the generated schedule manually through their platform's commissioner tools. This is a one-time annual task (~10 minutes).
 
@@ -64,20 +64,20 @@ No write APIs exist on any platform for schedule input. Commissioners enter the 
 
 ## Tech stack
 
-| Layer | Choice | Rationale |
-| ----- | ------ | --------- |
-| Framework | Next.js 16 (App Router, Turbopack default) | SSR for SEO landing page, API routes for proxy, React for app |
-| UI | React 19 | Latest stable React runtime |
-| Language | TypeScript | Type safety for the algorithm and API integrations |
-| Styling | Tailwind CSS | Standard for Next.js, rapid responsive development |
-| Linting | ESLint 9 (flat config in `eslint.config.mjs`) | Enforced in CI; `next lint` was removed in Next 16 so we call ESLint directly |
-| Deployment | Vercel | Native Next.js support, serverless functions, free tier |
-| Domain | doublecheckff.com | Purchased via Vercel |
-| Storage (v2) | Upstash Redis | Stores share-link payloads keyed by short slug; no auth or user accounts needed. Originally Vercel KV; auto-migrated to Upstash Redis when Vercel KV was deprecated. |
-| Analytics | Vercel Web Analytics | Free tier, zero-config on Vercel, privacy-friendly (no cookies, no PII) |
-| Testing | Vitest | Fast, TypeScript-native |
-| CI | GitHub Actions | Typecheck + lint + test + build on push/PR to main |
-| License | MIT | Maximizes credibility, community signal |
+| Layer        | Choice                                        | Rationale                                                                                                                                                            |
+| ------------ | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework    | Next.js 16 (App Router, Turbopack default)    | SSR for SEO landing page, API routes for proxy, React for app                                                                                                        |
+| UI           | React 19                                      | Latest stable React runtime                                                                                                                                          |
+| Language     | TypeScript                                    | Type safety for the algorithm and API integrations                                                                                                                   |
+| Styling      | Tailwind CSS                                  | Standard for Next.js, rapid responsive development                                                                                                                   |
+| Linting      | ESLint 9 (flat config in `eslint.config.mjs`) | Enforced in CI; `next lint` was removed in Next 16 so we call ESLint directly                                                                                        |
+| Deployment   | Vercel                                        | Native Next.js support, serverless functions, free tier                                                                                                              |
+| Domain       | doublecheckff.com                             | Purchased via Vercel                                                                                                                                                 |
+| Storage (v2) | Upstash Redis                                 | Stores share-link payloads keyed by short slug; no auth or user accounts needed. Originally Vercel KV; auto-migrated to Upstash Redis when Vercel KV was deprecated. |
+| Analytics    | Vercel Web Analytics                          | Free tier, zero-config on Vercel, privacy-friendly (no cookies, no PII)                                                                                              |
+| Testing      | Vitest                                        | Fast, TypeScript-native                                                                                                                                              |
+| CI           | GitHub Actions                                | Typecheck + lint + test + build on push/PR to main                                                                                                                   |
+| License      | MIT                                           | Maximizes credibility, community signal                                                                                                                              |
 
 localStorage for local state. Upstash Redis for shareable links.
 

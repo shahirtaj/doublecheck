@@ -36,7 +36,9 @@ function assertSuccess(
   result: ReturnType<typeof buildSchedule>,
 ): asserts result is ScheduleSuccess {
   if (!result.ok) {
-    throw new Error(`expected schedule to succeed, got ${"reason" in result ? result.reason : "unknown"}`);
+    throw new Error(
+      `expected schedule to succeed, got ${"reason" in result ? result.reason : "unknown"}`,
+    );
   }
 }
 
@@ -98,7 +100,10 @@ describe.each(FORMATS)(
 
     it("every team plays every opponent at least once", () => {
       assertSuccess(result);
-      const opponents: Set<number>[] = Array.from({ length: teams }, () => new Set<number>());
+      const opponents: Set<number>[] = Array.from(
+        { length: teams },
+        () => new Set<number>(),
+      );
       for (const week of result.weeks) {
         for (const [a, b] of week) {
           opponents[a]!.add(b);
@@ -209,7 +214,9 @@ describe("describeFormat", () => {
       expect(f.doubleMatchingsCount).toBe(doublesPerTeam);
       expect(f.singleMatchingsCount).toBe(singlesPerTeam);
       expect(f.separation).toBe(weeks - doublesPerTeam);
-      expect(f.variant).toBe(doublesPerTeam > singlesPerTeam ? "inverted" : "standard");
+      expect(f.variant).toBe(
+        doublesPerTeam > singlesPerTeam ? "inverted" : "standard",
+      );
     },
   );
 
@@ -299,7 +306,11 @@ describe("buildSchedule rivalry pins", () => {
       random: mulberry32(0x3333),
     });
     assertSuccess(r);
-    expect(r.weeks[5]!.some(([a, b]) => (a === 4 && b === 5) || (a === 5 && b === 4))).toBe(true);
+    expect(
+      r.weeks[5]!.some(
+        ([a, b]) => (a === 4 && b === 5) || (a === 5 && b === 4),
+      ),
+    ).toBe(true);
     expect(r.doubledPairs.has(pairKey(4, 5))).toBe(false);
     expect(r.rivalryPlacements[0]).toMatchObject({
       pinnedWeek: 6,
@@ -316,8 +327,12 @@ describe("buildSchedule rivalry pins", () => {
     });
     assertSuccess(r);
     const week2 = r.weeks[1]!;
-    expect(week2.some(([a, b]) => (a === 0 && b === 1) || (a === 1 && b === 0))).toBe(true);
-    expect(week2.some(([a, b]) => (a === 4 && b === 5) || (a === 5 && b === 4))).toBe(true);
+    expect(
+      week2.some(([a, b]) => (a === 0 && b === 1) || (a === 1 && b === 0)),
+    ).toBe(true);
+    expect(
+      week2.some(([a, b]) => (a === 4 && b === 5) || (a === 5 && b === 4)),
+    ).toBe(true);
   });
 
   it("rejects two pins that put the same team in the same week", () => {
@@ -733,25 +748,45 @@ describe("buildSchedule rivalry pins", () => {
   // across two arbitrary weeks while everything else differs) would need a
   // restructure where pairs can live in two different matchings.
   describe("multiple full rivalry weeks", () => {
-    function partition(pairs: Array<[number, number]>, week: number): RivalryPin[] {
+    function partition(
+      pairs: Array<[number, number]>,
+      week: number,
+    ): RivalryPin[] {
       return pairs.map(([a, b]) => pinTo(week, a, b));
     }
     // Three disjoint perfect matchings of 12 teams. Picked so each team's
     // partner differs across the three: e.g., team 0 paired with 1, 2, 3.
     const PART_A: Array<[number, number]> = [
-      [0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11],
+      [0, 1],
+      [2, 3],
+      [4, 5],
+      [6, 7],
+      [8, 9],
+      [10, 11],
     ];
     const PART_B: Array<[number, number]> = [
-      [0, 2], [1, 3], [4, 6], [5, 7], [8, 10], [9, 11],
+      [0, 2],
+      [1, 3],
+      [4, 6],
+      [5, 7],
+      [8, 10],
+      [9, 11],
     ];
     const PART_C: Array<[number, number]> = [
-      [0, 3], [1, 2], [4, 7], [5, 6], [8, 11], [9, 10],
+      [0, 3],
+      [1, 2],
+      [4, 7],
+      [5, 6],
+      [8, 11],
+      [9, 10],
     ];
 
     it("two full rivalry weeks with different matchups (12/14, weeks 1 & 14)", () => {
       const pins = [...partition(PART_A, 1), ...partition(PART_C, 14)];
       const r = buildSchedule({
-        teamCount: 12, weekCount: 14, rivalryPins: pins,
+        teamCount: 12,
+        weekCount: 14,
+        rivalryPins: pins,
         random: mulberry32(0x2fa11),
       });
       assertSuccess(r);
@@ -780,7 +815,9 @@ describe("buildSchedule rivalry pins", () => {
         ...partition(PART_C, 14),
       ];
       const r = buildSchedule({
-        teamCount: 12, weekCount: 14, rivalryPins: pins,
+        teamCount: 12,
+        weekCount: 14,
+        rivalryPins: pins,
         random: mulberry32(0x3fa11),
       });
       assertSuccess(r);
@@ -810,7 +847,9 @@ describe("buildSchedule rivalry pins", () => {
         ...partition(PART_B, 6),
       ];
       const r = buildSchedule({
-        teamCount: 12, weekCount: 14, rivalryPins: pins,
+        teamCount: 12,
+        weekCount: 14,
+        rivalryPins: pins,
         random: mulberry32(0x33333),
       });
       assertSuccess(r);
@@ -839,28 +878,50 @@ describe("buildSchedule rivalry pins", () => {
     it("rejects a pin appearing in 3 full rivalry weeks (exceeds cap=2)", () => {
       // (0, 1) appears in every partition, giving it 3 pins — over the
       // 12/14 cap of ceil(14/11) = 2. The algorithm should refuse.
-      const overlap: Array<[number, number]> = [[0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11]];
-      const partTwo: Array<[number, number]> = [[0, 1], [2, 4], [3, 5], [6, 8], [7, 11], [9, 10]];
-      const partThree: Array<[number, number]> = [[0, 1], [2, 5], [3, 4], [6, 9], [7, 10], [8, 11]];
+      const overlap: Array<[number, number]> = [
+        [0, 1],
+        [2, 3],
+        [4, 5],
+        [6, 7],
+        [8, 9],
+        [10, 11],
+      ];
+      const partTwo: Array<[number, number]> = [
+        [0, 1],
+        [2, 4],
+        [3, 5],
+        [6, 8],
+        [7, 11],
+        [9, 10],
+      ];
+      const partThree: Array<[number, number]> = [
+        [0, 1],
+        [2, 5],
+        [3, 4],
+        [6, 9],
+        [7, 10],
+        [8, 11],
+      ];
       const pins = [
         ...partition(overlap, 1),
         ...partition(partTwo, 7),
         ...partition(partThree, 14),
       ];
       const r = buildSchedule({
-        teamCount: 12, weekCount: 14, rivalryPins: pins,
+        teamCount: 12,
+        weekCount: 14,
+        rivalryPins: pins,
         random: mulberry32(0x55555),
       });
       expect(r.ok).toBe(false);
     });
 
     it("full rivalry week 1 plus a single pin at week 10 (12/14)", () => {
-      const pins: RivalryPin[] = [
-        ...partition(PART_A, 1),
-        pinTo(10, 0, 5),
-      ];
+      const pins: RivalryPin[] = [...partition(PART_A, 1), pinTo(10, 0, 5)];
       const r = buildSchedule({
-        teamCount: 12, weekCount: 14, rivalryPins: pins,
+        teamCount: 12,
+        weekCount: 14,
+        rivalryPins: pins,
         random: mulberry32(0x66666),
       });
       assertSuccess(r);
@@ -883,14 +944,29 @@ describe("buildSchedule rivalry pins", () => {
   // and 14/14 (only 1 double per team, cap=2). These exercise the dp=0
   // bypass and the limit case where the doubled set is exactly one matching.
   describe("14-team rivalry weeks", () => {
-    function partition(pairs: Array<[number, number]>, week: number): RivalryPin[] {
+    function partition(
+      pairs: Array<[number, number]>,
+      week: number,
+    ): RivalryPin[] {
       return pairs.map(([a, b]) => pinTo(week, a, b));
     }
     const PART_X_14: Array<[number, number]> = [
-      [0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11], [12, 13],
+      [0, 1],
+      [2, 3],
+      [4, 5],
+      [6, 7],
+      [8, 9],
+      [10, 11],
+      [12, 13],
     ];
     const PART_Y_14: Array<[number, number]> = [
-      [0, 2], [1, 4], [3, 5], [6, 8], [7, 9], [10, 12], [11, 13],
+      [0, 2],
+      [1, 4],
+      [3, 5],
+      [6, 8],
+      [7, 9],
+      [10, 12],
+      [11, 13],
     ];
 
     it("two full rivalry weeks with different matchups in a pure round-robin (14/13)", () => {
@@ -899,7 +975,9 @@ describe("buildSchedule rivalry pins", () => {
       // PART_Y plays week 13; the other 11 weeks fill in the rest of K_14.
       const pins = [...partition(PART_X_14, 1), ...partition(PART_Y_14, 13)];
       const r = buildSchedule({
-        teamCount: 14, weekCount: 13, rivalryPins: pins,
+        teamCount: 14,
+        weekCount: 13,
+        rivalryPins: pins,
         random: mulberry32(0x14a01),
       });
       assertSuccess(r);
@@ -924,14 +1002,28 @@ describe("buildSchedule rivalry pins", () => {
       // 14/13 cap = ceil(13/13) = 1. Any pair pinned twice exceeds the
       // cap because there are no doubled pairs available in pure RR.
       const overlap: Array<[number, number]> = [
-        [0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11], [12, 13],
+        [0, 1],
+        [2, 3],
+        [4, 5],
+        [6, 7],
+        [8, 9],
+        [10, 11],
+        [12, 13],
       ];
       const partTwo: Array<[number, number]> = [
-        [0, 1], [2, 4], [3, 5], [6, 8], [7, 9], [10, 12], [11, 13],
+        [0, 1],
+        [2, 4],
+        [3, 5],
+        [6, 8],
+        [7, 9],
+        [10, 12],
+        [11, 13],
       ];
       const pins = [...partition(overlap, 1), ...partition(partTwo, 13)];
       const r = buildSchedule({
-        teamCount: 14, weekCount: 13, rivalryPins: pins,
+        teamCount: 14,
+        weekCount: 13,
+        rivalryPins: pins,
         random: mulberry32(0x14a02),
       });
       expect(r.ok).toBe(false);
@@ -947,7 +1039,9 @@ describe("buildSchedule rivalry pins", () => {
       // sep = 14 - 1 = 13, so weeks 1 and 14 are the natural partner pair.
       const pins = [...partition(PART_X_14, 1), ...partition(PART_X_14, 14)];
       const r = buildSchedule({
-        teamCount: 14, weekCount: 14, rivalryPins: pins,
+        teamCount: 14,
+        weekCount: 14,
+        rivalryPins: pins,
         random: mulberry32(0x14a03),
       });
       assertSuccess(r);
@@ -1039,7 +1133,9 @@ describe("buildSchedule rivalry pins", () => {
         random: mulberry32(0x3a14),
       });
       assertSuccess(r);
-      const anyPlacement = r.rivalryPlacements.find((p) => p.pinnedWeek === null);
+      const anyPlacement = r.rivalryPlacements.find(
+        (p) => p.pinnedWeek === null,
+      );
       expect(anyPlacement).toBeDefined();
       expect(anyPlacement!.placedWeek).toBe(14);
       // Week 3 and Week 14 share the entire matching (standard partner-pair
@@ -1080,43 +1176,47 @@ describe("buildSchedule rivalry pins", () => {
     describe.each(NON_PARTNER_CASES)(
       "$teams/$weeks non-partner (0,1) pin at $pin",
       ({ teams, weeks, pin, floor, minSuccesses }) => {
-        it(`unpinned doubled pairs reach sep >= ${floor}`, { timeout: 30000 }, () => {
-          const [w1, w2] = pin;
-          const pinnedKey = pairKey(0, 1);
-          let globalMin = Infinity;
-          let successes = 0;
-          for (let seed = 0; seed < 20; seed++) {
-            const r = buildSchedule({
-              teamCount: teams,
-              weekCount: weeks,
-              rivalryPins: [pinTo(w1, 0, 1), pinTo(w2, 0, 1)],
-              random: mulberry32(0xa000 + seed),
-            });
-            if (!r.ok) continue;
-            successes++;
-            const appearances = new Map<string, number[]>();
-            r.weeks.forEach((week, wi) => {
-              for (const [a, b] of week) {
-                const k = pairKey(a, b);
-                if (!r.doubledPairs.has(k)) continue;
-                if (k === pinnedKey) continue;
-                const arr = appearances.get(k);
-                if (arr) arr.push(wi);
-                else appearances.set(k, [wi]);
-              }
-            });
-            for (const [, ws] of appearances) {
-              if (ws.length === 2) {
-                const sep = Math.abs((ws[1] as number) - (ws[0] as number));
-                if (sep < globalMin) globalMin = sep;
+        it(
+          `unpinned doubled pairs reach sep >= ${floor}`,
+          { timeout: 30000 },
+          () => {
+            const [w1, w2] = pin;
+            const pinnedKey = pairKey(0, 1);
+            let globalMin = Infinity;
+            let successes = 0;
+            for (let seed = 0; seed < 20; seed++) {
+              const r = buildSchedule({
+                teamCount: teams,
+                weekCount: weeks,
+                rivalryPins: [pinTo(w1, 0, 1), pinTo(w2, 0, 1)],
+                random: mulberry32(0xa000 + seed),
+              });
+              if (!r.ok) continue;
+              successes++;
+              const appearances = new Map<string, number[]>();
+              r.weeks.forEach((week, wi) => {
+                for (const [a, b] of week) {
+                  const k = pairKey(a, b);
+                  if (!r.doubledPairs.has(k)) continue;
+                  if (k === pinnedKey) continue;
+                  const arr = appearances.get(k);
+                  if (arr) arr.push(wi);
+                  else appearances.set(k, [wi]);
+                }
+              });
+              for (const [, ws] of appearances) {
+                if (ws.length === 2) {
+                  const sep = Math.abs((ws[1] as number) - (ws[0] as number));
+                  if (sep < globalMin) globalMin = sep;
+                }
               }
             }
-          }
-          expect(successes).toBeGreaterThanOrEqual(minSuccesses);
-          if (Number.isFinite(globalMin)) {
-            expect(globalMin).toBeGreaterThanOrEqual(floor);
-          }
-        });
+            expect(successes).toBeGreaterThanOrEqual(minSuccesses);
+            if (Number.isFinite(globalMin)) {
+              expect(globalMin).toBeGreaterThanOrEqual(floor);
+            }
+          },
+        );
       },
     );
 

@@ -3,7 +3,10 @@ import type { FormatProperties, FormatVariant, LookbackWindow } from "./types";
 // describeFormat derives every static property of a (teams, weeks) format:
 // double/single counts, the maximum-separation week gap, the rotation cycle,
 // and the lookback window used by buildAvoidMap.
-export function describeFormat(teamCount: number, weekCount: number): FormatProperties {
+export function describeFormat(
+  teamCount: number,
+  weekCount: number,
+): FormatProperties {
   const opponents = teamCount - 1;
   const doublesPerTeam = weekCount - opponents;
   const singlesPerTeam = opponents - doublesPerTeam;
@@ -17,7 +20,11 @@ export function describeFormat(teamCount: number, weekCount: number): FormatProp
           ? "inverted"
           : "standard";
 
-  const rotationCycle = computeRotationCycle(opponents, doublesPerTeam, singlesPerTeam);
+  const rotationCycle = computeRotationCycle(
+    opponents,
+    doublesPerTeam,
+    singlesPerTeam,
+  );
   const lookback = computeLookback(doublesPerTeam, singlesPerTeam);
 
   return {
@@ -39,7 +46,11 @@ export function describeFormat(teamCount: number, weekCount: number): FormatProp
 // rotated through every opponent. For severely inverted formats with only one
 // single per team, the singles side is binding (you cycle through who is the
 // single opponent). Otherwise the doubled set is binding.
-function computeRotationCycle(opponents: number, doubles: number, singles: number): number {
+function computeRotationCycle(
+  opponents: number,
+  doubles: number,
+  singles: number,
+): number {
   if (doubles <= 0) return 0;
   if (singles <= 0) return 1;
   if (singles === 1) return opponents;

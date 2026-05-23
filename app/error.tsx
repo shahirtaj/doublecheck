@@ -43,10 +43,12 @@ export default function HomeError({
       </div>
 
       <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 max-w-[700px] mx-auto text-center">
-        <h2 className="text-base font-bold text-emerald-50 mb-2">Something went wrong</h2>
+        <h2 className="text-base font-bold text-emerald-50 mb-2">
+          Something went wrong
+        </h2>
         <p className="text-xs text-slate-400 leading-relaxed mb-4">
-          DoubleCheck hit an unexpected error. Resetting will clear your saved league
-          history and reload the page.
+          DoubleCheck hit an unexpected error. Resetting will clear your saved
+          league history and reload the page.
         </p>
         <button
           onClick={handleReset}
@@ -55,7 +57,9 @@ export default function HomeError({
           Reset
         </button>
         {error.digest && (
-          <p className="text-[10px] text-slate-600 mt-4">Error ID: {error.digest}</p>
+          <p className="text-[10px] text-slate-600 mt-4">
+            Error ID: {error.digest}
+          </p>
         )}
       </div>
     </div>

@@ -73,7 +73,8 @@ function validatePayload(body: unknown): string | null {
 
   if (!Array.isArray(body.userIds)) return "userIds must be an array.";
   if (!Array.isArray(body.history)) return "history must be an array.";
-  if (!Array.isArray(body.manualDoubles)) return "manualDoubles must be an array.";
+  if (!Array.isArray(body.manualDoubles))
+    return "manualDoubles must be an array.";
 
   // rivalryPins is optional (older clients won't send it). Each pin has
   // integer team indices and a week that's either an integer or null
@@ -154,7 +155,10 @@ function validatePayload(body: unknown): string | null {
       ) {
         return "Each rivalry placement must have integer teamA, teamB, placedWeek.";
       }
-      if (p.pinnedWeek !== null && !(typeof p.pinnedWeek === "number" && Number.isInteger(p.pinnedWeek))) {
+      if (
+        p.pinnedWeek !== null &&
+        !(typeof p.pinnedWeek === "number" && Number.isInteger(p.pinnedWeek))
+      ) {
         return "rivalryPlacement.pinnedWeek must be null or an integer.";
       }
     }

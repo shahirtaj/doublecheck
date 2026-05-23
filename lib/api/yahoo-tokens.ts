@@ -45,7 +45,10 @@ export function decryptTokens(encrypted: string): YahooTokens | null {
     const ciphertext = buf.subarray(IV_LEN + TAG_LEN);
     const decipher = crypto.createDecipheriv(ALGORITHM, getKey(), iv);
     decipher.setAuthTag(tag);
-    const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    const plaintext = Buffer.concat([
+      decipher.update(ciphertext),
+      decipher.final(),
+    ]);
     const parsed = JSON.parse(plaintext.toString("utf8")) as YahooTokens;
     if (
       typeof parsed?.accessToken !== "string" ||
@@ -60,7 +63,10 @@ export function decryptTokens(encrypted: string): YahooTokens | null {
   }
 }
 
-export async function exchangeAuthCode(code: string, redirectUri: string): Promise<YahooTokens> {
+export async function exchangeAuthCode(
+  code: string,
+  redirectUri: string,
+): Promise<YahooTokens> {
   const clientId = process.env.YAHOO_CLIENT_ID;
   const clientSecret = process.env.YAHOO_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
@@ -90,7 +96,9 @@ export async function exchangeAuthCode(code: string, redirectUri: string): Promi
     expires_in?: number;
   };
   if (!json.access_token || !json.refresh_token) {
-    throw new Error("Yahoo token response missing access_token or refresh_token.");
+    throw new Error(
+      "Yahoo token response missing access_token or refresh_token.",
+    );
   }
   return {
     accessToken: json.access_token,
@@ -99,7 +107,9 @@ export async function exchangeAuthCode(code: string, redirectUri: string): Promi
   };
 }
 
-export async function refreshAccessToken(refreshToken: string): Promise<YahooTokens> {
+export async function refreshAccessToken(
+  refreshToken: string,
+): Promise<YahooTokens> {
   const clientId = process.env.YAHOO_CLIENT_ID;
   const clientSecret = process.env.YAHOO_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
@@ -137,7 +147,10 @@ export async function refreshAccessToken(refreshToken: string): Promise<YahooTok
   };
 }
 
-export function readTokenCookie(req: Request, cookieName: string): YahooTokens | null {
+export function readTokenCookie(
+  req: Request,
+  cookieName: string,
+): YahooTokens | null {
   const header = req.headers.get("cookie");
   if (!header) return null;
   const re = new RegExp(`(?:^|; )${cookieName}=([^;]+)`);

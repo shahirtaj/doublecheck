@@ -10,7 +10,7 @@ Fair schedules for fantasy football leagues. No team gets doubled against the sa
 
 In a 12-team, 14-week fantasy football league, every team plays 3 opponents twice and 8 once. Random scheduling clusters those repeat matchups: some pairs get doubled multiple seasons in a row, others never. With 66 possible pairs across the league, ~4 will draw the short straw in any given season.
 
-Across four seasons of random schedules, the probability that a *specific* pair gets doubled in 3+ seasons is ~6.5% - but multiplied across the league, somebody is almost always living it.
+Across four seasons of random schedules, the probability that a _specific_ pair gets doubled in 3+ seasons is ~6.5% - but multiplied across the league, somebody is almost always living it.
 
 ## The math
 
@@ -23,15 +23,15 @@ The tool generates each year's doubles to satisfy that rotation, with the lookba
 
 ## Supported formats
 
-| Format | Doubles/team | Singles/team | Rotation cycle | Notes |
-| ------ | ------------ | ------------ | -------------- | ----- |
-| 8 / 13 | 6 | 1 | ~7 years | Inverted problem (who do you NOT double) |
-| 10 / 13 | 4 | 5 | ~3 years | |
-| 10 / 14 | 5 | 4 | ~2 years | |
-| 12 / 13 | 2 | 9 | ~6 years | |
-| 12 / 14 | 3 | 8 | ~4 years | Most common league shape |
-| 14 / 14 | 1 | 12 | ~13 years | Minimal impact |
-| 14 / 15 | 2 | 11 | ~7 years | |
+| Format  | Doubles/team | Singles/team | Rotation cycle | Notes                                    |
+| ------- | ------------ | ------------ | -------------- | ---------------------------------------- |
+| 8 / 13  | 6            | 1            | ~7 years       | Inverted problem (who do you NOT double) |
+| 10 / 13 | 4            | 5            | ~3 years       |                                          |
+| 10 / 14 | 5            | 4            | ~2 years       |                                          |
+| 12 / 13 | 2            | 9            | ~6 years       |                                          |
+| 12 / 14 | 3            | 8            | ~4 years       | Most common league shape                 |
+| 14 / 14 | 1            | 12           | ~13 years      | Minimal impact                           |
+| 14 / 15 | 2            | 11           | ~7 years       |                                          |
 
 Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g. 8-team / 14-week) have no fairness problem - the tool detects these and tells you no schedule is needed. Odd-sized and 16+ team leagues are out of scope.
 
