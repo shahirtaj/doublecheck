@@ -408,7 +408,7 @@ export function StepReview(props: StepReviewProps) {
                             }
                           : undefined
                       }
-                      className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-700" : "bg-slate-900"}`}
+                      className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-600" : "bg-slate-900"}`}
                     >
                       {abbrev(t)}
                     </div>
@@ -436,7 +436,7 @@ export function StepReview(props: StepReviewProps) {
                           }
                         : undefined
                     }
-                    className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredPastSeasonCell?.row === i ? "bg-slate-700" : "bg-slate-900"}`}
+                    className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredPastSeasonCell?.row === i ? "bg-slate-600" : "bg-slate-900"}`}
                   >
                     {abbrev(t)}
                   </div>
@@ -459,7 +459,7 @@ export function StepReview(props: StepReviewProps) {
                         ? "bg-emerald-800"
                         : "bg-emerald-900"
                       : inHoverPath
-                        ? "bg-slate-700"
+                        ? "bg-slate-600"
                         : "bg-slate-800";
                     return (
                       <button
@@ -497,7 +497,7 @@ export function StepReview(props: StepReviewProps) {
                   return (
                     <div
                       key={i}
-                      className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[8px] font-semibold border border-slate-700 box-border ${inHoverCol ? "bg-slate-700" : "bg-slate-900"} ${c === 0 ? "text-slate-600" : "text-slate-400"}`}
+                      className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[8px] font-semibold border border-slate-700 box-border ${inHoverCol ? "bg-slate-600" : "bg-slate-900"} ${c === 0 ? "text-slate-600" : "text-slate-400"}`}
                     >
                       {c}
                     </div>
@@ -559,7 +559,7 @@ export function StepReview(props: StepReviewProps) {
                         }
                       : undefined
                   }
-                  className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-700" : "bg-slate-900"}`}
+                  className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-600" : "bg-slate-900"}`}
                 >
                   {abbrev(t)}
                 </div>
@@ -585,7 +585,7 @@ export function StepReview(props: StepReviewProps) {
                       }
                     : undefined
                 }
-                className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredAvoidCell?.row === i ? "bg-slate-700" : "bg-slate-900"}`}
+                className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredAvoidCell?.row === i ? "bg-slate-600" : "bg-slate-900"}`}
               >
                 {abbrev(t)}
               </div>
@@ -620,7 +620,7 @@ export function StepReview(props: StepReviewProps) {
                   textCls = "text-amber-400 font-semibold";
                   glyph = "S";
                 } else {
-                  bg = inHoverPath ? "bg-slate-700" : "bg-slate-800";
+                  bg = inHoverPath ? "bg-slate-600" : "bg-slate-800";
                 }
                 const cellDisabled = isLocked || addingPastSeason;
                 return (
