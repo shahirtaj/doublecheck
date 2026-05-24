@@ -94,6 +94,7 @@ export function DoubleMatchupsSummary({
                         {e.name}
                       </span>
                       {" ("}
+                      {e.appearances.length === 1 ? "Week " : "Weeks "}
                       {e.appearances.map((app, j) => (
                         <span key={j}>
                           {j > 0 ? ", " : ""}
@@ -102,7 +103,7 @@ export function DoubleMatchupsSummary({
                               app.isPinned ? "text-sky-400" : "text-red-400"
                             }
                           >
-                            Week {app.week}
+                            {app.week}
                           </span>
                         </span>
                       ))}
