@@ -398,10 +398,7 @@ export function StepReview(props: StepReviewProps) {
           </div>
           <div
             className="overflow-x-auto -mx-3.5 px-3.5"
-            onScroll={() => {
-              hideHeaderTooltip();
-              patch({ hoveredPastSeasonCell: null });
-            }}
+            onScroll={() => hideHeaderTooltip()}
           >
             <div className="inline-block min-w-fit">
               <div className="flex sticky top-0 z-20">
@@ -541,10 +538,7 @@ export function StepReview(props: StepReviewProps) {
       {/* Matrix grid (horizontal scroll on mobile) */}
       <div
         className="overflow-x-auto -mx-2 px-2 mt-4"
-        onScroll={() => {
-          hideHeaderTooltip();
-          patch({ hoveredAvoidCell: null });
-        }}
+        onScroll={() => hideHeaderTooltip()}
       >
         <div className="inline-block min-w-fit">
           <div className="flex sticky top-0 z-20">
