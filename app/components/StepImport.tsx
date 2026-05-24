@@ -661,105 +661,189 @@ export function ImportSections(props: ImportSectionsProps) {
 
   return (
     <>
-      <div className={cls.subSection}>
-        <p className={cls.hint}>
-          {importSource === "link" ? (
-            <>Paste a share link to restore a previously saved league.</>
-          ) : platform === "sleeper" ? (
-            <>
-              Enter your Sleeper username, or paste your league ID from
-              sleeper.com/leagues/<strong>YOUR_ID</strong>.
-            </>
-          ) : platform === "espn" ? (
-            <>
-              Enter your league ID from
-              fantasy.espn.com/football/league?leagueId=
-              <strong>YOUR_ID</strong> (public leagues only).
-            </>
-          ) : platform === "manual" ? (
-            <>
-              For leagues on platforms without automatic import. Enter your
-              league info, then add past seasons manually in the next step.
-            </>
-          ) : (
-            <>Sign in with Yahoo to import your fantasy leagues.</>
-          )}
-        </p>
-        <div className="flex flex-wrap gap-2 items-stretch justify-center">
-          <select
-            className="w-full sm:w-auto bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
-            value={importSource}
-            onChange={(e) => {
-              const next = e.target.value as ImportSource;
-              if (next === importSource) return;
-              patch({
-                importSource: next,
-                leagueId: "",
-                shareLinkInput: "",
-                linkPreview: null,
-                manualLeagueName: "",
-                manualTeamCount: 12,
-                manualWeekCount: 14,
-                importPreview: null,
-                importStatus: "",
-                importMsg: "",
-                yahooLeagues: null,
-                selectedYahooLeague: "",
-                sleeperLeagues: null,
-                selectedSleeperLeague: "",
-                // platform tracks the most recent real platform (drives apply
-                // instructions, share payload). "link" is a dropdown-only state
-                // so we leave platform alone for that case.
-                ...(next !== "link" ? { platform: next } : {}),
-              });
-              if (next === "yahoo") {
-                void fetchYahooLeagues();
-              }
-            }}
-          >
-            <option value="sleeper">Sleeper</option>
-            <option value="espn">ESPN</option>
-            <option value="yahoo">Yahoo</option>
-            <option value="manual">Manual (NFL.com, CBS, other)</option>
-            <option value="link">Restore from link</option>
-          </select>
-          {importSource === "link" ? (
-            <>
-              <input
-                className={cls.leagueInput}
-                value={shareLinkInput}
-                onChange={(e) => {
-                  patch({
-                    shareLinkInput: e.target.value,
-                    ...(linkPreview ? { linkPreview: null } : {}),
-                    ...(importStatus
-                      ? { importStatus: "", importMsg: "" }
-                      : {}),
-                  });
-                }}
-                placeholder="https://doublecheckff.com/s/abc12345"
-              />
-              <button
-                className={cls.primaryBtn}
-                onClick={handleFetchLink}
-                disabled={!shareLinkInput.trim() || importBusy}
-              >
-                {importStatus === "loading" ? "Fetching…" : "Fetch"}
-              </button>
-            </>
-          ) : platform === "yahoo" ? (
-            yahooLeagues && yahooLeagues.length > 1 ? (
+      {!importPreview && !linkPreview && (
+        <div className={cls.subSection}>
+          <p className={cls.hint}>
+            {importSource === "link" ? (
+              <>Paste a share link to restore a previously saved league.</>
+            ) : platform === "sleeper" ? (
+              <>
+                Enter your Sleeper username, or paste your league ID from
+                sleeper.com/leagues/<strong>YOUR_ID</strong>.
+              </>
+            ) : platform === "espn" ? (
+              <>
+                Enter your league ID from
+                fantasy.espn.com/football/league?leagueId=
+                <strong>YOUR_ID</strong> (public leagues only).
+              </>
+            ) : platform === "manual" ? (
+              <>
+                For leagues on platforms without automatic import. Enter your
+                league info, then add past seasons manually in the next step.
+              </>
+            ) : (
+              <>Sign in with Yahoo to import your fantasy leagues.</>
+            )}
+          </p>
+          <div className="flex flex-wrap gap-2 items-stretch justify-center">
+            <select
+              className="w-full sm:w-auto bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+              value={importSource}
+              onChange={(e) => {
+                const next = e.target.value as ImportSource;
+                if (next === importSource) return;
+                patch({
+                  importSource: next,
+                  leagueId: "",
+                  shareLinkInput: "",
+                  linkPreview: null,
+                  manualLeagueName: "",
+                  manualTeamCount: 12,
+                  manualWeekCount: 14,
+                  importPreview: null,
+                  importStatus: "",
+                  importMsg: "",
+                  yahooLeagues: null,
+                  selectedYahooLeague: "",
+                  sleeperLeagues: null,
+                  selectedSleeperLeague: "",
+                  // platform tracks the most recent real platform (drives apply
+                  // instructions, share payload). "link" is a dropdown-only state
+                  // so we leave platform alone for that case.
+                  ...(next !== "link" ? { platform: next } : {}),
+                });
+                if (next === "yahoo") {
+                  void fetchYahooLeagues();
+                }
+              }}
+            >
+              <option value="sleeper">Sleeper</option>
+              <option value="espn">ESPN</option>
+              <option value="yahoo">Yahoo</option>
+              <option value="manual">Manual (NFL.com, CBS, other)</option>
+              <option value="link">Restore from link</option>
+            </select>
+            {importSource === "link" ? (
+              <>
+                <input
+                  className={cls.leagueInput}
+                  value={shareLinkInput}
+                  onChange={(e) => {
+                    patch({
+                      shareLinkInput: e.target.value,
+                      ...(linkPreview ? { linkPreview: null } : {}),
+                      ...(importStatus
+                        ? { importStatus: "", importMsg: "" }
+                        : {}),
+                    });
+                  }}
+                  placeholder="https://doublecheckff.com/s/abc12345"
+                />
+                <button
+                  className={cls.primaryBtn}
+                  onClick={handleFetchLink}
+                  disabled={!shareLinkInput.trim() || importBusy}
+                >
+                  {importStatus === "loading" ? "Fetching…" : "Fetch"}
+                </button>
+              </>
+            ) : platform === "yahoo" ? (
+              yahooLeagues && yahooLeagues.length > 1 ? (
+                <>
+                  <select
+                    className={cls.leagueInput}
+                    value={selectedYahooLeague}
+                    onChange={(e) =>
+                      patch({ selectedYahooLeague: e.target.value })
+                    }
+                  >
+                    <option value="">- pick a league -</option>
+                    {yahooLeagues.map((l) => (
+                      <option key={l.leagueKey} value={l.leagueKey}>
+                        {l.season ? `${l.season} - ` : ""}
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className={cls.primaryBtn}
+                    onClick={() => fetchYahooLeagueSeasons(selectedYahooLeague)}
+                    disabled={!selectedYahooLeague || importBusy}
+                  >
+                    {importStatus === "loading"
+                      ? "Loading…"
+                      : "Use this league"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  className={cls.primaryBtn}
+                  onClick={() => {
+                    window.location.href = "/api/auth/yahoo/start";
+                  }}
+                  disabled={importBusy}
+                >
+                  {importStatus === "loading" ? "Loading…" : "Connect Yahoo"}
+                </button>
+              )
+            ) : platform === "manual" ? (
+              <>
+                <input
+                  className={cls.leagueInput}
+                  value={manualLeagueName}
+                  onChange={(e) => patch({ manualLeagueName: e.target.value })}
+                  placeholder="League name"
+                  maxLength={48}
+                />
+                <div className="basis-full h-0" aria-hidden="true" />
+                <div className="flex gap-2 items-stretch w-full justify-center">
+                  <select
+                    className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                    value={manualTeamCount}
+                    onChange={(e) =>
+                      patch({ manualTeamCount: Number(e.target.value) })
+                    }
+                  >
+                    <option value={8}>8 teams</option>
+                    <option value={10}>10 teams</option>
+                    <option value={12}>12 teams</option>
+                    <option value={14}>14 teams</option>
+                  </select>
+                  <select
+                    className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                    value={manualWeekCount}
+                    onChange={(e) =>
+                      patch({ manualWeekCount: Number(e.target.value) })
+                    }
+                  >
+                    <option value={13}>13 weeks</option>
+                    <option value={14}>14 weeks</option>
+                    <option value={15}>15 weeks</option>
+                  </select>
+                  <button
+                    className={cls.primaryBtn}
+                    onClick={handleManualStart}
+                    disabled={!manualLeagueName.trim()}
+                  >
+                    Start
+                  </button>
+                </div>
+              </>
+            ) : platform === "sleeper" &&
+              sleeperLeagues &&
+              sleeperLeagues.length > 1 ? (
               <>
                 <select
                   className={cls.leagueInput}
-                  value={selectedYahooLeague}
+                  value={selectedSleeperLeague}
                   onChange={(e) =>
-                    patch({ selectedYahooLeague: e.target.value })
+                    patch({ selectedSleeperLeague: e.target.value })
                   }
                 >
                   <option value="">- pick a league -</option>
-                  {yahooLeagues.map((l) => (
-                    <option key={l.leagueKey} value={l.leagueKey}>
+                  {sleeperLeagues.map((l) => (
+                    <option key={l.leagueId} value={l.leagueId}>
                       {l.season ? `${l.season} - ` : ""}
                       {l.name}
                     </option>
@@ -767,154 +851,75 @@ export function ImportSections(props: ImportSectionsProps) {
                 </select>
                 <button
                   className={cls.primaryBtn}
-                  onClick={() => fetchYahooLeagueSeasons(selectedYahooLeague)}
-                  disabled={!selectedYahooLeague || importBusy}
+                  onClick={() =>
+                    fetchSleeperLeagueSeasons(selectedSleeperLeague)
+                  }
+                  disabled={!selectedSleeperLeague || importBusy}
                 >
                   {importStatus === "loading" ? "Loading…" : "Use this league"}
                 </button>
               </>
             ) : (
-              <button
-                className={cls.primaryBtn}
-                onClick={() => {
-                  window.location.href = "/api/auth/yahoo/start";
-                }}
-                disabled={importBusy}
-              >
-                {importStatus === "loading" ? "Loading…" : "Connect Yahoo"}
-              </button>
-            )
-          ) : platform === "manual" ? (
-            <>
-              <input
-                className={cls.leagueInput}
-                value={manualLeagueName}
-                onChange={(e) => patch({ manualLeagueName: e.target.value })}
-                placeholder="League name"
-                maxLength={48}
-              />
-              <div className="basis-full h-0" aria-hidden="true" />
-              <div className="flex gap-2 items-stretch w-full justify-center">
-                <select
-                  className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
-                  value={manualTeamCount}
-                  onChange={(e) =>
-                    patch({ manualTeamCount: Number(e.target.value) })
+              <>
+                <input
+                  className={cls.leagueInput}
+                  value={leagueId}
+                  onChange={(e) => {
+                    patch({
+                      leagueId: e.target.value,
+                      ...(importPreview ? { importPreview: null } : {}),
+                      ...(sleeperLeagues
+                        ? { sleeperLeagues: null, selectedSleeperLeague: "" }
+                        : {}),
+                      ...(importStatus
+                        ? { importStatus: "", importMsg: "" }
+                        : {}),
+                    });
+                  }}
+                  placeholder={
+                    platform === "sleeper"
+                      ? "e.g. karimcozey or 1180738142470492160"
+                      : "e.g. 123456789"
                   }
-                >
-                  <option value={8}>8 teams</option>
-                  <option value={10}>10 teams</option>
-                  <option value={12}>12 teams</option>
-                  <option value={14}>14 teams</option>
-                </select>
-                <select
-                  className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
-                  value={manualWeekCount}
-                  onChange={(e) =>
-                    patch({ manualWeekCount: Number(e.target.value) })
-                  }
-                >
-                  <option value={13}>13 weeks</option>
-                  <option value={14}>14 weeks</option>
-                  <option value={15}>15 weeks</option>
-                </select>
+                />
                 <button
                   className={cls.primaryBtn}
-                  onClick={handleManualStart}
-                  disabled={!manualLeagueName.trim()}
+                  onClick={handleFetch}
+                  disabled={!leagueId.trim() || importBusy}
                 >
-                  Start
+                  {importStatus === "loading" ? "Fetching…" : "Fetch"}
                 </button>
-              </div>
-            </>
-          ) : platform === "sleeper" &&
-            sleeperLeagues &&
-            sleeperLeagues.length > 1 ? (
-            <>
-              <select
-                className={cls.leagueInput}
-                value={selectedSleeperLeague}
-                onChange={(e) =>
-                  patch({ selectedSleeperLeague: e.target.value })
-                }
+              </>
+            )}
+          </div>
+
+          {importStatus === "error" && importHelpUrl ? (
+            <p className={`text-[11px] mt-2 ${statusToneClass(importStatus)}`}>
+              This ESPN league is private. Temporarily make your league public (
+              <a
+                href={importHelpUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-300 underline hover:text-slate-200"
               >
-                <option value="">- pick a league -</option>
-                {sleeperLeagues.map((l) => (
-                  <option key={l.leagueId} value={l.leagueId}>
-                    {l.season ? `${l.season} - ` : ""}
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-              <div className="basis-full h-0" aria-hidden="true" />
-              <button
-                className={cls.primaryBtn}
-                onClick={() => fetchSleeperLeagueSeasons(selectedSleeperLeague)}
-                disabled={!selectedSleeperLeague || importBusy}
-              >
-                {importStatus === "loading" ? "Loading…" : "Use this league"}
-              </button>
-            </>
+                see instructions
+              </a>
+              ), then try again. Or, choose Manual entry to import without
+              changing any ESPN settings.
+            </p>
           ) : (
-            <>
-              <input
-                className={cls.leagueInput}
-                value={leagueId}
-                onChange={(e) => {
-                  patch({
-                    leagueId: e.target.value,
-                    ...(importPreview ? { importPreview: null } : {}),
-                    ...(sleeperLeagues
-                      ? { sleeperLeagues: null, selectedSleeperLeague: "" }
-                      : {}),
-                    ...(importStatus
-                      ? { importStatus: "", importMsg: "" }
-                      : {}),
-                  });
-                }}
-                placeholder={
-                  platform === "sleeper"
-                    ? "e.g. karimcozey or 1180738142470492160"
-                    : "e.g. 123456789"
-                }
-              />
-              <button
-                className={cls.primaryBtn}
-                onClick={handleFetch}
-                disabled={!leagueId.trim() || importBusy}
+            importMsg &&
+            !importPreview &&
+            !linkPreview && (
+              <p
+                className={`text-[11px] mt-2 text-center ${statusToneClass(importStatus)}`}
               >
-                {importStatus === "loading" ? "Fetching…" : "Fetch"}
-              </button>
-            </>
+                {importMsg}
+              </p>
+            )
           )}
         </div>
-
-        {importStatus === "error" && importHelpUrl ? (
-          <p className={`text-[11px] mt-2 ${statusToneClass(importStatus)}`}>
-            This ESPN league is private. Temporarily make your league public (
-            <a
-              href={importHelpUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-slate-300 underline hover:text-slate-200"
-            >
-              see instructions
-            </a>
-            ), then try again. Or, choose Manual entry to import without
-            changing any ESPN settings.
-          </p>
-        ) : (
-          importMsg &&
-          !importPreview &&
-          !linkPreview && (
-            <p
-              className={`text-[11px] mt-2 text-center ${statusToneClass(importStatus)}`}
-            >
-              {importMsg}
-            </p>
-          )
-        )}
-      </div>
+      )}
 
       {/* Shared import preview */}
       {importPreview &&
@@ -933,7 +938,7 @@ export function ImportSections(props: ImportSectionsProps) {
             a.localeCompare(b, undefined, { numeric: true }),
           );
           return (
-            <div className="mt-2.5 mb-3 px-3 py-2.5 bg-slate-800 rounded-md border border-emerald-700">
+            <div className="mb-3 px-3 py-2.5 bg-slate-800 rounded-md border border-emerald-700">
               <p className="text-xs text-slate-200 mb-1">
                 {leagueLabel ? (
                   <>
@@ -992,7 +997,7 @@ export function ImportSections(props: ImportSectionsProps) {
             a.localeCompare(b, undefined, { numeric: true }),
           );
           return (
-            <div className="mt-2.5 mb-3 px-3 py-2.5 bg-slate-800 rounded-md border border-emerald-700">
+            <div className="mb-3 px-3 py-2.5 bg-slate-800 rounded-md border border-emerald-700">
               <p className="text-xs text-slate-200 mb-1">
                 {leagueLabel ? (
                   <>
