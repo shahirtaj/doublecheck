@@ -22,7 +22,7 @@ Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3.
 - `app/api/share/` - share link creation and retrieval
 - `lib/algorithm/` - scheduling algorithm (format, schedule, matching, avoid, pair, types)
 - `lib/api/` - rate limiting, Yahoo token encryption
-- `app/components/DoubleMatchupsSummary.tsx` - shared between StepSchedule and SharedScheduleView; update once for both views
+- `app/components/MatchupSummary.tsx` - shared between StepSchedule and SharedScheduleView; update once for both views
 - `@/*` path alias maps to the project root (configured in `tsconfig.json`), so `@/lib/algorithm` resolves to `./lib/algorithm`
 
 ## Code style

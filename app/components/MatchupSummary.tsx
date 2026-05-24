@@ -7,7 +7,7 @@ type Props = {
   rivalryPlacements: ReadonlyArray<RivalryPlacement>;
 };
 
-export function DoubleMatchupsSummary({
+export function MatchupSummary({
   teams,
   weeks,
   doubledPairs,
@@ -94,7 +94,6 @@ export function DoubleMatchupsSummary({
                         {e.name}
                       </span>
                       {" ("}
-                      {e.appearances.length === 1 ? "Week " : "Weeks "}
                       {e.appearances.map((app, j) => (
                         <span key={j}>
                           {j > 0 ? ", " : ""}

@@ -9,7 +9,7 @@ import {
   type RivalryPlacement,
   type SeasonHistory,
 } from "@/lib/algorithm";
-import { DoubleMatchupsSummary } from "./DoubleMatchupsSummary";
+import { MatchupSummary } from "./MatchupSummary";
 import { cls } from "./styles";
 import type { Patch, SaveToStorageFn, State } from "./state";
 
@@ -275,7 +275,7 @@ export function StepSchedule(props: StepScheduleProps) {
               </div>
             </div>
 
-            <DoubleMatchupsSummary
+            <MatchupSummary
               teams={teams}
               weeks={schedule.weeks}
               doubledPairs={schedule.doubledPairs}

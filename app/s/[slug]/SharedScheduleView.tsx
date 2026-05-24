@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { pairKey, type RivalryPlacement } from "@/lib/algorithm";
-import { DoubleMatchupsSummary } from "@/app/components/DoubleMatchupsSummary";
+import { MatchupSummary } from "@/app/components/MatchupSummary";
 import { cls } from "@/app/components/styles";
 
 type Props = {
@@ -133,7 +133,7 @@ export function SharedScheduleView({
           </div>
         </div>
 
-        <DoubleMatchupsSummary
+        <MatchupSummary
           teams={teams}
           weeks={weeks}
           doubledPairs={doubledPairs}
