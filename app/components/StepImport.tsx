@@ -178,7 +178,7 @@ export function ImportSections(props: ImportSectionsProps) {
   async function fetchSleeperLeagueSeasons(specificLeagueId: string) {
     patch({
       importStatus: "loading",
-      importMsg: "Fetching season data from Sleeper…",
+      importMsg: "Loading season data from Sleeper…",
       importPreview: null,
     });
     try {
@@ -223,7 +223,7 @@ export function ImportSections(props: ImportSectionsProps) {
   async function fetchYahooLeagueSeasons(leagueKey: string) {
     patch({
       importStatus: "loading",
-      importMsg: "Fetching season data from Yahoo…",
+      importMsg: "Loading season data from Yahoo…",
       importPreview: null,
     });
     try {
