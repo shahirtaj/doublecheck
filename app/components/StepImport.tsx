@@ -963,14 +963,14 @@ export function ImportSections(props: ImportSectionsProps) {
                 Managers: {sortedManagers.join(", ")}
               </p>
               <div className="flex gap-2 flex-wrap items-center justify-center">
-                <button className={cls.primaryBtn} onClick={handleApplyImport}>
-                  Apply
-                </button>
                 <button
                   className={cls.secondaryBtn}
                   onClick={() => patch({ importPreview: null })}
                 >
                   Cancel
+                </button>
+                <button className={cls.primaryBtn} onClick={handleApplyImport}>
+                  Apply
                 </button>
               </div>
             </div>
@@ -1025,16 +1025,16 @@ export function ImportSections(props: ImportSectionsProps) {
               </p>
               <div className="flex gap-2 flex-wrap items-center justify-center">
                 <button
-                  className={cls.primaryBtn}
-                  onClick={handleApplyLinkImport}
-                >
-                  Apply
-                </button>
-                <button
                   className={cls.secondaryBtn}
                   onClick={() => patch({ linkPreview: null })}
                 >
                   Cancel
+                </button>
+                <button
+                  className={cls.primaryBtn}
+                  onClick={handleApplyLinkImport}
+                >
+                  Apply
                 </button>
               </div>
             </div>
