@@ -950,11 +950,11 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
     const maxDoubles = format.doublesPerTeam;
     const oppA = opponentsOf(safeA);
     if (!oppA.has(safeB) && oppA.size >= maxDoubles) {
-      pinError = `${teams[safeA]} is already pinned against ${oppA.size} different opponents — this format supports at most ${maxDoubles} repeat opponents per team.`;
+      pinError = `${teams[safeA]} is already pinned against ${oppA.size} different opponents - this format supports at most ${maxDoubles} repeat opponents per team.`;
     } else {
       const oppB = opponentsOf(safeB);
       if (!oppB.has(safeA) && oppB.size >= maxDoubles) {
-        pinError = `${teams[safeB]} is already pinned against ${oppB.size} different opponents — this format supports at most ${maxDoubles} repeat opponents per team.`;
+        pinError = `${teams[safeB]} is already pinned against ${oppB.size} different opponents - this format supports at most ${maxDoubles} repeat opponents per team.`;
       }
     }
   }
@@ -963,7 +963,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
     const matchupsInWeek = rivalryPins.filter((p) => p.week === pinWeek).length;
     const fullWeek = Math.floor(teamCount / 2);
     if (matchupsInWeek >= fullWeek) {
-      pinError = `Week ${pinWeek} already has ${matchupsInWeek} matchups pinned — that fills the entire week.`;
+      pinError = `Week ${pinWeek} already has ${matchupsInWeek} matchups pinned - that fills the entire week.`;
     }
   }
   if (!pinError && pairAtMax) {
@@ -1172,7 +1172,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
                   <span className="flex-1 text-slate-200">
                     <span className="text-slate-500">
                       {p.week === null ? "Any week" : `Week ${p.week}`}
-                      {" — "}
+                      {" - "}
                     </span>
                     <span className="text-sky-400">{teams[p.teamA]}</span>
                     <span className="text-slate-500"> vs </span>
