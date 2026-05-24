@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   pairKey,
   unpackPairKey,
@@ -73,6 +74,20 @@ export function StepReview(props: StepReviewProps) {
 
   const teamCount = selectedFormat?.teamCount ?? 0;
   const weekCount = selectedFormat?.weekCount ?? 0;
+
+  // Dismiss the matrix header tooltip on page scroll. The tooltip is
+  // fixed-position relative to the header's bounding rect at hover time;
+  // when only the page (not the matrix overflow container) scrolls, the
+  // per-container onScroll handlers don't fire and the tooltip is left
+  // pointing at empty space.
+  useEffect(() => {
+    const handleScroll = () => {
+      hideHeaderTooltip();
+      patch({ hoveredAvoidCell: null, hoveredPastSeasonCell: null });
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [hideHeaderTooltip, patch]);
 
   // Years offered by the "Add Past Season" dropdown, sized to the format's
   // recommended lookback so we don't surface seasons that can't influence
@@ -381,7 +396,13 @@ export function StepReview(props: StepReviewProps) {
               )}
             </select>
           </div>
-          <div className="overflow-x-auto -mx-3.5 px-3.5">
+          <div
+            className="overflow-x-auto -mx-3.5 px-3.5"
+            onScroll={() => {
+              hideHeaderTooltip();
+              patch({ hoveredPastSeasonCell: null });
+            }}
+          >
             <div className="inline-block min-w-fit">
               <div className="flex sticky top-0 z-20">
                 <div className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-20" />
@@ -390,24 +411,16 @@ export function StepReview(props: StepReviewProps) {
                   return (
                     <div
                       key={i}
-                      onMouseEnter={
-                        canHover
-                          ? (e) => {
-                              showHeaderTooltip(t, e.currentTarget);
-                              patch({
-                                hoveredPastSeasonCell: { row: -1, col: i },
-                              });
-                            }
-                          : undefined
-                      }
-                      onMouseLeave={
-                        canHover
-                          ? () => {
-                              hideHeaderTooltip();
-                              patch({ hoveredPastSeasonCell: null });
-                            }
-                          : undefined
-                      }
+                      onMouseEnter={(e) => {
+                        showHeaderTooltip(t, e.currentTarget);
+                        patch({
+                          hoveredPastSeasonCell: { row: -1, col: i },
+                        });
+                      }}
+                      onMouseLeave={() => {
+                        hideHeaderTooltip();
+                        patch({ hoveredPastSeasonCell: null });
+                      }}
                       className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-600" : "bg-slate-900"}`}
                     >
                       {abbrev(t)}
@@ -418,24 +431,16 @@ export function StepReview(props: StepReviewProps) {
               {teams.map((t, i) => (
                 <div key={i} className="flex">
                   <div
-                    onMouseEnter={
-                      canHover
-                        ? (e) => {
-                            showHeaderTooltip(t, e.currentTarget);
-                            patch({
-                              hoveredPastSeasonCell: { row: i, col: -1 },
-                            });
-                          }
-                        : undefined
-                    }
-                    onMouseLeave={
-                      canHover
-                        ? () => {
-                            hideHeaderTooltip();
-                            patch({ hoveredPastSeasonCell: null });
-                          }
-                        : undefined
-                    }
+                    onMouseEnter={(e) => {
+                      showHeaderTooltip(t, e.currentTarget);
+                      patch({
+                        hoveredPastSeasonCell: { row: i, col: -1 },
+                      });
+                    }}
+                    onMouseLeave={() => {
+                      hideHeaderTooltip();
+                      patch({ hoveredPastSeasonCell: null });
+                    }}
                     className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredPastSeasonCell?.row === i ? "bg-slate-600" : "bg-slate-900"}`}
                   >
                     {abbrev(t)}
@@ -534,7 +539,13 @@ export function StepReview(props: StepReviewProps) {
       ) : null}
 
       {/* Matrix grid (horizontal scroll on mobile) */}
-      <div className="overflow-x-auto -mx-2 px-2 mt-4">
+      <div
+        className="overflow-x-auto -mx-2 px-2 mt-4"
+        onScroll={() => {
+          hideHeaderTooltip();
+          patch({ hoveredAvoidCell: null });
+        }}
+      >
         <div className="inline-block min-w-fit">
           <div className="flex sticky top-0 z-20">
             <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-20" />
@@ -543,22 +554,14 @@ export function StepReview(props: StepReviewProps) {
               return (
                 <div
                   key={i}
-                  onMouseEnter={
-                    canHover
-                      ? (e) => {
-                          showHeaderTooltip(t, e.currentTarget);
-                          patch({ hoveredAvoidCell: { row: -1, col: i } });
-                        }
-                      : undefined
-                  }
-                  onMouseLeave={
-                    canHover
-                      ? () => {
-                          hideHeaderTooltip();
-                          patch({ hoveredAvoidCell: null });
-                        }
-                      : undefined
-                  }
+                  onMouseEnter={(e) => {
+                    showHeaderTooltip(t, e.currentTarget);
+                    patch({ hoveredAvoidCell: { row: -1, col: i } });
+                  }}
+                  onMouseLeave={() => {
+                    hideHeaderTooltip();
+                    patch({ hoveredAvoidCell: null });
+                  }}
                   className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-600" : "bg-slate-900"}`}
                 >
                   {abbrev(t)}
@@ -569,22 +572,14 @@ export function StepReview(props: StepReviewProps) {
           {teams.map((t, i) => (
             <div key={i} className="flex">
               <div
-                onMouseEnter={
-                  canHover
-                    ? (e) => {
-                        showHeaderTooltip(t, e.currentTarget);
-                        patch({ hoveredAvoidCell: { row: i, col: -1 } });
-                      }
-                    : undefined
-                }
-                onMouseLeave={
-                  canHover
-                    ? () => {
-                        hideHeaderTooltip();
-                        patch({ hoveredAvoidCell: null });
-                      }
-                    : undefined
-                }
+                onMouseEnter={(e) => {
+                  showHeaderTooltip(t, e.currentTarget);
+                  patch({ hoveredAvoidCell: { row: i, col: -1 } });
+                }}
+                onMouseLeave={() => {
+                  hideHeaderTooltip();
+                  patch({ hoveredAvoidCell: null });
+                }}
                 className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredAvoidCell?.row === i ? "bg-slate-600" : "bg-slate-900"}`}
               >
                 {abbrev(t)}
