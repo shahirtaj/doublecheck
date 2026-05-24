@@ -664,10 +664,7 @@ export function ImportSections(props: ImportSectionsProps) {
       <div className={cls.subSection}>
         <p className={cls.hint}>
           {importSource === "link" ? (
-            <>
-              Paste a DoubleCheck share link to restore that league&apos;s full
-              state into this browser.
-            </>
+            <>Paste a share link to restore a previously saved league.</>
           ) : platform === "sleeper" ? (
             <>
               Enter your Sleeper username, or paste your league ID from
