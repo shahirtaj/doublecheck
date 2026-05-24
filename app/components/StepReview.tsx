@@ -525,7 +525,7 @@ export function StepReview(props: StepReviewProps) {
       ) : availablePastSeasonYears.length > 0 ? (
         <div className="mt-4">
           <button
-            className="bg-transparent text-emerald-400 border border-emerald-700 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:border-emerald-600 hover:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`${cls.outlineBtn} ${cls.outlineEmerald}`}
             onClick={handleStartAddSeason}
           >
             + Add Past Season
@@ -673,7 +673,7 @@ export function StepReview(props: StepReviewProps) {
       {manualDoubles.size > 0 && (
         <div className="mt-3">
           <button
-            className="bg-transparent text-amber-400 border border-amber-700 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:text-amber-300 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`${cls.outlineBtn} ${cls.outlineAmber}`}
             onClick={() => patch({ manualDoubles: new Set() })}
             disabled={addingPastSeason}
           >
@@ -1096,7 +1096,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
         </select>
         <button
           type="button"
-          className="bg-sky-500 text-sky-50 border-0 px-5 py-2.5 rounded-md text-[13px] font-semibold cursor-pointer hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed mx-auto sm:mx-0"
+          className={`${cls.primaryBtnBase} bg-sky-500 text-sky-50 hover:bg-sky-600 mx-auto sm:mx-0`}
           disabled={addDisabled}
           onClick={() => {
             if (addDisabled) return;
@@ -1179,7 +1179,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
           <div className="mt-3">
             <button
               type="button"
-              className="bg-transparent text-amber-400 border border-amber-700 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:text-amber-300 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`${cls.outlineBtn} ${cls.outlineAmber}`}
               onClick={() => patch({ rivalryPins: [] })}
               disabled={addingPastSeason}
             >

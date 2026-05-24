@@ -404,7 +404,7 @@ export default function GeneratePage() {
                   key={key}
                   onClick={() => setStep(key)}
                   disabled={disabled}
-                  className={`bg-transparent border px-3.5 py-1.5 rounded-md text-xs font-mono cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
+                  className={`${cls.navBtn} bg-transparent border ${
                     step === key
                       ? "bg-emerald-800 border-emerald-600 text-emerald-50"
                       : "border-slate-700 text-slate-400 hover:border-slate-500"
@@ -462,7 +462,7 @@ export default function GeneratePage() {
           {!confirmReset ? (
             <div className="inline-flex gap-2 items-center justify-center flex-wrap">
               <button
-                className="bg-transparent text-amber-400 border border-amber-700 px-3 py-1.5 rounded-md text-[11px] cursor-pointer hover:text-amber-300 hover:border-amber-600"
+                className={`${cls.navBtn} bg-transparent border border-amber-700 text-amber-400 hover:text-amber-300 hover:border-amber-600`}
                 onClick={() => {
                   if (step === "teams") {
                     setSelectedFormat(null);
@@ -476,7 +476,7 @@ export default function GeneratePage() {
                 ← Back
               </button>
               <button
-                className="bg-transparent text-red-400 border border-red-700 px-3 py-1.5 rounded-md text-[11px] cursor-pointer hover:text-red-300 hover:border-red-600"
+                className={`${cls.navBtn} bg-transparent border border-red-700 text-red-400 hover:text-red-300 hover:border-red-600`}
                 onClick={() => setConfirmReset(true)}
               >
                 Reset
@@ -488,13 +488,13 @@ export default function GeneratePage() {
                 Clear all data? Cannot be undone.
               </span>
               <button
-                className="bg-red-600 text-emerald-50 border-0 px-3.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer hover:bg-red-500"
+                className={`${cls.navBtn} bg-red-600 text-emerald-50 border-0 font-semibold hover:bg-red-500`}
                 onClick={handleResetEverything}
               >
                 Yes, reset
               </button>
               <button
-                className="bg-transparent text-slate-400 border border-slate-600 rounded-md px-3.5 py-1.5 text-[11px] cursor-pointer"
+                className={`${cls.navBtn} bg-transparent border border-slate-600 text-slate-400`}
                 onClick={() => setConfirmReset(false)}
               >
                 Cancel

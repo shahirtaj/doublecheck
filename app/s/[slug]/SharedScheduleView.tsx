@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { pairKey, type RivalryPlacement } from "@/lib/algorithm";
 import { DoubleMatchupsSummary } from "@/app/components/DoubleMatchupsSummary";
+import { cls } from "@/app/components/styles";
 
 type Props = {
   format: { teamCount: number; weekCount: number };
@@ -202,10 +203,7 @@ export function SharedScheduleView({
             rows={12}
           />
           <div className="mt-2 flex justify-center">
-            <button
-              className="bg-transparent text-slate-400 border border-slate-600 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:border-slate-500 hover:text-slate-300"
-              onClick={handleCopySchedule}
-            >
+            <button className={cls.secondaryBtn} onClick={handleCopySchedule}>
               {scheduleCopied ? "✓ Copied" : "Copy"}
             </button>
           </div>
