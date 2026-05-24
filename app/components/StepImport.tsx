@@ -1054,9 +1054,7 @@ export function StepImport(props: StepImportProps) {
     <div className={cls.card}>
       <h2 className={cls.cardTitle}>{leagueName || "Managers"}</h2>
 
-      <p className={cls.hint}>
-        Auto-filled after import. Edit to use real names if you prefer.
-      </p>
+      <p className={cls.hint}>Edit names as needed.</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {teams.map((t, i) => (
           <div
