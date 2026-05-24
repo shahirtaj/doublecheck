@@ -268,7 +268,6 @@ export function StepReview(props: StepReviewProps) {
             ))}
           </select>
           <p className="mt-1.5 text-[11px] text-slate-500">
-            ={" "}
             <span className="text-red-400">
               {effectiveLookback.hard} hard season
               {effectiveLookback.hard === 1 ? "" : "s"}
