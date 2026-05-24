@@ -675,7 +675,8 @@ export function ImportSections(props: ImportSectionsProps) {
               <>
                 Enter your league ID from
                 fantasy.espn.com/football/league?leagueId=
-                <strong>YOUR_ID</strong> (public leagues only).
+                <strong>YOUR_ID</strong> (public leagues only - for private
+                leagues, use Manual entry).
               </>
             ) : platform === "manual" ? (
               <>
