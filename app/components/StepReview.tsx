@@ -469,15 +469,23 @@ export function StepReview(props: StepReviewProps) {
                         type="button"
                         onMouseEnter={
                           canHover
-                            ? () =>
+                            ? (e) => {
+                                showHeaderTooltip(
+                                  `${teams[i]} vs ${teams[j]}`,
+                                  e.currentTarget,
+                                );
                                 patch({
                                   hoveredPastSeasonCell: { row: i, col: j },
-                                })
+                                });
+                              }
                             : undefined
                         }
                         onMouseLeave={
                           canHover
-                            ? () => patch({ hoveredPastSeasonCell: null })
+                            ? () => {
+                                hideHeaderTooltip();
+                                patch({ hoveredPastSeasonCell: null });
+                              }
                             : undefined
                         }
                         onClick={() => togglePastSeasonDouble(i, j)}
@@ -618,12 +626,21 @@ export function StepReview(props: StepReviewProps) {
                     type="button"
                     onMouseEnter={
                       canHover
-                        ? () => patch({ hoveredAvoidCell: { row: i, col: j } })
+                        ? (e) => {
+                            showHeaderTooltip(
+                              `${teams[i]} vs ${teams[j]}`,
+                              e.currentTarget,
+                            );
+                            patch({ hoveredAvoidCell: { row: i, col: j } });
+                          }
                         : undefined
                     }
                     onMouseLeave={
                       canHover
-                        ? () => patch({ hoveredAvoidCell: null })
+                        ? () => {
+                            hideHeaderTooltip();
+                            patch({ hoveredAvoidCell: null });
+                          }
                         : undefined
                     }
                     onClick={() => toggleDouble(i, j)}
