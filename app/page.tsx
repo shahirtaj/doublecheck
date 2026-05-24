@@ -462,7 +462,7 @@ export default function GeneratePage() {
           {!confirmReset ? (
             <div className="inline-flex gap-2 items-center justify-center flex-wrap">
               <button
-                className={`${cls.navBtn} bg-transparent border border-amber-700 text-amber-400 hover:text-amber-300 hover:border-amber-600`}
+                className={`${cls.navBtn} bg-transparent border border-slate-700 text-slate-400 hover:border-slate-500`}
                 onClick={() => {
                   if (step === "teams") {
                     setSelectedFormat(null);
