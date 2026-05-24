@@ -384,7 +384,7 @@ export function StepReview(props: StepReviewProps) {
           <div className="overflow-x-auto -mx-3.5 px-3.5">
             <div className="inline-block min-w-fit">
               <div className="flex sticky top-0 z-20">
-                <div className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
+                <div className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-20" />
                 {teams.map((t, i) => {
                   const inHoverCol = hoveredPastSeasonCell?.col === i;
                   return (
@@ -408,7 +408,7 @@ export function StepReview(props: StepReviewProps) {
                             }
                           : undefined
                       }
-                      className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-700" : "bg-slate-900"}`}
+                      className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-700" : "bg-slate-900"}`}
                     >
                       {abbrev(t)}
                     </div>
@@ -436,7 +436,7 @@ export function StepReview(props: StepReviewProps) {
                           }
                         : undefined
                     }
-                    className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredPastSeasonCell?.row === i ? "bg-slate-700" : "bg-slate-900"}`}
+                    className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredPastSeasonCell?.row === i ? "bg-slate-700" : "bg-slate-900"}`}
                   >
                     {abbrev(t)}
                   </div>
@@ -449,7 +449,7 @@ export function StepReview(props: StepReviewProps) {
                       return (
                         <div
                           key={j}
-                          className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 border border-slate-800 box-border ${inHoverPath ? "bg-slate-800" : "bg-slate-950"}`}
+                          className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 border border-slate-700 box-border ${inHoverPath ? "bg-slate-800" : "bg-slate-950"}`}
                         />
                       );
                     }
@@ -479,7 +479,7 @@ export function StepReview(props: StepReviewProps) {
                             : undefined
                         }
                         onClick={() => togglePastSeasonDouble(i, j)}
-                        className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none cursor-pointer ${bg} ${selected ? "text-emerald-400 font-bold" : "text-slate-500"}`}
+                        className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[10px] border border-slate-700 box-border select-none cursor-pointer ${bg} ${selected ? "text-emerald-400 font-bold" : "text-slate-500"}`}
                       >
                         {selected ? "✕" : ""}
                       </button>
@@ -489,7 +489,7 @@ export function StepReview(props: StepReviewProps) {
               ))}
               {/* Per-team count of selected doubles. Neutral coloring on purpose - past seasons can come from a different format, so checking against the current format.doublesPerTeam would mis-flag valid entries. */}
               <div className="flex">
-                <div className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10">
+                <div className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-10">
                   CT
                 </div>
                 {pastSeasonDoublesPerTeam().map((c, i) => {
@@ -497,7 +497,7 @@ export function StepReview(props: StepReviewProps) {
                   return (
                     <div
                       key={i}
-                      className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[8px] font-semibold border border-slate-800 box-border ${inHoverCol ? "bg-slate-700" : "bg-slate-900"} ${c === 0 ? "text-slate-600" : "text-slate-400"}`}
+                      className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[8px] font-semibold border border-slate-700 box-border ${inHoverCol ? "bg-slate-700" : "bg-slate-900"} ${c === 0 ? "text-slate-600" : "text-slate-400"}`}
                     >
                       {c}
                     </div>
@@ -537,7 +537,7 @@ export function StepReview(props: StepReviewProps) {
       <div className="overflow-x-auto -mx-2 px-2 mt-4">
         <div className="inline-block min-w-fit">
           <div className="flex sticky top-0 z-20">
-            <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-20" />
+            <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-20" />
             {teams.map((t, i) => {
               const inHoverCol = hoveredAvoidCell?.col === i;
               return (
@@ -559,7 +559,7 @@ export function StepReview(props: StepReviewProps) {
                         }
                       : undefined
                   }
-                  className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-800 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-700" : "bg-slate-900"}`}
+                  className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-700" : "bg-slate-900"}`}
                 >
                   {abbrev(t)}
                 </div>
@@ -585,7 +585,7 @@ export function StepReview(props: StepReviewProps) {
                       }
                     : undefined
                 }
-                className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-800 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredAvoidCell?.row === i ? "bg-slate-700" : "bg-slate-900"}`}
+                className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredAvoidCell?.row === i ? "bg-slate-700" : "bg-slate-900"}`}
               >
                 {abbrev(t)}
               </div>
@@ -597,7 +597,7 @@ export function StepReview(props: StepReviewProps) {
                   return (
                     <div
                       key={j}
-                      className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 border border-slate-800 box-border ${inHoverPath ? "bg-slate-800" : "bg-slate-950"}`}
+                      className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 border border-slate-700 box-border ${inHoverPath ? "bg-slate-800" : "bg-slate-950"}`}
                     />
                   );
                 }
@@ -639,7 +639,7 @@ export function StepReview(props: StepReviewProps) {
                     }
                     onClick={() => toggleDouble(i, j)}
                     disabled={cellDisabled}
-                    className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-[10px] border border-slate-800 box-border select-none ${cellDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${bg} ${textCls}`}
+                    className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-[10px] border border-slate-700 box-border select-none ${cellDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${bg} ${textCls}`}
                   >
                     {glyph}
                   </button>
