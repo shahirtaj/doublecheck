@@ -1116,33 +1116,49 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
       {rivalryPins.length > 0 && (
         <>
           <div className="mt-3 flex flex-col gap-1">
-            {rivalryPins.map((p, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-2 px-2 py-1 bg-slate-800 rounded text-xs border border-slate-700"
-              >
-                <span className="flex-1 text-slate-200">
-                  <span className="text-sky-400">{teams[p.teamA]}</span>
-                  <span className="text-slate-500"> vs </span>
-                  <span className="text-sky-400">{teams[p.teamB]}</span>
-                  <span className="text-slate-500">
-                    {" — "}
-                    {p.week === null ? "Any week" : `Week ${p.week}`}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  className="bg-transparent text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 border border-red-700 hover:border-red-600 rounded cursor-pointer"
-                  onClick={() =>
-                    patch({
-                      rivalryPins: rivalryPins.filter((_, i) => i !== idx),
-                    })
-                  }
+            {[...rivalryPins.entries()]
+              .sort(([, a], [, b]) => {
+                const aAny = a.week === null;
+                const bAny = b.week === null;
+                if (aAny !== bAny) return aAny ? 1 : -1;
+                if (!aAny && !bAny && a.week !== b.week) {
+                  return (a.week as number) - (b.week as number);
+                }
+                return teams[a.teamA]!.localeCompare(
+                  teams[b.teamA]!,
+                  undefined,
+                  {
+                    numeric: true,
+                  },
+                );
+              })
+              .map(([idx, p]) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2 px-2 py-1 bg-slate-800 rounded text-xs border border-slate-700"
                 >
-                  Remove
-                </button>
-              </div>
-            ))}
+                  <span className="flex-1 text-slate-200">
+                    <span className="text-slate-500">
+                      {p.week === null ? "Any week" : `Week ${p.week}`}
+                      {" — "}
+                    </span>
+                    <span className="text-sky-400">{teams[p.teamA]}</span>
+                    <span className="text-slate-500"> vs </span>
+                    <span className="text-sky-400">{teams[p.teamB]}</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="bg-transparent text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 border border-red-700 hover:border-red-600 rounded cursor-pointer"
+                    onClick={() =>
+                      patch({
+                        rivalryPins: rivalryPins.filter((_, i) => i !== idx),
+                      })
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
           </div>
           <div className="mt-3">
             <button
