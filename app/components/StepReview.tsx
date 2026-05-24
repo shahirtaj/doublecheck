@@ -247,47 +247,42 @@ export function StepReview(props: StepReviewProps) {
 
       {history.length > 0 && (
         <div className="bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 mb-4">
-          <strong className="text-slate-200">Lookback Window</strong>
-          <div className="mt-1 flex flex-wrap gap-2 items-center text-[11px]">
-            <label htmlFor="lookback-override" className="text-slate-500">
-              Lookback:
-            </label>
-            <select
-              id="lookback-override"
-              className="bg-slate-800 text-slate-200 border border-slate-600 rounded px-1.5 py-0.5 text-[11px] font-mono outline-none focus:border-slate-500"
-              value={effectiveLookbackTotal}
-              onChange={(e) => {
-                const next = parseInt(e.target.value, 10);
-                patch({ lookbackOverride: next });
-                saveToStorage({ lookbackOverride: next });
-              }}
-            >
-              {Array.from(
-                { length: Math.min(recommendedLookbackTotal, history.length) },
-                (_, i) => i + 1,
-              ).map((n) => (
-                <option key={n} value={n}>
-                  {n === recommendedLookbackTotal ? `${n} (recommended)` : n}
-                </option>
-              ))}
-            </select>
-            <span className="text-slate-500">
-              ={" "}
-              <span className="text-red-400">
-                {effectiveLookback.hard} hard season
-                {effectiveLookback.hard === 1 ? "" : "s"}
-              </span>
-              {effectiveLookback.soft > 0 && (
-                <>
-                  {" + "}
-                  <span className="text-amber-400">
-                    {effectiveLookback.soft} soft season
-                    {effectiveLookback.soft === 1 ? "" : "s"}
-                  </span>
-                </>
-              )}
+          <h3 className={cls.sectionTitle}>Lookback Window</h3>
+          <select
+            id="lookback-override"
+            className="bg-slate-800 text-slate-200 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] font-mono outline-none focus:border-slate-500"
+            value={effectiveLookbackTotal}
+            onChange={(e) => {
+              const next = parseInt(e.target.value, 10);
+              patch({ lookbackOverride: next });
+              saveToStorage({ lookbackOverride: next });
+            }}
+          >
+            {Array.from(
+              { length: Math.min(recommendedLookbackTotal, history.length) },
+              (_, i) => i + 1,
+            ).map((n) => (
+              <option key={n} value={n}>
+                {n === recommendedLookbackTotal ? `${n} (recommended)` : n}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-[11px] text-slate-500">
+            ={" "}
+            <span className="text-red-400">
+              {effectiveLookback.hard} hard season
+              {effectiveLookback.hard === 1 ? "" : "s"}
             </span>
-          </div>
+            {effectiveLookback.soft > 0 && (
+              <>
+                {" + "}
+                <span className="text-amber-400">
+                  {effectiveLookback.soft} soft season
+                  {effectiveLookback.soft === 1 ? "" : "s"}
+                </span>
+              </>
+            )}
+          </p>
           {effectiveLookbackTotal !== recommendedLookbackTotal && (
             <p className="mt-1.5 text-[11px] text-slate-500">
               Recommended:{" "}
