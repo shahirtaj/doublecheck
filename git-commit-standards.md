@@ -124,7 +124,7 @@ Describe the actual changes, not the reason you're committing.
 - Never mix refactoring with behavior changes
 - Never mix formatting or whitespace changes with logic changes
 - Never mix dependency updates with code changes
-- A commit should be revertable without unrelated side effects
+- A commit should be revertible without unrelated side effects
 - If you can't describe it in one subject line, split the commit
 
 ## Commit Workflow
