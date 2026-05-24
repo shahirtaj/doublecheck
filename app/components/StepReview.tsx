@@ -390,16 +390,24 @@ export function StepReview(props: StepReviewProps) {
                   return (
                     <div
                       key={i}
-                      onMouseEnter={(e) => {
-                        showHeaderTooltip(t, e.currentTarget);
-                        patch({
-                          hoveredPastSeasonCell: { row: -1, col: i },
-                        });
-                      }}
-                      onMouseLeave={() => {
-                        hideHeaderTooltip();
-                        patch({ hoveredPastSeasonCell: null });
-                      }}
+                      onMouseEnter={
+                        canHover
+                          ? (e) => {
+                              showHeaderTooltip(t, e.currentTarget);
+                              patch({
+                                hoveredPastSeasonCell: { row: -1, col: i },
+                              });
+                            }
+                          : undefined
+                      }
+                      onMouseLeave={
+                        canHover
+                          ? () => {
+                              hideHeaderTooltip();
+                              patch({ hoveredPastSeasonCell: null });
+                            }
+                          : undefined
+                      }
                       className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-600" : "bg-slate-900"}`}
                     >
                       {abbrev(t)}
@@ -410,16 +418,24 @@ export function StepReview(props: StepReviewProps) {
               {teams.map((t, i) => (
                 <div key={i} className="flex">
                   <div
-                    onMouseEnter={(e) => {
-                      showHeaderTooltip(t, e.currentTarget);
-                      patch({
-                        hoveredPastSeasonCell: { row: i, col: -1 },
-                      });
-                    }}
-                    onMouseLeave={() => {
-                      hideHeaderTooltip();
-                      patch({ hoveredPastSeasonCell: null });
-                    }}
+                    onMouseEnter={
+                      canHover
+                        ? (e) => {
+                            showHeaderTooltip(t, e.currentTarget);
+                            patch({
+                              hoveredPastSeasonCell: { row: i, col: -1 },
+                            });
+                          }
+                        : undefined
+                    }
+                    onMouseLeave={
+                      canHover
+                        ? () => {
+                            hideHeaderTooltip();
+                            patch({ hoveredPastSeasonCell: null });
+                          }
+                        : undefined
+                    }
                     className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredPastSeasonCell?.row === i ? "bg-slate-600" : "bg-slate-900"}`}
                   >
                     {abbrev(t)}
@@ -527,14 +543,22 @@ export function StepReview(props: StepReviewProps) {
               return (
                 <div
                   key={i}
-                  onMouseEnter={(e) => {
-                    showHeaderTooltip(t, e.currentTarget);
-                    patch({ hoveredAvoidCell: { row: -1, col: i } });
-                  }}
-                  onMouseLeave={() => {
-                    hideHeaderTooltip();
-                    patch({ hoveredAvoidCell: null });
-                  }}
+                  onMouseEnter={
+                    canHover
+                      ? (e) => {
+                          showHeaderTooltip(t, e.currentTarget);
+                          patch({ hoveredAvoidCell: { row: -1, col: i } });
+                        }
+                      : undefined
+                  }
+                  onMouseLeave={
+                    canHover
+                      ? () => {
+                          hideHeaderTooltip();
+                          patch({ hoveredAvoidCell: null });
+                        }
+                      : undefined
+                  }
                   className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-600" : "bg-slate-900"}`}
                 >
                   {abbrev(t)}
@@ -545,14 +569,22 @@ export function StepReview(props: StepReviewProps) {
           {teams.map((t, i) => (
             <div key={i} className="flex">
               <div
-                onMouseEnter={(e) => {
-                  showHeaderTooltip(t, e.currentTarget);
-                  patch({ hoveredAvoidCell: { row: i, col: -1 } });
-                }}
-                onMouseLeave={() => {
-                  hideHeaderTooltip();
-                  patch({ hoveredAvoidCell: null });
-                }}
+                onMouseEnter={
+                  canHover
+                    ? (e) => {
+                        showHeaderTooltip(t, e.currentTarget);
+                        patch({ hoveredAvoidCell: { row: i, col: -1 } });
+                      }
+                    : undefined
+                }
+                onMouseLeave={
+                  canHover
+                    ? () => {
+                        hideHeaderTooltip();
+                        patch({ hoveredAvoidCell: null });
+                      }
+                    : undefined
+                }
                 className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredAvoidCell?.row === i ? "bg-slate-600" : "bg-slate-900"}`}
               >
                 {abbrev(t)}
