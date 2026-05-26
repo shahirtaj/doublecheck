@@ -75,9 +75,7 @@ export function MatchupSummary({
               });
             });
             entries.sort(
-              (x, y) =>
-                (x.anyPinned ? 0 : 1) - (y.anyPinned ? 0 : 1) ||
-                x.name.localeCompare(y.name),
+              (x, y) => x.appearances[0]!.week - y.appearances[0]!.week,
             );
             return (
               <div key={i} className="text-xs px-2 py-1 bg-slate-900 rounded">
