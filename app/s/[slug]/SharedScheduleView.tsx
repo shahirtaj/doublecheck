@@ -194,7 +194,7 @@ export function SharedScheduleView({
 
         <details className="mt-4">
           <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
-            Copy Full Schedule as Text
+            Full Schedule (Text)
           </summary>
           <textarea
             readOnly
