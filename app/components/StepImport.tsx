@@ -668,15 +668,20 @@ export function ImportSections(props: ImportSectionsProps) {
               <>Paste a share link to restore a previously saved league.</>
             ) : platform === "sleeper" ? (
               <>
-                Enter your Sleeper username, or paste your league ID from
-                sleeper.com/leagues/<strong>YOUR_ID</strong>.
+                Enter your Sleeper username, or paste your league ID from{" "}
+                <code className="font-mono">
+                  sleeper.com/leagues/<strong>YOUR_ID</strong>
+                </code>
+                .
               </>
             ) : platform === "espn" ? (
               <>
-                Enter your league ID from
-                fantasy.espn.com/football/league?leagueId=
-                <strong>YOUR_ID</strong> (public leagues only - for private
-                leagues, use Manual entry).
+                Enter your league ID from{" "}
+                <code className="font-mono">
+                  fantasy.espn.com/football/league?leagueId=
+                  <strong>YOUR_ID</strong>
+                </code>{" "}
+                (public leagues only - for private leagues, use Manual entry).
               </>
             ) : platform === "manual" ? (
               <>
