@@ -91,5 +91,5 @@ export function computeDisplayWeeks(
 }
 
 export function abbrev(name: string): string {
-  return name.length > 7 ? name.slice(0, 7) : name;
+  return name.length > 8 ? name.slice(0, 8) : name;
 }
