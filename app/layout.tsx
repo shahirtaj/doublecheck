@@ -57,7 +57,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} ${inconsolata.variable}`}>
+      <body
+        className={`${inter.className} ${inter.variable} ${inconsolata.variable}`}
+      >
         {children}
         <Analytics />
       </body>
