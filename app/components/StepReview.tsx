@@ -1033,7 +1033,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
       <div className="flex flex-wrap gap-2 items-stretch">
         <select
           aria-label="Week"
-          className="w-full sm:w-auto bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+          className="w-full sm:w-auto bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 outline-none focus:border-slate-500"
           value={pinWeek === null ? "any" : String(pinWeek)}
           onChange={(e) => {
             const v = e.target.value;
