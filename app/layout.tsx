@@ -1,6 +1,13 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, Inconsolata } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const inconsolata = Inconsolata({
+  subsets: ["latin"],
+  variable: "--font-mono",
+});
 
 const FAVICON_SVG =
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">` +
@@ -50,7 +57,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
+      <body className={`${inter.className} ${inconsolata.variable}`}>
         {children}
         <Analytics />
       </body>

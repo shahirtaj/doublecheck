@@ -5,13 +5,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        mono: [
-          "JetBrains Mono",
-          "SF Mono",
-          "Fira Code",
-          "ui-monospace",
-          "monospace",
-        ],
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
     },
   },

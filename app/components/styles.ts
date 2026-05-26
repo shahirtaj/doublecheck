@@ -10,7 +10,7 @@ export const cls = {
   secondaryBtn:
     "bg-transparent text-slate-400 border border-slate-600 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:border-slate-500 hover:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed",
   navBtn:
-    "px-3.5 py-1.5 rounded-md text-xs font-mono cursor-pointer disabled:cursor-not-allowed disabled:opacity-40",
+    "px-3.5 py-1.5 rounded-md text-xs cursor-pointer disabled:cursor-not-allowed disabled:opacity-40",
   outlineBtn:
     "bg-transparent border px-4 py-2.5 rounded-md text-[13px] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
   outlineEmerald:
@@ -23,10 +23,10 @@ export const cls = {
   subSection: "bg-slate-900 border border-slate-700 rounded-lg p-3.5 mb-3",
   sectionTitle: "text-[13px] font-bold text-slate-200 mb-1.5",
   teamInput:
-    "flex-1 bg-transparent border-0 outline-none text-slate-200 text-[13px] font-mono py-1",
+    "flex-1 bg-transparent border-0 outline-none text-slate-200 text-[13px] py-1",
   error: "text-red-400 text-xs mt-3",
   leagueInput:
-    "flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500",
+    "flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 outline-none focus:border-slate-500",
 };
 
 export function statusToneClass(status: ImportStatus): string {

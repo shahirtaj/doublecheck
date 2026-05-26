@@ -689,7 +689,7 @@ export function ImportSections(props: ImportSectionsProps) {
           </p>
           <div className="flex flex-wrap gap-2 items-stretch justify-center">
             <select
-              className="w-full sm:w-auto bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+              className="w-full sm:w-auto bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 outline-none focus:border-slate-500"
               value={importSource}
               onChange={(e) => {
                 const next = e.target.value as ImportSource;
@@ -728,7 +728,7 @@ export function ImportSections(props: ImportSectionsProps) {
             {importSource === "link" ? (
               <>
                 <input
-                  className={cls.leagueInput}
+                  className={`${cls.leagueInput} font-mono`}
                   value={shareLinkInput}
                   onChange={(e) => {
                     patch({
@@ -800,7 +800,7 @@ export function ImportSections(props: ImportSectionsProps) {
                 <div className="basis-full h-0" aria-hidden="true" />
                 <div className="flex gap-2 items-stretch w-full justify-center">
                   <select
-                    className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                    className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 outline-none focus:border-slate-500"
                     value={manualTeamCount}
                     onChange={(e) =>
                       patch({ manualTeamCount: Number(e.target.value) })
@@ -812,7 +812,7 @@ export function ImportSections(props: ImportSectionsProps) {
                     <option value={14}>14 teams</option>
                   </select>
                   <select
-                    className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+                    className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 outline-none focus:border-slate-500"
                     value={manualWeekCount}
                     onChange={(e) =>
                       patch({ manualWeekCount: Number(e.target.value) })
@@ -863,7 +863,7 @@ export function ImportSections(props: ImportSectionsProps) {
             ) : (
               <>
                 <input
-                  className={cls.leagueInput}
+                  className={`${cls.leagueInput} font-mono`}
                   value={leagueId}
                   onChange={(e) => {
                     patch({

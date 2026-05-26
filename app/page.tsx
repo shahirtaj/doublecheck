@@ -337,7 +337,7 @@ export default function GeneratePage() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-6 text-slate-200 font-mono">
+    <div className="min-h-screen px-4 py-6 text-slate-200">
       <div className="text-center mb-7">
         <h1 className="text-xl sm:text-2xl font-extrabold text-emerald-50 uppercase tracking-tight">
           <Link href="/">DoubleCheck</Link>

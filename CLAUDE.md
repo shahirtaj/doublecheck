@@ -1,7 +1,7 @@
 # DoubleCheck
 
 Fair rotational schedules for fantasy football leagues.
-Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3.
+Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3, Inter (sans) + Inconsolata (mono) via `next/font/google`.
 
 ## Bash commands
 

@@ -265,7 +265,7 @@ export function StepReview(props: StepReviewProps) {
           <h3 className={cls.sectionTitle}>Lookback Window</h3>
           <select
             id="lookback-override"
-            className="bg-slate-800 text-slate-200 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] font-mono outline-none focus:border-slate-500"
+            className="bg-slate-800 text-slate-200 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] outline-none focus:border-slate-500"
             value={effectiveLookbackTotal}
             onChange={(e) => {
               const next = parseInt(e.target.value, 10);
@@ -380,7 +380,7 @@ export function StepReview(props: StepReviewProps) {
           </p>
           <div className="flex flex-wrap gap-2 items-center mb-3">
             <select
-              className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 outline-none focus:border-slate-500 disabled:opacity-60 disabled:cursor-not-allowed"
               value={pastSeasonYear}
               onChange={(e) => patch({ pastSeasonYear: e.target.value })}
               disabled={editingSeasonIndex !== null}
@@ -402,7 +402,7 @@ export function StepReview(props: StepReviewProps) {
           >
             <div className="inline-block min-w-fit">
               <div className="flex sticky top-0 z-20">
-                <div className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-20" />
+                <div className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-mono font-semibold border border-slate-700 box-border sticky left-0 z-20" />
                 {teams.map((t, i) => {
                   const inHoverCol = hoveredPastSeasonCell?.col === i;
                   return (
@@ -418,7 +418,7 @@ export function StepReview(props: StepReviewProps) {
                         hideHeaderTooltip();
                         patch({ hoveredPastSeasonCell: null });
                       }}
-                      className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-600" : "bg-slate-900"}`}
+                      className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-mono font-semibold border border-slate-700 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-600" : "bg-slate-900"}`}
                     >
                       {abbrev(t)}
                     </div>
@@ -438,7 +438,7 @@ export function StepReview(props: StepReviewProps) {
                       hideHeaderTooltip();
                       patch({ hoveredPastSeasonCell: null });
                     }}
-                    className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredPastSeasonCell?.row === i ? "bg-slate-600" : "bg-slate-900"}`}
+                    className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-mono font-semibold border border-slate-700 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredPastSeasonCell?.row === i ? "bg-slate-600" : "bg-slate-900"}`}
                   >
                     {abbrev(t)}
                   </div>
@@ -451,7 +451,7 @@ export function StepReview(props: StepReviewProps) {
                       return (
                         <div
                           key={j}
-                          className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 border border-slate-700 box-border ${inHoverPath ? "bg-slate-800" : "bg-slate-950"}`}
+                          className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 font-mono border border-slate-700 box-border ${inHoverPath ? "bg-slate-800" : "bg-slate-950"}`}
                         />
                       );
                     }
@@ -489,7 +489,7 @@ export function StepReview(props: StepReviewProps) {
                             : undefined
                         }
                         onClick={() => togglePastSeasonDouble(i, j)}
-                        className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[10px] border border-slate-700 box-border select-none cursor-pointer ${bg} ${selected ? "text-emerald-400 font-bold" : "text-slate-500"}`}
+                        className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[10px] font-mono border border-slate-700 box-border select-none cursor-pointer ${bg} ${selected ? "text-emerald-400 font-bold" : "text-slate-500"}`}
                       >
                         {selected ? "✕" : ""}
                       </button>
@@ -499,7 +499,7 @@ export function StepReview(props: StepReviewProps) {
               ))}
               {/* Per-team count of selected doubles. Neutral coloring on purpose - past seasons can come from a different format, so checking against the current format.doublesPerTeam would mis-flag valid entries. */}
               <div className="flex">
-                <div className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-10">
+                <div className="w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-mono font-semibold border border-slate-700 box-border sticky left-0 z-10">
                   CT
                 </div>
                 {pastSeasonDoublesPerTeam().map((c, i) => {
@@ -507,7 +507,7 @@ export function StepReview(props: StepReviewProps) {
                   return (
                     <div
                       key={i}
-                      className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[8px] font-semibold border border-slate-700 box-border ${inHoverCol ? "bg-slate-600" : "bg-slate-900"} ${c === 0 ? "text-slate-600" : "text-slate-400"}`}
+                      className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[8px] font-mono font-semibold border border-slate-700 box-border ${inHoverCol ? "bg-slate-600" : "bg-slate-900"} ${c === 0 ? "text-slate-600" : "text-slate-400"}`}
                     >
                       {c}
                     </div>
@@ -550,7 +550,7 @@ export function StepReview(props: StepReviewProps) {
       >
         <div className="inline-block min-w-fit">
           <div className="flex sticky top-0 z-20">
-            <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-20" />
+            <div className="w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center bg-slate-900 text-slate-500 text-[8px] font-mono font-semibold border border-slate-700 box-border sticky left-0 z-20" />
             {teams.map((t, i) => {
               const inHoverCol = hoveredAvoidCell?.col === i;
               return (
@@ -564,7 +564,7 @@ export function StepReview(props: StepReviewProps) {
                     hideHeaderTooltip();
                     patch({ hoveredAvoidCell: null });
                   }}
-                  className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-600" : "bg-slate-900"}`}
+                  className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-mono font-semibold border border-slate-700 box-border overflow-hidden whitespace-nowrap ${inHoverCol ? "bg-slate-600" : "bg-slate-900"}`}
                 >
                   {abbrev(t)}
                 </div>
@@ -582,7 +582,7 @@ export function StepReview(props: StepReviewProps) {
                   hideHeaderTooltip();
                   patch({ hoveredAvoidCell: null });
                 }}
-                className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-semibold border border-slate-700 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredAvoidCell?.row === i ? "bg-slate-600" : "bg-slate-900"}`}
+                className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-slate-500 text-[8px] font-mono font-semibold border border-slate-700 box-border sticky left-0 z-10 overflow-hidden whitespace-nowrap ${hoveredAvoidCell?.row === i ? "bg-slate-600" : "bg-slate-900"}`}
               >
                 {abbrev(t)}
               </div>
@@ -594,7 +594,7 @@ export function StepReview(props: StepReviewProps) {
                   return (
                     <div
                       key={j}
-                      className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 border border-slate-700 box-border ${inHoverPath ? "bg-slate-800" : "bg-slate-950"}`}
+                      className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 font-mono border border-slate-700 box-border ${inHoverPath ? "bg-slate-800" : "bg-slate-950"}`}
                     />
                   );
                 }
@@ -645,7 +645,7 @@ export function StepReview(props: StepReviewProps) {
                     }
                     onClick={() => toggleDouble(i, j)}
                     disabled={cellDisabled}
-                    className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-[10px] border border-slate-700 box-border select-none ${cellDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${bg} ${textCls}`}
+                    className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-[10px] font-mono border border-slate-700 box-border select-none ${cellDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${bg} ${textCls}`}
                   >
                     {glyph}
                   </button>
@@ -1059,7 +1059,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
         </select>
         <select
           aria-label="First team"
-          className="w-[calc(50%-0.25rem)] sm:w-auto sm:flex-1 sm:min-w-[8rem] bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+          className="w-[calc(50%-0.25rem)] sm:w-auto sm:flex-1 sm:min-w-[8rem] bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 outline-none focus:border-slate-500"
           value={safeA}
           onChange={(e) => {
             const newA = Number(e.target.value);
@@ -1084,7 +1084,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
         </select>
         <select
           aria-label="Second team"
-          className="w-[calc(50%-0.25rem)] sm:w-auto sm:flex-1 sm:min-w-[8rem] bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 font-mono outline-none focus:border-slate-500"
+          className="w-[calc(50%-0.25rem)] sm:w-auto sm:flex-1 sm:min-w-[8rem] bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 outline-none focus:border-slate-500"
           value={safeB}
           onChange={(e) => {
             const newB = Number(e.target.value);
