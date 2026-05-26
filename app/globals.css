@@ -8,3 +8,7 @@ body {
   min-height: 100vh;
   color: #e2e8f0;
 }
+
+code.font-mono {
+  font-size: 1.19em;
+}
