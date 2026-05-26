@@ -509,7 +509,7 @@ export default function GeneratePage() {
           href="https://github.com/shahirtaj/doublecheck/issues"
           target="_blank"
           rel="noopener noreferrer"
-          className="hover:text-slate-400"
+          className="underline decoration-slate-700 hover:text-slate-400 hover:decoration-slate-500"
         >
           Report a bug
         </a>
@@ -518,7 +518,7 @@ export default function GeneratePage() {
           href="https://buymeacoffee.com/shahirtaj"
           target="_blank"
           rel="noopener noreferrer"
-          className="hover:text-slate-400"
+          className="underline decoration-slate-700 hover:text-slate-400 hover:decoration-slate-500"
         >
           Buy me a coffee
         </a>
