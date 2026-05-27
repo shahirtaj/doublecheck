@@ -383,7 +383,7 @@ export function StepSchedule(props: StepScheduleProps) {
         )}
       </p>
 
-      {platform === "yahoo" && <YahooAttribution className="mt-3" />}
+      {platform === "yahoo" && <YahooAttribution className="mt-4" />}
 
       <details className="mt-4">
         <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">
