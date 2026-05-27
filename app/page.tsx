@@ -202,7 +202,7 @@ export default function GeneratePage() {
       patch({
         platform: "yahoo",
         importStatus: "error",
-        importMsg: `Yahoo connection failed: ${(reason || "unknown").replace(/_/g, " ")}.`,
+        importMsg: `Yahoo Fantasy connection failed: ${(reason || "unknown").replace(/_/g, " ")}.`,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

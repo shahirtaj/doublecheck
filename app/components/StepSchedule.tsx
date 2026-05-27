@@ -10,6 +10,7 @@ import {
   type SeasonHistory,
 } from "@/lib/algorithm";
 import { MatchupSummary } from "./MatchupSummary";
+import { YahooAttribution } from "./YahooAttribution";
 import { cls } from "./styles";
 import type { Patch, SaveToStorageFn, State } from "./state";
 
@@ -155,20 +156,20 @@ export function StepSchedule(props: StepScheduleProps) {
     const heading = leagueName
       ? `${leagueName} ${scheduleYear} Schedule\n\n`
       : "";
-    return (
-      heading +
-      (displayWeeks ?? schedule.weeks)
-        .map(
-          (week, wi) =>
-            `Week ${wi + 1}\n` +
-            week
-              .map(
-                ([a, b]: [number, number]) => `  ${teams[a]}  vs  ${teams[b]}`,
-              )
-              .join("\n"),
-        )
-        .join("\n\n")
-    );
+    const body = (displayWeeks ?? schedule.weeks)
+      .map(
+        (week, wi) =>
+          `Week ${wi + 1}\n` +
+          week
+            .map(([a, b]: [number, number]) => `  ${teams[a]}  vs  ${teams[b]}`)
+            .join("\n"),
+      )
+      .join("\n\n");
+    const attribution =
+      platform === "yahoo"
+        ? "\n\nFantasy data provided by Yahoo Fantasy\nhttps://sports.yahoo.com/fantasy/"
+        : "";
+    return heading + body + attribution;
   }
 
   async function handleCopySchedule() {
@@ -381,6 +382,8 @@ export function StepSchedule(props: StepScheduleProps) {
           </>
         )}
       </p>
+
+      {platform === "yahoo" && <YahooAttribution className="mt-3" />}
 
       <details className="mt-4">
         <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">

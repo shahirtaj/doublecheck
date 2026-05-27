@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { pairKey, type RivalryPlacement } from "@/lib/algorithm";
 import { MatchupSummary } from "@/app/components/MatchupSummary";
+import { YahooAttribution } from "@/app/components/YahooAttribution";
 import { cls } from "@/app/components/styles";
 
 type Props = {
@@ -55,16 +56,18 @@ export function SharedScheduleView({
 
   function formatScheduleText(): string {
     const headingPrefix = trimmedName ? `${heading}\n\n` : "";
-    return (
-      headingPrefix +
-      viewerWeeks
-        .map(
-          (week, wi) =>
-            `Week ${wi + 1}\n` +
-            week.map(([a, b]) => `  ${teams[a]}  vs  ${teams[b]}`).join("\n"),
-        )
-        .join("\n\n")
-    );
+    const body = viewerWeeks
+      .map(
+        (week, wi) =>
+          `Week ${wi + 1}\n` +
+          week.map(([a, b]) => `  ${teams[a]}  vs  ${teams[b]}`).join("\n"),
+      )
+      .join("\n\n");
+    const attribution =
+      platform === "yahoo"
+        ? "\n\nFantasy data provided by Yahoo Fantasy\nhttps://sports.yahoo.com/fantasy/"
+        : "";
+    return headingPrefix + body + attribution;
   }
 
   async function handleCopySchedule() {
@@ -191,6 +194,8 @@ export function SharedScheduleView({
             </>
           )}
         </p>
+
+        {platform === "yahoo" && <YahooAttribution className="mt-3" />}
 
         <details className="mt-4">
           <summary className="cursor-pointer text-xs text-slate-400 py-1.5 select-none hover:text-slate-300">

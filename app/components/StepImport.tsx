@@ -223,7 +223,7 @@ export function ImportSections(props: ImportSectionsProps) {
   async function fetchYahooLeagueSeasons(leagueKey: string) {
     patch({
       importStatus: "loading",
-      importMsg: "Loading season data from Yahoo…",
+      importMsg: "Loading season data from Yahoo Fantasy…",
       importPreview: null,
     });
     try {
@@ -266,7 +266,7 @@ export function ImportSections(props: ImportSectionsProps) {
   async function fetchYahooLeagues() {
     patch({
       importStatus: "loading",
-      importMsg: "Loading Yahoo leagues…",
+      importMsg: "Loading Yahoo Fantasy leagues…",
       yahooLeagues: null,
       selectedYahooLeague: "",
       importPreview: null,
@@ -296,7 +296,7 @@ export function ImportSections(props: ImportSectionsProps) {
       if (leagues.length === 0) {
         patch({
           importStatus: "error",
-          importMsg: "No NFL leagues found on your Yahoo account.",
+          importMsg: "No NFL leagues found on your Yahoo Fantasy account.",
         });
         return;
       }
@@ -307,13 +307,14 @@ export function ImportSections(props: ImportSectionsProps) {
       }
       patch({
         importStatus: "",
-        importMsg: `Found ${leagues.length} Yahoo leagues - pick one.`,
+        importMsg: `Found ${leagues.length} Yahoo Fantasy leagues - pick one.`,
       });
     } catch (e) {
       if (platformRef.current !== "yahoo") return;
       patch({
         importStatus: "error",
-        importMsg: (e as Error).message || "Failed to load Yahoo leagues.",
+        importMsg:
+          (e as Error).message || "Failed to load Yahoo Fantasy leagues.",
       });
     }
   }
@@ -689,7 +690,7 @@ export function ImportSections(props: ImportSectionsProps) {
                 league info, then add past seasons manually in the next step.
               </>
             ) : (
-              <>Sign in with Yahoo to import your fantasy leagues.</>
+              <>Connect to Yahoo Fantasy to import your fantasy leagues.</>
             )}
           </p>
           <div className="flex flex-wrap gap-2 items-stretch justify-center">
@@ -726,7 +727,7 @@ export function ImportSections(props: ImportSectionsProps) {
             >
               <option value="sleeper">Sleeper</option>
               <option value="espn">ESPN</option>
-              <option value="yahoo">Yahoo</option>
+              <option value="yahoo">Yahoo Fantasy</option>
               <option value="manual">Manual (NFL.com, CBS, other)</option>
               <option value="link">Restore from link</option>
             </select>
@@ -790,7 +791,9 @@ export function ImportSections(props: ImportSectionsProps) {
                   }}
                   disabled={importBusy}
                 >
-                  {importStatus === "loading" ? "Loading…" : "Connect Yahoo"}
+                  {importStatus === "loading"
+                    ? "Loading…"
+                    : "Connect to Yahoo Fantasy"}
                 </button>
               )
             ) : platform === "manual" ? (

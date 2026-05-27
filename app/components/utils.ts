@@ -31,10 +31,12 @@ export function detectFormatFromImport(
   return { teamCount, weekCount };
 }
 
-// "espn" needs to render as the full acronym; the other platforms are normal
-// proper nouns and just want title-case.
+// "espn" needs to render as the full acronym; "yahoo" renders with the
+// "Fantasy" suffix per Yahoo's API branding requirements; the other platforms
+// are normal proper nouns and just want title-case.
 export function platformLabel(platform: ImportPlatform): string {
   if (platform === "espn") return "ESPN";
+  if (platform === "yahoo") return "Yahoo Fantasy";
   return platform.charAt(0).toUpperCase() + platform.slice(1);
 }
 

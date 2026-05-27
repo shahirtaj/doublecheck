@@ -21,7 +21,10 @@ export async function GET() {
   const clientId = process.env.YAHOO_CLIENT_ID;
   if (!clientId) {
     return NextResponse.json(
-      { error: "Yahoo OAuth is not configured (YAHOO_CLIENT_ID missing)." },
+      {
+        error:
+          "Yahoo Fantasy OAuth is not configured (YAHOO_CLIENT_ID missing).",
+      },
       { status: 500 },
     );
   }

@@ -465,13 +465,13 @@ export async function POST(req: Request) {
     } catch (e) {
       if ((e as Error).message === "NOT_AUTHENTICATED") {
         return NextResponse.json(
-          { error: "Not connected to Yahoo. Connect first." },
+          { error: "Not connected to Yahoo Fantasy. Connect first." },
           { status: 401 },
         );
       }
       console.error("[/api/import/yahoo] Token error:", e);
       return NextResponse.json(
-        { error: `Yahoo token error: ${(e as Error).message}` },
+        { error: `Yahoo Fantasy token error: ${(e as Error).message}` },
         { status: 502 },
       );
     }
@@ -503,7 +503,8 @@ export async function POST(req: Request) {
       if (records.length === 0) {
         return NextResponse.json(
           {
-            error: "No completed seasons found in this Yahoo league's history.",
+            error:
+              "No completed seasons found in this Yahoo Fantasy league's history.",
           },
           { status: 404 },
         );
@@ -515,13 +516,13 @@ export async function POST(req: Request) {
       const msg = (e as Error).message;
       if (msg === "UNAUTHORIZED") {
         return NextResponse.json(
-          { error: "Yahoo authorization expired. Please reconnect." },
+          { error: "Yahoo Fantasy authorization expired. Please reconnect." },
           { status: 401 },
         );
       }
       console.error("[/api/import/yahoo] Fetch error:", e);
       return NextResponse.json(
-        { error: `Failed to fetch from Yahoo: ${msg}` },
+        { error: `Failed to fetch from Yahoo Fantasy: ${msg}` },
         { status: 502 },
       );
     }
@@ -531,8 +532,8 @@ export async function POST(req: Request) {
       {
         error:
           e instanceof Error
-            ? `Failed to fetch from Yahoo: ${e.message}`
-            : "Unexpected error processing Yahoo import.",
+            ? `Failed to fetch from Yahoo Fantasy: ${e.message}`
+            : "Unexpected error processing Yahoo Fantasy import.",
       },
       { status: 502 },
     );
