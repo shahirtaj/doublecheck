@@ -1012,14 +1012,17 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
   // stays visible whenever the pair is avoided, regardless of any
   // active pinError or the post-add suppression flag.
   let avoidWarning = "";
+  let avoidWarningTone = "text-amber-400";
   {
     const { hard, soft } = mergedAvoidSets;
     if (hard.has(pinAKey)) {
       avoidWarning =
         "This pair is hard-avoided. This pin forces one game between them - they won't play again.";
+      avoidWarningTone = "text-red-400";
     } else if (soft.has(pinAKey)) {
       avoidWarning =
         "This pair is soft-avoided. This pin forces one game between them.";
+      avoidWarningTone = "text-amber-400";
     }
   }
   const addDisabled = !!pinError || addingPastSeason || pinWeekDisabled;
@@ -1149,7 +1152,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
       {!pinJustAdded && pinError ? (
         <p className="text-[11px] mt-2 text-red-400">{pinError}</p>
       ) : avoidWarning ? (
-        <p className="text-[11px] mt-2 text-amber-400">{avoidWarning}</p>
+        <p className={`text-[11px] mt-2 ${avoidWarningTone}`}>{avoidWarning}</p>
       ) : null}
       {rivalryPins.length > 0 && (
         <>
