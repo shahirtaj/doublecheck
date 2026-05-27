@@ -48,13 +48,13 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 - **Maximum-separation placement.** Doubled pairs are placed at the largest possible week distance within the season (`weekCount - doublesPerTeam`), so a doubled rivalry's first and rematch games are as far apart as the format allows.
 - **Rivalry weeks.** Commissioners can pin specific matchups to specific weeks (or let the algorithm pick the week). Pin an entire week's worth of matchups to create a full rivalry week. One pin forces a single appearance at that week; two pins for the same pair force a double. Pins override the avoidance system - a hard-avoided pair pinned to a week still plays that week - while the algorithm continues rotating the remaining doubles fairly across the rest of the league. Works across all 7 supported formats, including the most constrained (14/13 pure round-robin and 14/14 with only 1 double per team).
 - **Identity tracking via user IDs.** Doubled pairs are stored by Sleeper user ID, ESPN user ID, or Yahoo manager GUID - not team name. The schedule survives team renames, manager changes, and roster reshuffles between seasons.
-- **Auto-detected league format on imports.** Team count and week count come from the imported league data for Sleeper, ESPN, and Yahoo. Manual-entry users (NFL.com, CBS, etc.) pick team count and week count from two dropdowns instead.
+- **Auto-detected league format on imports.** Team count and week count come from the imported league data for Sleeper, ESPN, and Yahoo Fantasy. Manual-entry users (NFL.com, CBS, etc.) pick team count and week count from two dropdowns instead.
 
 ## Supported platforms
 
 - **Sleeper** - fully public API. Enter your Sleeper username (pick from your leagues) or paste a league ID directly.
 - **ESPN** - public leagues by league ID. Private leagues must be set to public by the commissioner before import.
-- **Yahoo** - sign in with Yahoo (OAuth 2.0). Tokens are stored in an encrypted httpOnly cookie - no database, no account needed.
+- **Yahoo Fantasy** - sign in with Yahoo Fantasy (OAuth 2.0). Tokens are stored in an encrypted httpOnly cookie - no database, no account needed.
 - **Manual entry** - for unsupported platforms (NFL.com, CBS, etc.). Pick your league format, name your teams, and click the doubled matchups from each past season on an interactive grid.
 - **Restore from link** - returning users paste a previously-saved share URL (full URL, `/s/slug` path, or bare 8-char slug) to bring a league back into a fresh browser. Restores teams, userIds, league name, history, and rivalry pins from the share payload; the old schedule and any one-off manual avoids are dropped so you regenerate against current avoidance constraints.
 
@@ -89,7 +89,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-The app runs without any environment variables configured - Yahoo OAuth, ESPN imports, and share links won't work, but the manual entry flow and schedule generation are fully functional locally.
+The app runs without any environment variables configured - Yahoo Fantasy OAuth, ESPN imports, and share links won't work, but the manual entry flow and schedule generation are fully functional locally.
 
 Run `npm test` to execute the algorithm test suite (188 tests). See [CLAUDE.md](CLAUDE.md) for the full command reference and project structure.
 
