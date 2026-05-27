@@ -686,8 +686,7 @@ export function ImportSections(props: ImportSectionsProps) {
               </>
             ) : platform === "manual" ? (
               <>
-                For leagues on platforms without automatic import. Enter your
-                league info, then add past seasons manually in the next step.
+                Enter your league info, then add past seasons in the next step.
               </>
             ) : (
               <>Connect to Yahoo Fantasy to import your leagues.</>
