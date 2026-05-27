@@ -14,7 +14,7 @@ export function YahooAttribution({ className }: YahooAttributionProps) {
       <div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/yahoo_fantasy.svg"
+          src="/yahoo-fantasy.svg"
           alt="Yahoo Fantasy"
           height={22}
           style={{ height: 22, width: "auto" }}
