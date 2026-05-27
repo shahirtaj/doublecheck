@@ -16,8 +16,8 @@ export function YahooAttribution({ className }: YahooAttributionProps) {
         <img
           src="/yahoo-fantasy.svg"
           alt="Yahoo Fantasy"
-          height={60}
-          style={{ height: 60, width: "auto" }}
+          height={20}
+          style={{ height: 20, width: "auto" }}
         />
       </div>
       <p className="text-[11px] text-slate-400">
