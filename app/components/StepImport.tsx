@@ -296,7 +296,7 @@ export function ImportSections(props: ImportSectionsProps) {
       if (leagues.length === 0) {
         patch({
           importStatus: "error",
-          importMsg: "No NFL leagues found on your Yahoo Fantasy account.",
+          importMsg: "No football leagues found on your Yahoo Fantasy account.",
         });
         return;
       }
@@ -690,7 +690,7 @@ export function ImportSections(props: ImportSectionsProps) {
                 league info, then add past seasons manually in the next step.
               </>
             ) : (
-              <>Connect to Yahoo Fantasy to import your fantasy leagues.</>
+              <>Connect to Yahoo Fantasy to import your leagues.</>
             )}
           </p>
           <div className="flex flex-wrap gap-2 items-stretch justify-center">
