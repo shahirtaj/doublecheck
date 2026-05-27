@@ -89,7 +89,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-The app runs without any environment variables configured - Yahoo Fantasy OAuth, ESPN imports, and share links won't work, but the manual entry flow and schedule generation are fully functional locally.
+The app runs without any environment variables configured - Yahoo Fantasy OAuth and share links won't work, but Sleeper imports, ESPN imports (public leagues), manual entry, and schedule generation are fully functional locally.
 
 Run `npm test` to execute the algorithm test suite (188 tests). See [CLAUDE.md](CLAUDE.md) for the full command reference and project structure.
 
