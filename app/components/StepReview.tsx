@@ -765,7 +765,7 @@ export function StepReview(props: StepReviewProps) {
                           {p.years && p.years.length > 0 && (
                             <>
                               {" "}
-                              <span className={p.tone}>
+                              <span className="text-slate-500">
                                 {`(${p.years.join(", ")})`}
                               </span>
                             </>
