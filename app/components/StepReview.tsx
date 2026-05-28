@@ -764,14 +764,10 @@ export function StepReview(props: StepReviewProps) {
                           <span className={p.tone}>{p.name}</span>
                           {p.years && p.years.length > 0 && (
                             <>
-                              {" ("}
-                              {p.years.map((y, j) => (
-                                <span key={j}>
-                                  {j > 0 ? ", " : ""}
-                                  <span className={p.tone}>{y}</span>
-                                </span>
-                              ))}
-                              {")"}
+                              {" "}
+                              <span className={p.tone}>
+                                {`(${p.years.join(", ")})`}
+                              </span>
                             </>
                           )}
                         </span>
