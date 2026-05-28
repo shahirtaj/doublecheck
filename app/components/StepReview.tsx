@@ -742,10 +742,19 @@ export function StepReview(props: StepReviewProps) {
                   }
                 }
                 if (partners.length === 0) return null;
-                partners.sort(
-                  (a, b) =>
-                    a.sortKey - b.sortKey || a.name.localeCompare(b.name),
-                );
+                partners.sort((a, b) => {
+                  if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey;
+                  // seasons years are most-recent-first, so [0] is the latest;
+                  // within a tier, order by most recent avoidance, then name.
+                  const aYear = a.years?.[0];
+                  const bYear = b.years?.[0];
+                  if (aYear && bYear && aYear !== bYear) {
+                    return bYear.localeCompare(aYear, undefined, {
+                      numeric: true,
+                    });
+                  }
+                  return a.name.localeCompare(b.name);
+                });
                 return (
                   <div
                     key={i}
@@ -756,12 +765,19 @@ export function StepReview(props: StepReviewProps) {
                       {partners.map((p, k) => (
                         <span key={k}>
                           {k > 0 ? ", " : ""}
-                          <span className={p.tone}>
-                            {p.name}
-                            {p.years && p.years.length > 0
-                              ? ` (${p.years.join(", ")})`
-                              : ""}
-                          </span>
+                          <span className={p.tone}>{p.name}</span>
+                          {p.years && p.years.length > 0 && (
+                            <>
+                              {" ("}
+                              {p.years.map((y, j) => (
+                                <span key={j}>
+                                  {j > 0 ? ", " : ""}
+                                  <span className={p.tone}>{y}</span>
+                                </span>
+                              ))}
+                              {")"}
+                            </>
+                          )}
                         </span>
                       ))}
                     </div>
