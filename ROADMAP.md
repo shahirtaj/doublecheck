@@ -239,24 +239,34 @@ Swapped the all-mono JetBrains Mono stack for a paired Inter + Inconsolata stack
 
 ---
 
+### Phase 15: Avoidance season years ✅
+
+**Tool:** Claude Code
+
+The Avoidance by Team list now shows which past season produced each auto-avoid. Hard- and soft-avoid opponents display the contributing season year(s) in parentheses after the name (e.g. "(2025)", or "(2024, 2025)" when a pair repeats across the lookback window), color-matched to the avoid tier; manual avoids stay unlabeled. `buildAvoidMap` returns a new `seasons` map (resolved pair key -> contributing year(s)) to drive this, and the manual-avoid legend entry now hides when there are no manual avoids, completing the per-tier legend-hide started in Phase 11. 6 new tests cover the seasons map (194 total).
+
+**Deliverable:** Per-opponent season provenance in the avoidance summary.
+
+---
+
 ## Priority order
 
-Phases 1-14 are done. Phase 9 Wave 2 (Reddit redraft-season push) is next, planned for late July/August 2026.
+Phases 1-15 are done. Phase 9 Wave 2 (Reddit redraft-season push) is next, planned for late July/August 2026.
 
 ## Estimated effort
 
-Phases 1-8 completed across two days. Phase 9 Wave 1 complete. Phases 10-14 complete. Wave 2 planned for late July/August 2026.
+Phases 1-8 completed across two days. Phase 9 Wave 1 complete. Phases 10-15 complete. Wave 2 planned for late July/August 2026.
 
 ---
 
 ## Current state
 
-Phases 1-14 are complete. Phase 9 Wave 2 (late July/August 2026 Reddit redraft-season push) is next. The tool is live at [doublecheckff.com](https://doublecheckff.com).
+Phases 1-15 are complete. Phase 9 Wave 2 (late July/August 2026 Reddit redraft-season push) is next. The tool is live at [doublecheckff.com](https://doublecheckff.com).
 
-- **Phase 1 - Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 188 Vitest tests prove constraints hold across every format, including rivalry-pin coverage.
+- **Phase 1 - Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 194 Vitest tests prove constraints hold across every format, including rivalry-pin coverage.
 - **Phase 2 - Next.js 16 App Router.** Tool is the homepage with Tailwind CSS and responsive UI. localStorage persistence. Originally built on Next.js 14; upgraded through 15 to 16 (Turbopack default, React 19). Linting moved to ESLint 9 flat config in `eslint.config.mjs` since `next lint` was removed in Next 16. `postcss` and `glob` `overrides` from `package.json` were dropped because Next 15+ already resolves both cleanly.
 - **Phase 3 - Server-side platform integrations.** `/api/import/sleeper` and `/api/import/espn` walk the season-history chain, fetch all completed seasons, and apply IP-based rate limiting. Sleeper also supports username lookup: enter a Sleeper username and DoubleCheck lists your leagues to pick from (no need to remember the league ID). For platforms without an API (NFL.com, CBS, etc.), a **manual entry** mode lets commissioners pick the format, name their teams, and click each past season's doubled matchups on an interactive grid.
-- **Phase 4 - GitHub.** Public repo with README, MIT license, and GitHub Actions CI (188/188 tests passing).
+- **Phase 4 - GitHub.** Public repo with README, MIT license, and GitHub Actions CI (194/194 tests passing).
 - **Phase 5 - Deployed.** Live on Vercel at doublecheckff.com with auto-deploy from main.
 - **Phase 6 - SEO + polish.** Favicon (double checkmark SVG), OG/Twitter meta tags, auto-detected league format from import data, lookback window override control, edge-case format detection. No manual format selector - format is derived from imported seasons.
 - **Phase 6.5 - Yahoo OAuth 2.0 import.** `/api/auth/yahoo/start` + `/api/auth/yahoo/callback` handle the OAuth dance with a CSRF state cookie. Access + refresh tokens encrypted with AES-256-GCM and stored in an httpOnly cookie - no database, no user accounts. `/api/import/yahoo` lists the user's NFL leagues for a picker, then walks the renew chain on selection to return `ImportedSeasonRecord[]`. Auto-refreshes expired tokens.
@@ -268,6 +278,7 @@ Phases 1-14 are complete. Phase 9 Wave 2 (late July/August 2026 Reddit redraft-s
 - **Phase 12 - Share link restore.** "Restore from link" option in the import dropdown lets returning users paste a share URL to bring a previously-shared league back into a fresh browser. New GET `/api/share/[slug]` route reads the payload from Upstash Redis (rate-limited at 30/hr per IP, namespaced separately from share creation, 404 on missing/expired). The client uses the same Fetch -> preview -> Apply -> Step 1 flow as platform imports. Apply hydrates format/teams/userIds/leagueName/history/rivalryPins (sorted alphabetically with index remapping; manualDoubles are intentionally dropped as one-time per-season overrides) and skips the stale schedule so the user regenerates fresh. `rivalryPins` added to the share payload so commissioner pin configurations survive the round-trip. Backward-compatible with pre-Phase-12 share links. Buy Me a Coffee Sponsor link wired into `.github/FUNDING.yml`.
 - **Phase 13 - Component refactor.** `app/page.tsx` split from one 3,153-line client component into a modular tree under `app/components/`: `constants.ts`, `types.ts`, `utils.ts`, `styles.ts`, `state.ts` (single `useReducer` with a `patch` action), `StepImport.tsx` (Step 1 + all import handlers, plus the OAuth-callback `pendingYahooConnect` bridge), `StepReview.tsx` (Step 2 matrix, past-season editor, `RivalryPinBuilder` subcomponent), and `StepSchedule.tsx` (Step 3 viewer + share/copy flows). `page.tsx` is now 525 lines containing only shared state, derived values, step navigation, back/reset buttons, footer, tooltip, hydration/OAuth effects, `saveToStorage`, and `handleGenerate` (passed as `onGenerate` to both StepReview and StepSchedule). No behavior or UI changes; all 188 tests pass and production build succeeds.
 - **Phase 14 - Font stack.** Swapped JetBrains Mono everywhere for Inter (proportional, body/UI) + Inconsolata (mono, fixed-width content) via `next/font/google`. Inter cascades as the default `<body>` font through `inter.className`; both fonts are also exposed as CSS variables (`--font-sans`, `--font-mono`) and wired into `tailwind.config.ts` so the `font-sans` and `font-mono` utility classes resolve correctly. Mono is retained only where alignment matters: matrix cells in both Step 2 matrices (column headers, row headers, clickable toggles, diagonal spacers, CT count row), the week navigator buttons in Step 3 and the shared schedule view, the Copy Full Schedule textarea, and the league ID / share-link / share-URL inputs. Everything else (manager names, `<select>` controls, navigation buttons, prose) inherits Inter. No font sizes, cell widths, or padding changed; Inconsolata is metrically close enough to JetBrains Mono that the existing fixed dimensions stay accurate. The `abbrev()` cutoff was bumped 7 -> 8 in a follow-up commit since the extra char fits comfortably at `text-[8px]` Inconsolata. A `globals.css` rule scales inline `<code className="font-mono">` snippets to 1.19em so Inconsolata matches Inter's x-height when adjacent to prose (Step 1 URL hints); fixed-size mono contexts using `<div>`/`<button>`/`<textarea>`/`<input>` aren't `<code>` elements and don't pick up the rule. `public/og.png` was regenerated under the new stack (Inconsolata Bold title in white, Inter subtitle in emerald) using `node-canvas` with TTFs pulled from `raw.githubusercontent.com/rsms/inter` and `raw.githubusercontent.com/googlefonts/Inconsolata`; `screenshot.png` was recaptured under the new fonts as well. Reasoning: better legibility at small sizes on mobile (82% of traffic) and a friendlier feel on the shared schedule page that recipients see without the rest of the app's controls.
+- **Phase 15 - Avoidance season years.** The Avoidance by Team list shows the past season year(s) that produced each auto-avoid - hard and soft opponents display "(2025)" / "(2024, 2025)" after the name, color-matched to the tier; manual avoids stay unlabeled. Backed by a new `seasons` map on `buildAvoidMap` (resolved pair key -> contributing years). The manual-avoid legend entry now also hides when there are no manual avoids, completing the per-tier legend-hide started in Phase 11. 6 new tests (194 total).
 
 ### Production fixes
 
