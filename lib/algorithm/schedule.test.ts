@@ -1347,7 +1347,7 @@ describe("buildAvoidMap seasons map", () => {
     expect(seasons.get(pairKey(0, 1))).toEqual(["2024"]);
   });
 
-  it("lists multiple years oldest-first when a pair repeats across the window", () => {
+  it("lists multiple years most-recent-first when a pair repeats across the window", () => {
     const history: SeasonHistory[] = [
       { season: "2024", doubles: [pairKey(0, 1)] },
       { season: "2025", doubles: [pairKey(0, 1)] },
@@ -1359,8 +1359,8 @@ describe("buildAvoidMap seasons map", () => {
     // The hard occurrence (2025) wins classification; the soft entry is removed.
     expect(hard.has(pairKey(0, 1))).toBe(true);
     expect(soft.has(pairKey(0, 1))).toBe(false);
-    // Both years are still recorded, in chronological order.
-    expect(seasons.get(pairKey(0, 1))).toEqual(["2024", "2025"]);
+    // Both years are still recorded, most recent first.
+    expect(seasons.get(pairKey(0, 1))).toEqual(["2025", "2024"]);
   });
 
   it("returns an empty seasons map for empty history", () => {

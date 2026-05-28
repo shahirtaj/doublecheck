@@ -5,9 +5,9 @@ export type AvoidMap = {
   hard: Set<PairKey>;
   soft: Set<PairKey>;
   // For every avoided pair, the season year(s) within the lookback window that
-  // produced it, in chronological order (oldest first). Keyed by resolved
-  // "i-j" pair key. A pair can map to multiple years when the lookback window
-  // spans more than one season in which it was doubled.
+  // produced it, most recent first. Keyed by resolved "i-j" pair key. A pair
+  // can map to multiple years when the lookback window spans more than one
+  // season in which it was doubled.
   seasons: Map<PairKey, string[]>;
 };
 
@@ -49,9 +49,11 @@ export function buildAvoidMap(
       if (resolved === null) continue;
       if (age <= lookback.hard) hard.add(resolved);
       else soft.add(resolved);
+      // History is walked oldest-first, so unshift keeps the most recent
+      // contributing season at index 0.
       const years = seasons.get(resolved);
       if (years) {
-        if (!years.includes(season.season)) years.push(season.season);
+        if (!years.includes(season.season)) years.unshift(season.season);
       } else {
         seasons.set(resolved, [season.season]);
       }
