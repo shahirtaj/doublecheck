@@ -249,19 +249,29 @@ The Avoidance by Team list now shows which past season produced each auto-avoid.
 
 ---
 
+### Phase 16: Destructive-action confirmations ✅
+
+**Tool:** Claude Code
+
+Every destructive action in Step 2 (Review) now gates behind a two-step inline confirm, mirroring the existing `confirmReset` pattern. The Delete button on a saved season row swaps to "Yes, delete" + Cancel; the bulk **Clear Manual Avoids** and **Clear Rivalry Pins** buttons arm a "Clear all ...?" prompt with "Yes, clear" + Cancel; and each rivalry pin's **Remove** button arms "Yes, remove" + Cancel. Season-delete and pin-remove use index-based flags (`confirmDeleteSeasonIndex`, `confirmRemovePinIndex`) so only one row is armed at a time, while the two bulk clears use booleans (`confirmClearManualDoubles`, `confirmClearRivalryPins`); opening Add/Edit Past Season clears any pending season or clear confirm so a stale prompt can't survive into the form. Shipped in the same pass: a **Clear Selections** button on the Add/Edit past-season grid that empties the in-progress selection without closing the form or resetting the year, and reworded past-season instruction copy ("Select the year, then click each pair of teams that played twice that season."). All four flags are ephemeral UI state - not in the share payload or localStorage, so no hydration changes - with no algorithm or test changes (194).
+
+**Deliverable:** Uniform two-step confirms on every destructive Review-step action, plus a Clear Selections button and clearer past-season copy.
+
+---
+
 ## Priority order
 
-Phases 1-15 are done. Phase 9 Wave 2 (Reddit redraft-season push) is next, planned for late July/August 2026.
+Phases 1-16 are done. Phase 9 Wave 2 (Reddit redraft-season push) is next, planned for late July/August 2026.
 
 ## Estimated effort
 
-Phases 1-8 completed across two days. Phase 9 Wave 1 complete. Phases 10-15 complete. Wave 2 planned for late July/August 2026.
+Phases 1-8 completed across two days. Phase 9 Wave 1 complete. Phases 10-16 complete. Wave 2 planned for late July/August 2026.
 
 ---
 
 ## Current state
 
-Phases 1-15 are complete. Phase 9 Wave 2 (late July/August 2026 Reddit redraft-season push) is next. The tool is live at [doublecheckff.com](https://doublecheckff.com).
+Phases 1-16 are complete. Phase 9 Wave 2 (late July/August 2026 Reddit redraft-season push) is next. The tool is live at [doublecheckff.com](https://doublecheckff.com).
 
 - **Phase 1 - Generalized algorithm.** `lib/algorithm/` module covers all 7 supported formats with a `(teamCount, weekCount)` parameterization. 194 Vitest tests prove constraints hold across every format, including rivalry-pin coverage.
 - **Phase 2 - Next.js 16 App Router.** Tool is the homepage with Tailwind CSS and responsive UI. localStorage persistence. Originally built on Next.js 14; upgraded through 15 to 16 (Turbopack default, React 19). Linting moved to ESLint 9 flat config in `eslint.config.mjs` since `next lint` was removed in Next 16. `postcss` and `glob` `overrides` from `package.json` were dropped because Next 15+ already resolves both cleanly.
@@ -279,6 +289,7 @@ Phases 1-15 are complete. Phase 9 Wave 2 (late July/August 2026 Reddit redraft-s
 - **Phase 13 - Component refactor.** `app/page.tsx` split from one 3,153-line client component into a modular tree under `app/components/`: `constants.ts`, `types.ts`, `utils.ts`, `styles.ts`, `state.ts` (single `useReducer` with a `patch` action), `StepImport.tsx` (Step 1 + all import handlers, plus the OAuth-callback `pendingYahooConnect` bridge), `StepReview.tsx` (Step 2 matrix, past-season editor, `RivalryPinBuilder` subcomponent), and `StepSchedule.tsx` (Step 3 viewer + share/copy flows). `page.tsx` is now 525 lines containing only shared state, derived values, step navigation, back/reset buttons, footer, tooltip, hydration/OAuth effects, `saveToStorage`, and `handleGenerate` (passed as `onGenerate` to both StepReview and StepSchedule). No behavior or UI changes; all 188 tests pass and production build succeeds.
 - **Phase 14 - Font stack.** Swapped JetBrains Mono everywhere for Inter (proportional, body/UI) + Inconsolata (mono, fixed-width content) via `next/font/google`. Inter cascades as the default `<body>` font through `inter.className`; both fonts are also exposed as CSS variables (`--font-sans`, `--font-mono`) and wired into `tailwind.config.ts` so the `font-sans` and `font-mono` utility classes resolve correctly. Mono is retained only where alignment matters: matrix cells in both Step 2 matrices (column headers, row headers, clickable toggles, diagonal spacers, CT count row), the week navigator buttons in Step 3 and the shared schedule view, the Copy Full Schedule textarea, and the league ID / share-link / share-URL inputs. Everything else (manager names, `<select>` controls, navigation buttons, prose) inherits Inter. No font sizes, cell widths, or padding changed; Inconsolata is metrically close enough to JetBrains Mono that the existing fixed dimensions stay accurate. The `abbrev()` cutoff was bumped 7 -> 8 in a follow-up commit since the extra char fits comfortably at `text-[8px]` Inconsolata. A `globals.css` rule scales inline `<code className="font-mono">` snippets to 1.19em so Inconsolata matches Inter's x-height when adjacent to prose (Step 1 URL hints); fixed-size mono contexts using `<div>`/`<button>`/`<textarea>`/`<input>` aren't `<code>` elements and don't pick up the rule. `public/og.png` was regenerated under the new stack (Inconsolata Bold title in white, Inter subtitle in emerald) using `node-canvas` with TTFs pulled from `raw.githubusercontent.com/rsms/inter` and `raw.githubusercontent.com/googlefonts/Inconsolata`; `screenshot.png` was recaptured under the new fonts as well. Reasoning: better legibility at small sizes on mobile (82% of traffic) and a friendlier feel on the shared schedule page that recipients see without the rest of the app's controls.
 - **Phase 15 - Avoidance season years.** The Avoidance by Team list shows the past season year(s) that produced each auto-avoid - hard and soft opponents display "(2025)" / "(2025, 2024)" after the name; the name is tier-colored, the year parenthetical neutral slate; manual avoids stay unlabeled. Backed by a new `seasons` map on `buildAvoidMap` (resolved pair key -> contributing years). 6 new tests (194 total).
+- **Phase 16 - Destructive-action confirmations.** Every destructive Step 2 (Review) action now has a two-step inline confirm mirroring `confirmReset`: delete a saved season ("Yes, delete"), clear manual avoids or rivalry pins ("Yes, clear"), remove a single rivalry pin ("Yes, remove"). One confirm armed at a time - index flags (`confirmDeleteSeasonIndex`, `confirmRemovePinIndex`) for season-delete and pin-remove, booleans (`confirmClearManualDoubles`, `confirmClearRivalryPins`) for the two bulk clears; entering Add/Edit Past Season clears any pending confirm. Also a "Clear Selections" button on the Add/Edit past-season grid and reworded past-season instructions. All four flags are ephemeral UI state - no share-payload or localStorage changes. No test changes (194).
 
 ### Production fixes
 
