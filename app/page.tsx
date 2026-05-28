@@ -389,7 +389,7 @@ export default function GeneratePage() {
         </div>
       ) : (
         <>
-          <div className="flex justify-center gap-1 mb-5 flex-wrap">
+          <div className="flex justify-center gap-1 mb-6 flex-wrap">
             {(
               [
                 ["teams", "1. Import"],
