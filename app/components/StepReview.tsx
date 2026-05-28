@@ -346,7 +346,7 @@ export function StepReview(props: StepReviewProps) {
                         className="bg-red-600 text-emerald-50 text-[10px] font-semibold px-1.5 py-0.5 border-0 rounded cursor-pointer hover:bg-red-500"
                         onClick={() => handleDeleteSeason(si)}
                       >
-                        Confirm?
+                        Yes, delete
                       </button>
                       <button
                         type="button"
