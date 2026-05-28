@@ -518,6 +518,14 @@ export function StepReview(props: StepReviewProps) {
             </div>
           </div>
           <div className="flex gap-2 mt-3 flex-wrap">
+            {pastSeasonDoubles.size > 0 && (
+              <button
+                className={`${cls.outlineBtn} ${cls.outlineAmber}`}
+                onClick={() => patch({ pastSeasonDoubles: new Set() })}
+              >
+                Clear Selections
+              </button>
+            )}
             <button
               className={cls.secondaryBtn}
               onClick={handleCancelPastSeason}
