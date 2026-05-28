@@ -69,6 +69,8 @@ export function StepReview(props: StepReviewProps) {
     pastSeasonDoubles,
     editingSeasonIndex,
     confirmDeleteSeasonIndex,
+    confirmClearManualDoubles,
+    confirmClearRivalryPins,
     hoveredAvoidCell,
     hoveredPastSeasonCell,
     canHover,
@@ -199,6 +201,8 @@ export function StepReview(props: StepReviewProps) {
       pastSeasonDoubles: new Set(),
       editingSeasonIndex: null,
       confirmDeleteSeasonIndex: null,
+      confirmClearManualDoubles: false,
+      confirmClearRivalryPins: false,
       addingPastSeason: true,
     });
   }
@@ -229,6 +233,8 @@ export function StepReview(props: StepReviewProps) {
       pastSeasonDoubles: indexPairs,
       editingSeasonIndex: index,
       confirmDeleteSeasonIndex: null,
+      confirmClearManualDoubles: false,
+      confirmClearRivalryPins: false,
       addingPastSeason: true,
     });
   }
@@ -712,13 +718,40 @@ export function StepReview(props: StepReviewProps) {
 
       {manualDoubles.size > 0 && (
         <div className="mt-3">
-          <button
-            className={`${cls.outlineBtn} ${cls.outlineAmber}`}
-            onClick={() => patch({ manualDoubles: new Set() })}
-            disabled={addingPastSeason}
-          >
-            Clear Manual Avoids
-          </button>
+          {confirmClearManualDoubles ? (
+            <div className="flex gap-2 items-center flex-wrap">
+              <span className="text-[11px] text-red-400">
+                Clear all manual avoids?
+              </span>
+              <button
+                type="button"
+                className={`${cls.outlineBtn} bg-red-600 text-emerald-50 border-0 font-semibold hover:bg-red-500`}
+                onClick={() =>
+                  patch({
+                    manualDoubles: new Set(),
+                    confirmClearManualDoubles: false,
+                  })
+                }
+              >
+                Yes, clear
+              </button>
+              <button
+                type="button"
+                className={`${cls.outlineBtn} border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300`}
+                onClick={() => patch({ confirmClearManualDoubles: false })}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              className={`${cls.outlineBtn} ${cls.outlineAmber}`}
+              onClick={() => patch({ confirmClearManualDoubles: true })}
+              disabled={addingPastSeason}
+            >
+              Clear Manual Avoids
+            </button>
+          )}
         </div>
       )}
 
@@ -822,6 +855,7 @@ export function StepReview(props: StepReviewProps) {
         pinWeek={pinWeek}
         pinJustAdded={pinJustAdded}
         addingPastSeason={addingPastSeason}
+        confirmClearRivalryPins={confirmClearRivalryPins}
         mergedAvoidSets={mergedAvoidSets}
         patch={patch}
       />
@@ -851,6 +885,7 @@ type RivalryPinBuilderProps = {
   pinWeek: number | null;
   pinJustAdded: boolean;
   addingPastSeason: boolean;
+  confirmClearRivalryPins: boolean;
   mergedAvoidSets: AvoidSets;
   patch: Patch;
 };
@@ -867,6 +902,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
     pinWeek,
     pinJustAdded,
     addingPastSeason,
+    confirmClearRivalryPins,
     mergedAvoidSets,
     patch,
   } = props;
@@ -1256,14 +1292,38 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
               ))}
           </div>
           <div className="mt-3">
-            <button
-              type="button"
-              className={`${cls.outlineBtn} ${cls.outlineAmber}`}
-              onClick={() => patch({ rivalryPins: [] })}
-              disabled={addingPastSeason}
-            >
-              Clear Rivalry Pins
-            </button>
+            {confirmClearRivalryPins ? (
+              <div className="flex gap-2 items-center flex-wrap">
+                <span className="text-[11px] text-red-400">
+                  Clear all rivalry pins?
+                </span>
+                <button
+                  type="button"
+                  className={`${cls.outlineBtn} bg-red-600 text-emerald-50 border-0 font-semibold hover:bg-red-500`}
+                  onClick={() =>
+                    patch({ rivalryPins: [], confirmClearRivalryPins: false })
+                  }
+                >
+                  Yes, clear
+                </button>
+                <button
+                  type="button"
+                  className={`${cls.outlineBtn} border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300`}
+                  onClick={() => patch({ confirmClearRivalryPins: false })}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className={`${cls.outlineBtn} ${cls.outlineAmber}`}
+                onClick={() => patch({ confirmClearRivalryPins: true })}
+                disabled={addingPastSeason}
+              >
+                Clear Rivalry Pins
+              </button>
+            )}
           </div>
         </>
       )}

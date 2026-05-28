@@ -41,6 +41,8 @@ export type State = {
   selectedWeek: number;
   saved: boolean;
   confirmReset: boolean;
+  confirmClearManualDoubles: boolean;
+  confirmClearRivalryPins: boolean;
   shareStatus: ShareStatus;
   shareUrl: string;
   shareError: string;
@@ -100,6 +102,8 @@ export const initialState: State = {
   selectedWeek: 0,
   saved: false,
   confirmReset: false,
+  confirmClearManualDoubles: false,
+  confirmClearRivalryPins: false,
   shareStatus: "idle",
   shareUrl: "",
   shareError: "",
