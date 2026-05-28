@@ -376,8 +376,8 @@ export function StepReview(props: StepReviewProps) {
           </h3>
           <p className={cls.hint}>
             {editingSeasonIndex !== null
-              ? "Adjust the doubled matchups for this season."
-              : "Select the season year and click each doubled matchup from that season's schedule."}
+              ? "Adjust which teams played each other twice this season."
+              : "Select the year, then click each pair of teams that played twice that season."}
           </p>
           <div className="flex flex-wrap gap-2 items-center mb-3">
             <select
