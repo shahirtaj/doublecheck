@@ -3,6 +3,7 @@
 export { buildSchedule } from "./schedule";
 export { describeFormat } from "./format";
 export { buildAvoidMap } from "./avoid";
+export type { AvoidMap } from "./avoid";
 export { pairKey, unpackPairKey } from "./pair";
 
 export type {

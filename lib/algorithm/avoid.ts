@@ -1,6 +1,16 @@
 import { pairKey } from "./pair";
 import type { LookbackWindow, PairKey, SeasonHistory } from "./types";
 
+export type AvoidMap = {
+  hard: Set<PairKey>;
+  soft: Set<PairKey>;
+  // For every avoided pair, the season year(s) within the lookback window that
+  // produced it, in chronological order (oldest first). Keyed by resolved
+  // "i-j" pair key. A pair can map to multiple years when the lookback window
+  // spans more than one season in which it was doubled.
+  seasons: Map<PairKey, string[]>;
+};
+
 // Translate a chronological history of seasons (oldest first) into hard- and
 // soft-avoid sets for the upcoming season.
 //
@@ -17,10 +27,11 @@ export function buildAvoidMap(
   history: readonly SeasonHistory[],
   currentUserIds: readonly (string | null | undefined)[] | null | undefined,
   lookback: LookbackWindow,
-): { hard: Set<PairKey>; soft: Set<PairKey> } {
+): AvoidMap {
   const hard = new Set<PairKey>();
   const soft = new Set<PairKey>();
-  if (history.length === 0) return { hard, soft };
+  const seasons = new Map<PairKey, string[]>();
+  if (history.length === 0) return { hard, soft, seasons };
 
   const uidToIdx: Record<string, number> = {};
   if (currentUserIds) {
@@ -38,11 +49,17 @@ export function buildAvoidMap(
       if (resolved === null) continue;
       if (age <= lookback.hard) hard.add(resolved);
       else soft.add(resolved);
+      const years = seasons.get(resolved);
+      if (years) {
+        if (!years.includes(season.season)) years.push(season.season);
+      } else {
+        seasons.set(resolved, [season.season]);
+      }
     }
   });
 
   for (const key of hard) soft.delete(key);
-  return { hard, soft };
+  return { hard, soft, seasons };
 }
 
 function resolveKey(

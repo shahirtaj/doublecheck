@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import {
   pairKey,
   unpackPairKey,
+  type AvoidMap,
   type FormatProperties,
   type LookbackWindow,
   type PairKey,
@@ -22,7 +23,7 @@ type StepReviewProps = {
   patch: Patch;
   saveToStorage: SaveToStorageFn;
   format: FormatProperties;
-  avoidSets: AvoidSets;
+  avoidSets: AvoidMap;
   mergedAvoidSets: AvoidSets;
   effectiveLookback: LookbackWindow;
   effectiveLookbackTotal: number;
@@ -659,7 +660,11 @@ export function StepReview(props: StepReviewProps) {
       </div>
 
       <p className="text-[10px] text-slate-500 mt-2">
-        <span className="text-purple-400">✕</span> manual avoid
+        {manualDoubles.size > 0 && (
+          <>
+            <span className="text-purple-400">✕</span> manual avoid
+          </>
+        )}
         {effectiveLookback.hard > 0 && (
           <>
             {"  "}
@@ -708,6 +713,7 @@ export function StepReview(props: StepReviewProps) {
                   name: string;
                   tone: string;
                   sortKey: number;
+                  years?: string[];
                 }[] = [];
                 for (let j = 0; j < teamCount; j++) {
                   if (j === i) continue;
@@ -724,12 +730,14 @@ export function StepReview(props: StepReviewProps) {
                       name: teams[j]!,
                       tone: "text-red-400",
                       sortKey: 1,
+                      years: avoidSets.seasons.get(pairKey(i, j)),
                     });
                   } else if (at === "soft") {
                     partners.push({
                       name: teams[j]!,
                       tone: "text-amber-400",
                       sortKey: 2,
+                      years: avoidSets.seasons.get(pairKey(i, j)),
                     });
                   }
                 }
@@ -748,7 +756,12 @@ export function StepReview(props: StepReviewProps) {
                       {partners.map((p, k) => (
                         <span key={k}>
                           {k > 0 ? ", " : ""}
-                          <span className={p.tone}>{p.name}</span>
+                          <span className={p.tone}>
+                            {p.name}
+                            {p.years && p.years.length > 0
+                              ? ` (${p.years.join(", ")})`
+                              : ""}
+                          </span>
                         </span>
                       ))}
                     </div>

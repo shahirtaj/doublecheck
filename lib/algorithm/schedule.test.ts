@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildSchedule, describeFormat, pairKey } from "./index";
-import type { PairKey, RivalryPin, ScheduleSuccess } from "./types";
+import { buildAvoidMap, buildSchedule, describeFormat, pairKey } from "./index";
+import type {
+  PairKey,
+  RivalryPin,
+  ScheduleSuccess,
+  SeasonHistory,
+} from "./types";
 
 // Mulberry32: small, fast, deterministic PRNG. Each test that needs random
 // scheduling gets a fresh seed so failures are reproducible and tests don't
@@ -1309,5 +1314,92 @@ describe("buildSchedule edge cases", () => {
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.reason).toBe("invalid-format");
+  });
+});
+
+describe("buildAvoidMap seasons map", () => {
+  it("records the season year for a hard-avoided pair", () => {
+    const history: SeasonHistory[] = [
+      { season: "2025", doubles: [pairKey(0, 1)] },
+    ];
+    const { hard, soft, seasons } = buildAvoidMap(history, null, {
+      hard: 1,
+      soft: 0,
+    });
+    expect(hard.has(pairKey(0, 1))).toBe(true);
+    expect(soft.size).toBe(0);
+    expect(seasons.get(pairKey(0, 1))).toEqual(["2025"]);
+  });
+
+  it("records the season year for a soft-avoided pair", () => {
+    const history: SeasonHistory[] = [
+      { season: "2024", doubles: [pairKey(0, 1)] },
+      { season: "2025", doubles: [pairKey(2, 3)] },
+    ];
+    const { hard, soft, seasons } = buildAvoidMap(history, null, {
+      hard: 1,
+      soft: 1,
+    });
+    // 2025 is most recent (age 1 -> hard); 2024 is age 2 -> soft.
+    expect(hard.has(pairKey(2, 3))).toBe(true);
+    expect(soft.has(pairKey(0, 1))).toBe(true);
+    expect(seasons.get(pairKey(2, 3))).toEqual(["2025"]);
+    expect(seasons.get(pairKey(0, 1))).toEqual(["2024"]);
+  });
+
+  it("lists multiple years oldest-first when a pair repeats across the window", () => {
+    const history: SeasonHistory[] = [
+      { season: "2024", doubles: [pairKey(0, 1)] },
+      { season: "2025", doubles: [pairKey(0, 1)] },
+    ];
+    const { hard, soft, seasons } = buildAvoidMap(history, null, {
+      hard: 1,
+      soft: 1,
+    });
+    // The hard occurrence (2025) wins classification; the soft entry is removed.
+    expect(hard.has(pairKey(0, 1))).toBe(true);
+    expect(soft.has(pairKey(0, 1))).toBe(false);
+    // Both years are still recorded, in chronological order.
+    expect(seasons.get(pairKey(0, 1))).toEqual(["2024", "2025"]);
+  });
+
+  it("returns an empty seasons map for empty history", () => {
+    const { hard, soft, seasons } = buildAvoidMap([], null, {
+      hard: 2,
+      soft: 1,
+    });
+    expect(hard.size).toBe(0);
+    expect(soft.size).toBe(0);
+    expect(seasons.size).toBe(0);
+  });
+
+  it("excludes pairs from seasons older than the lookback window", () => {
+    const history: SeasonHistory[] = [
+      { season: "2023", doubles: [pairKey(4, 5)] },
+      { season: "2024", doubles: [pairKey(0, 1)] },
+      { season: "2025", doubles: [pairKey(2, 3)] },
+    ];
+    const { seasons } = buildAvoidMap(history, null, { hard: 1, soft: 1 });
+    // 2023 is age 3, beyond hard+soft=2 -> ignored entirely.
+    expect(seasons.has(pairKey(4, 5))).toBe(false);
+    expect(seasons.get(pairKey(2, 3))).toEqual(["2025"]);
+    expect(seasons.get(pairKey(0, 1))).toEqual(["2024"]);
+  });
+
+  it("keys the seasons map by resolved index pair for userid-format history", () => {
+    const history: SeasonHistory[] = [
+      { season: "2025", doubles: ["alice:bob"], format: "userid" },
+    ];
+    // bob -> index 0, alice -> index 2; the pair resolves to pairKey(0, 2).
+    const { hard, seasons } = buildAvoidMap(
+      history,
+      ["bob", "carol", "alice"],
+      {
+        hard: 1,
+        soft: 0,
+      },
+    );
+    expect(hard.has(pairKey(0, 2))).toBe(true);
+    expect(seasons.get(pairKey(0, 2))).toEqual(["2025"]);
   });
 });
