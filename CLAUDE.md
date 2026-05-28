@@ -63,4 +63,4 @@ See `git-commit-standards.md` for the full standard. Summary:
 ## Common change patterns
 
 - **Adding a field to the share payload:** Update four files - `StepSchedule.tsx` (serialize it), `app/api/share/route.ts` (validate it), `app/s/[slug]/page.tsx` (type guard + pass as prop), and `SharedScheduleView.tsx` (render it). New fields must be optional with a fallback for backward compatibility with older share links that predate the field.
-- **Adding a field to State:** Add a default in `initialState` (state.ts) and add defensive hydration in the `useEffect` localStorage reader in `page.tsx` - returning users will have saved payloads without the new field.
+- **Adding a field to State:** Add a default in `initialState` (state.ts). If the field is persisted (part of the `saveToStorage` payload), also add defensive hydration in the `useEffect` localStorage reader in `page.tsx` - returning users will have saved payloads without the new field. Ephemeral UI flags (e.g. `confirmReset`, `pinJustAdded`, the `confirm*` flags, hover state) aren't persisted, so the `initialState` default is enough - skip hydration.
