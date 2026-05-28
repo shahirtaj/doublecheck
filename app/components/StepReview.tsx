@@ -660,11 +660,7 @@ export function StepReview(props: StepReviewProps) {
       </div>
 
       <p className="text-[10px] text-slate-500 mt-2">
-        {manualDoubles.size > 0 && (
-          <>
-            <span className="text-purple-400">✕</span> manual avoid
-          </>
-        )}
+        <span className="text-purple-400">✕</span> manual avoid
         {effectiveLookback.hard > 0 && (
           <>
             {"  "}
