@@ -764,7 +764,7 @@ export function ImportSections(props: ImportSectionsProps) {
                       patch({ selectedYahooLeague: e.target.value })
                     }
                   >
-                    <option value="">- pick a league -</option>
+                    <option value="">Select a league</option>
                     {yahooLeagues.map((l) => (
                       <option key={l.leagueKey} value={l.leagueKey}>
                         {l.season ? `${l.season} - ` : ""}
@@ -849,7 +849,7 @@ export function ImportSections(props: ImportSectionsProps) {
                     patch({ selectedSleeperLeague: e.target.value })
                   }
                 >
-                  <option value="">- pick a league -</option>
+                  <option value="">Select a league</option>
                   {sleeperLeagues.map((l) => (
                     <option key={l.leagueId} value={l.leagueId}>
                       {l.season ? `${l.season} - ` : ""}
