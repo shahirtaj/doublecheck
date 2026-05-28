@@ -774,7 +774,7 @@ export function StepReview(props: StepReviewProps) {
         patch={patch}
       />
 
-      <div className="flex gap-3 mt-5 flex-wrap justify-center">
+      <div className="flex gap-3 mt-6 flex-wrap justify-center">
         <button
           className={cls.primaryBtn}
           onClick={onGenerate}
