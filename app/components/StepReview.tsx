@@ -71,6 +71,7 @@ export function StepReview(props: StepReviewProps) {
     confirmDeleteSeasonIndex,
     confirmClearManualDoubles,
     confirmClearRivalryPins,
+    confirmRemovePinIndex,
     hoveredAvoidCell,
     hoveredPastSeasonCell,
     canHover,
@@ -856,6 +857,7 @@ export function StepReview(props: StepReviewProps) {
         pinJustAdded={pinJustAdded}
         addingPastSeason={addingPastSeason}
         confirmClearRivalryPins={confirmClearRivalryPins}
+        confirmRemovePinIndex={confirmRemovePinIndex}
         mergedAvoidSets={mergedAvoidSets}
         patch={patch}
       />
@@ -886,6 +888,7 @@ type RivalryPinBuilderProps = {
   pinJustAdded: boolean;
   addingPastSeason: boolean;
   confirmClearRivalryPins: boolean;
+  confirmRemovePinIndex: number | null;
   mergedAvoidSets: AvoidSets;
   patch: Patch;
 };
@@ -903,6 +906,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
     pinJustAdded,
     addingPastSeason,
     confirmClearRivalryPins,
+    confirmRemovePinIndex,
     mergedAvoidSets,
     patch,
   } = props;
@@ -1277,17 +1281,39 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
                     <span className="text-slate-500"> vs </span>
                     <span className="text-sky-400">{teams[p.teamB]}</span>
                   </span>
-                  <button
-                    type="button"
-                    className="bg-transparent text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 border border-red-700 hover:border-red-600 rounded cursor-pointer"
-                    onClick={() =>
-                      patch({
-                        rivalryPins: rivalryPins.filter((_, i) => i !== idx),
-                      })
-                    }
-                  >
-                    Remove
-                  </button>
+                  {confirmRemovePinIndex === idx ? (
+                    <span className="flex gap-1">
+                      <button
+                        type="button"
+                        className="bg-red-600 text-emerald-50 text-[10px] font-semibold px-1.5 py-0.5 border-0 rounded cursor-pointer hover:bg-red-500"
+                        onClick={() =>
+                          patch({
+                            rivalryPins: rivalryPins.filter(
+                              (_, i) => i !== idx,
+                            ),
+                            confirmRemovePinIndex: null,
+                          })
+                        }
+                      >
+                        Yes, remove
+                      </button>
+                      <button
+                        type="button"
+                        className="bg-transparent text-[10px] text-slate-400 px-1.5 py-0.5 border border-slate-600 hover:border-slate-500 rounded cursor-pointer"
+                        onClick={() => patch({ confirmRemovePinIndex: null })}
+                      >
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="bg-transparent text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 border border-red-700 hover:border-red-600 rounded cursor-pointer"
+                      onClick={() => patch({ confirmRemovePinIndex: idx })}
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
               ))}
           </div>
