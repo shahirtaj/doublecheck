@@ -66,6 +66,7 @@ export type State = {
   pastSeasonYear: string;
   pastSeasonDoubles: Set<PairKey>;
   editingSeasonIndex: number | null;
+  confirmDeleteSeasonIndex: number | null;
   tooltipInfo: { text: string; rect: DOMRect } | null;
   hoveredAvoidCell: { row: number; col: number } | null;
   hoveredPastSeasonCell: { row: number; col: number } | null;
@@ -124,6 +125,7 @@ export const initialState: State = {
   pastSeasonYear: CURRENT_YEAR_STR,
   pastSeasonDoubles: new Set(),
   editingSeasonIndex: null,
+  confirmDeleteSeasonIndex: null,
   tooltipInfo: null,
   hoveredAvoidCell: null,
   hoveredPastSeasonCell: null,

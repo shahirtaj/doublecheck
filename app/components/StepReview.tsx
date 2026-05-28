@@ -68,6 +68,7 @@ export function StepReview(props: StepReviewProps) {
     pastSeasonYear,
     pastSeasonDoubles,
     editingSeasonIndex,
+    confirmDeleteSeasonIndex,
     hoveredAvoidCell,
     hoveredPastSeasonCell,
     canHover,
@@ -197,6 +198,7 @@ export function StepReview(props: StepReviewProps) {
       pastSeasonYear: defaultYear,
       pastSeasonDoubles: new Set(),
       editingSeasonIndex: null,
+      confirmDeleteSeasonIndex: null,
       addingPastSeason: true,
     });
   }
@@ -226,13 +228,14 @@ export function StepReview(props: StepReviewProps) {
       pastSeasonYear: entry.season,
       pastSeasonDoubles: indexPairs,
       editingSeasonIndex: index,
+      confirmDeleteSeasonIndex: null,
       addingPastSeason: true,
     });
   }
 
   function handleDeleteSeason(index: number) {
     const nextHistory = history.filter((_, i) => i !== index);
-    patch({ history: nextHistory });
+    patch({ history: nextHistory, confirmDeleteSeasonIndex: null });
     saveToStorage({ history: nextHistory });
   }
 
@@ -335,26 +338,46 @@ export function StepReview(props: StepReviewProps) {
               >
                 <strong className="text-slate-200">{h.season}</strong>
                 <span className={`text-[10px] ${tone}`}>{label}</span>
-                {h.format !== "userid" && (
-                  <span className="ml-auto flex gap-1">
-                    <button
-                      type="button"
-                      className="bg-transparent text-[10px] text-amber-400 hover:text-amber-300 px-1.5 py-0.5 border border-amber-700 hover:border-amber-600 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                      onClick={() => handleStartEditSeason(si)}
-                      disabled={addingPastSeason}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="bg-transparent text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 border border-red-700 hover:border-red-600 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                      onClick={() => handleDeleteSeason(si)}
-                      disabled={addingPastSeason}
-                    >
-                      Delete
-                    </button>
-                  </span>
-                )}
+                {h.format !== "userid" &&
+                  (confirmDeleteSeasonIndex === si ? (
+                    <span className="ml-auto flex gap-1">
+                      <button
+                        type="button"
+                        className="bg-red-600 text-emerald-50 text-[10px] font-semibold px-1.5 py-0.5 border-0 rounded cursor-pointer hover:bg-red-500"
+                        onClick={() => handleDeleteSeason(si)}
+                      >
+                        Confirm?
+                      </button>
+                      <button
+                        type="button"
+                        className="bg-transparent text-[10px] text-slate-400 px-1.5 py-0.5 border border-slate-600 hover:border-slate-500 rounded cursor-pointer"
+                        onClick={() =>
+                          patch({ confirmDeleteSeasonIndex: null })
+                        }
+                      >
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="ml-auto flex gap-1">
+                      <button
+                        type="button"
+                        className="bg-transparent text-[10px] text-amber-400 hover:text-amber-300 px-1.5 py-0.5 border border-amber-700 hover:border-amber-600 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={() => handleStartEditSeason(si)}
+                        disabled={addingPastSeason}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="bg-transparent text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 border border-red-700 hover:border-red-600 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={() => patch({ confirmDeleteSeasonIndex: si })}
+                        disabled={addingPastSeason}
+                      >
+                        Delete
+                      </button>
+                    </span>
+                  ))}
               </div>
             );
           })}
