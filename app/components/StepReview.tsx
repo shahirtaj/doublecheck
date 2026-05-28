@@ -643,8 +643,10 @@ export function StepReview(props: StepReviewProps) {
                           }
                         : undefined
                     }
-                    onClick={() => toggleDouble(i, j)}
-                    disabled={cellDisabled}
+                    onClick={() => {
+                      if (!cellDisabled) toggleDouble(i, j);
+                    }}
+                    aria-disabled={cellDisabled || undefined}
                     className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-[10px] font-mono border border-slate-700 box-border select-none ${cellDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${bg} ${textCls}`}
                   >
                     {glyph}
