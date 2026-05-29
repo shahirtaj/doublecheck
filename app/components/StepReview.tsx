@@ -71,6 +71,7 @@ export function StepReview(props: StepReviewProps) {
     confirmDeleteSeasonIndex,
     confirmClearManualDoubles,
     confirmClearRivalryPins,
+    confirmClearSelections,
     confirmRemovePinIndex,
     hoveredAvoidCell,
     hoveredPastSeasonCell,
@@ -547,29 +548,56 @@ export function StepReview(props: StepReviewProps) {
               </div>
             </div>
           </div>
-          <div className="flex gap-2 mt-3 flex-wrap">
-            {pastSeasonDoubles.size > 0 && (
+          {confirmClearSelections ? (
+            <div className="flex gap-2 mt-3 items-center flex-wrap">
+              <span className="text-[11px] text-red-400">
+                Clear all selections? Cannot be undone.
+              </span>
               <button
-                className={`${cls.outlineBtn} ${cls.outlineAmber}`}
-                onClick={() => patch({ pastSeasonDoubles: new Set() })}
+                type="button"
+                className={cls.dangerBtn}
+                onClick={() =>
+                  patch({
+                    pastSeasonDoubles: new Set(),
+                    confirmClearSelections: false,
+                  })
+                }
               >
-                Clear Selections
+                Yes, clear
               </button>
-            )}
-            <button
-              className={cls.secondaryBtn}
-              onClick={handleCancelPastSeason}
-            >
-              Cancel
-            </button>
-            <button
-              className={cls.primaryBtn}
-              onClick={handleApplyPastSeason}
-              disabled={!pastSeasonYear.trim()}
-            >
-              {editingSeasonIndex !== null ? "Update Season" : "Add Season"}
-            </button>
-          </div>
+              <button
+                type="button"
+                className={cls.cancelBtn}
+                onClick={() => patch({ confirmClearSelections: false })}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2 mt-3 flex-wrap">
+              {pastSeasonDoubles.size > 0 && (
+                <button
+                  className={`${cls.outlineBtn} ${cls.outlineAmber}`}
+                  onClick={() => patch({ confirmClearSelections: true })}
+                >
+                  Clear Selections
+                </button>
+              )}
+              <button
+                className={cls.secondaryBtn}
+                onClick={handleCancelPastSeason}
+              >
+                Cancel
+              </button>
+              <button
+                className={cls.primaryBtn}
+                onClick={handleApplyPastSeason}
+                disabled={!pastSeasonYear.trim()}
+              >
+                {editingSeasonIndex !== null ? "Update Season" : "Add Season"}
+              </button>
+            </div>
+          )}
         </div>
       ) : availablePastSeasonYears.length > 0 ? (
         <div className="mt-4">

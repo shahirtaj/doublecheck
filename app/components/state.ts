@@ -43,6 +43,7 @@ export type State = {
   confirmReset: boolean;
   confirmClearManualDoubles: boolean;
   confirmClearRivalryPins: boolean;
+  confirmClearSelections: boolean;
   confirmRemovePinIndex: number | null;
   shareStatus: ShareStatus;
   shareUrl: string;
@@ -105,6 +106,7 @@ export const initialState: State = {
   confirmReset: false,
   confirmClearManualDoubles: false,
   confirmClearRivalryPins: false,
+  confirmClearSelections: false,
   confirmRemovePinIndex: null,
   shareStatus: "idle",
   shareUrl: "",
