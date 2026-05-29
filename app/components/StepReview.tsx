@@ -350,7 +350,7 @@ export function StepReview(props: StepReviewProps) {
                   (confirmDeleteSeasonIndex === si ? (
                     <span className="ml-auto flex gap-1 items-center">
                       <span className="text-[10px] text-red-400">
-                        Delete? Cannot be undone.
+                        Delete? Can&apos;t be undone.
                       </span>
                       <button
                         type="button"
@@ -554,7 +554,7 @@ export function StepReview(props: StepReviewProps) {
           {confirmClearSelections ? (
             <div className="flex gap-2 mt-3 items-center flex-wrap">
               <span className="text-[11px] text-red-400">
-                Clear all selections? Cannot be undone.
+                Clear all selections? Can&apos;t be undone.
               </span>
               <button
                 type="button"
@@ -757,7 +757,7 @@ export function StepReview(props: StepReviewProps) {
           {confirmClearManualDoubles ? (
             <div className="flex gap-2 items-center flex-wrap">
               <span className="text-[11px] text-red-400">
-                Clear all manual avoids? Cannot be undone.
+                Clear all manual avoids? Can&apos;t be undone.
               </span>
               <button
                 type="button"
@@ -1319,7 +1319,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
                   {confirmRemovePinIndex === idx ? (
                     <span className="ml-auto flex gap-1 items-center">
                       <span className="text-[10px] text-red-400">
-                        Remove? Cannot be undone.
+                        Remove? Can&apos;t be undone.
                       </span>
                       <button
                         type="button"
@@ -1359,7 +1359,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
             {confirmClearRivalryPins ? (
               <div className="flex gap-2 items-center flex-wrap">
                 <span className="text-[11px] text-red-400">
-                  Clear all rivalry pins? Cannot be undone.
+                  Clear all rivalry pins? Can&apos;t be undone.
                 </span>
                 <button
                   type="button"

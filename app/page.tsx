@@ -485,7 +485,7 @@ export default function GeneratePage() {
           ) : (
             <div className="inline-flex gap-2 items-center flex-wrap justify-center">
               <span className="text-[11px] text-red-400">
-                Reset everything? Cannot be undone.
+                Reset everything? Can&apos;t be undone.
               </span>
               <button className={cls.dangerBtn} onClick={handleResetEverything}>
                 Yes, reset
