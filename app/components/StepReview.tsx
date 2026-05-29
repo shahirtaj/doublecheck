@@ -350,7 +350,7 @@ export function StepReview(props: StepReviewProps) {
                   (confirmDeleteSeasonIndex === si ? (
                     <span className="ml-auto flex gap-1 items-center">
                       <span className="text-[10px] text-red-400">
-                        Cannot be undone.
+                        Delete? Cannot be undone.
                       </span>
                       <button
                         type="button"
@@ -1319,7 +1319,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
                   {confirmRemovePinIndex === idx ? (
                     <span className="ml-auto flex gap-1 items-center">
                       <span className="text-[10px] text-red-400">
-                        Cannot be undone.
+                        Remove? Cannot be undone.
                       </span>
                       <button
                         type="button"
