@@ -348,7 +348,10 @@ export function StepReview(props: StepReviewProps) {
                 <span className={`text-[10px] ${tone}`}>{label}</span>
                 {h.format !== "userid" &&
                   (confirmDeleteSeasonIndex === si ? (
-                    <span className="ml-auto flex gap-1">
+                    <span className="ml-auto flex gap-1 items-center">
+                      <span className="text-[10px] text-red-400">
+                        Cannot be undone.
+                      </span>
                       <button
                         type="button"
                         className="bg-red-600 text-emerald-50 text-[10px] font-semibold px-1.5 py-0.5 border-0 rounded cursor-pointer hover:bg-red-500"
