@@ -15,6 +15,12 @@ export const cls = {
   navBtn: NAV_BTN_BASE,
   dangerBtn: `${NAV_BTN_BASE} bg-red-600 text-emerald-50 font-semibold hover:bg-red-500`,
   cancelBtn: `${NAV_BTN_BASE} bg-transparent border border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300`,
+  rowDangerBtn:
+    "bg-red-600 text-emerald-50 text-[10px] font-semibold px-1.5 py-0.5 border-0 rounded cursor-pointer hover:bg-red-500",
+  rowCancelBtn:
+    "bg-transparent text-[10px] text-slate-400 px-1.5 py-0.5 border border-slate-600 hover:border-slate-500 rounded cursor-pointer",
+  rowOutlineRed:
+    "bg-transparent text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 border border-red-700 hover:border-red-600 rounded cursor-pointer",
   outlineBtn:
     "bg-transparent border px-4 py-2.5 rounded-md text-[13px] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
   outlineEmerald:
