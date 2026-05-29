@@ -1305,9 +1305,9 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
               .map(([idx, p]) => (
                 <div
                   key={idx}
-                  className="flex items-center gap-2 px-2 py-1 bg-slate-800 rounded text-xs border border-slate-700"
+                  className="flex flex-wrap items-center gap-2 px-2 py-1 bg-slate-800 rounded text-xs border border-slate-700"
                 >
-                  <span className="flex-1 text-slate-200">
+                  <span className="text-slate-200">
                     <span className="text-slate-500">
                       {p.week === null ? "Any week" : `Week ${p.week}`}
                       {" - "}
@@ -1317,7 +1317,10 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
                     <span className="text-sky-400">{teams[p.teamB]}</span>
                   </span>
                   {confirmRemovePinIndex === idx ? (
-                    <span className="flex gap-1">
+                    <span className="ml-auto flex gap-1 items-center">
+                      <span className="text-[10px] text-red-400">
+                        Cannot be undone.
+                      </span>
                       <button
                         type="button"
                         className="bg-red-600 text-emerald-50 text-[10px] font-semibold px-1.5 py-0.5 border-0 rounded cursor-pointer hover:bg-red-500"
@@ -1343,7 +1346,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
                   ) : (
                     <button
                       type="button"
-                      className="bg-transparent text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 border border-red-700 hover:border-red-600 rounded cursor-pointer"
+                      className="ml-auto bg-transparent text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 border border-red-700 hover:border-red-600 rounded cursor-pointer"
                       onClick={() => patch({ confirmRemovePinIndex: idx })}
                     >
                       Remove
