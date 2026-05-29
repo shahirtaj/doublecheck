@@ -574,29 +574,33 @@ export function StepReview(props: StepReviewProps) {
               </button>
             </div>
           ) : (
-            <div className="flex gap-2 mt-3 flex-wrap">
+            <>
               {pastSeasonDoubles.size > 0 && (
-                <button
-                  className={`${cls.outlineBtn} ${cls.outlineAmber}`}
-                  onClick={() => patch({ confirmClearSelections: true })}
-                >
-                  Clear Selections
-                </button>
+                <div className="mt-3">
+                  <button
+                    className={`${cls.outlineBtn} ${cls.outlineAmber}`}
+                    onClick={() => patch({ confirmClearSelections: true })}
+                  >
+                    Clear Selections
+                  </button>
+                </div>
               )}
-              <button
-                className={cls.secondaryBtn}
-                onClick={handleCancelPastSeason}
-              >
-                Cancel
-              </button>
-              <button
-                className={cls.primaryBtn}
-                onClick={handleApplyPastSeason}
-                disabled={!pastSeasonYear.trim()}
-              >
-                {editingSeasonIndex !== null ? "Update Season" : "Add Season"}
-              </button>
-            </div>
+              <div className="flex gap-2 mt-3 flex-wrap">
+                <button
+                  className={cls.secondaryBtn}
+                  onClick={handleCancelPastSeason}
+                >
+                  Cancel
+                </button>
+                <button
+                  className={cls.primaryBtn}
+                  onClick={handleApplyPastSeason}
+                  disabled={!pastSeasonYear.trim()}
+                >
+                  {editingSeasonIndex !== null ? "Update Season" : "Add Season"}
+                </button>
+              </div>
+            </>
           )}
         </div>
       ) : availablePastSeasonYears.length > 0 ? (
