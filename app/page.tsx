@@ -487,14 +487,11 @@ export default function GeneratePage() {
               <span className="text-[11px] text-red-400">
                 Clear all data? Cannot be undone.
               </span>
-              <button
-                className={`${cls.navBtn} bg-red-600 text-emerald-50 border-0 font-semibold hover:bg-red-500`}
-                onClick={handleResetEverything}
-              >
+              <button className={cls.dangerBtn} onClick={handleResetEverything}>
                 Yes, reset
               </button>
               <button
-                className={`${cls.navBtn} bg-transparent border border-slate-600 text-slate-400`}
+                className={cls.cancelBtn}
                 onClick={() => setConfirmReset(false)}
               >
                 Cancel

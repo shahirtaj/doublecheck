@@ -3,14 +3,18 @@ import type { ImportStatus } from "./types";
 const PRIMARY_BTN_BASE =
   "border-0 px-5 py-2.5 rounded-md text-[13px] font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
 
+const NAV_BTN_BASE =
+  "px-3.5 py-1.5 rounded-md text-xs cursor-pointer disabled:cursor-not-allowed disabled:opacity-40";
+
 // Tailwind class atoms (mirrors the prototype's S object).
 export const cls = {
   primaryBtnBase: PRIMARY_BTN_BASE,
   primaryBtn: `${PRIMARY_BTN_BASE} bg-gradient-to-br from-emerald-600 to-emerald-700 text-emerald-50 hover:from-emerald-500 hover:to-emerald-600`,
   secondaryBtn:
     "bg-transparent text-slate-400 border border-slate-600 px-4 py-2.5 rounded-md text-[13px] cursor-pointer hover:border-slate-500 hover:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed",
-  navBtn:
-    "px-3.5 py-1.5 rounded-md text-xs cursor-pointer disabled:cursor-not-allowed disabled:opacity-40",
+  navBtn: NAV_BTN_BASE,
+  dangerBtn: `${NAV_BTN_BASE} bg-red-600 text-emerald-50 font-semibold hover:bg-red-500`,
+  cancelBtn: `${NAV_BTN_BASE} bg-transparent border border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300`,
   outlineBtn:
     "bg-transparent border px-4 py-2.5 rounded-md text-[13px] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
   outlineEmerald:

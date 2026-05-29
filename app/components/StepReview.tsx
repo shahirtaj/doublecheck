@@ -722,11 +722,11 @@ export function StepReview(props: StepReviewProps) {
           {confirmClearManualDoubles ? (
             <div className="flex gap-2 items-center flex-wrap">
               <span className="text-[11px] text-red-400">
-                Clear all manual avoids?
+                Clear all manual avoids? Cannot be undone.
               </span>
               <button
                 type="button"
-                className={`${cls.outlineBtn} bg-red-600 text-emerald-50 border-0 font-semibold hover:bg-red-500`}
+                className={cls.dangerBtn}
                 onClick={() =>
                   patch({
                     manualDoubles: new Set(),
@@ -738,7 +738,7 @@ export function StepReview(props: StepReviewProps) {
               </button>
               <button
                 type="button"
-                className={`${cls.outlineBtn} border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300`}
+                className={cls.cancelBtn}
                 onClick={() => patch({ confirmClearManualDoubles: false })}
               >
                 Cancel
@@ -1321,11 +1321,11 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
             {confirmClearRivalryPins ? (
               <div className="flex gap-2 items-center flex-wrap">
                 <span className="text-[11px] text-red-400">
-                  Clear all rivalry pins?
+                  Clear all rivalry pins? Cannot be undone.
                 </span>
                 <button
                   type="button"
-                  className={`${cls.outlineBtn} bg-red-600 text-emerald-50 border-0 font-semibold hover:bg-red-500`}
+                  className={cls.dangerBtn}
                   onClick={() =>
                     patch({ rivalryPins: [], confirmClearRivalryPins: false })
                   }
@@ -1334,7 +1334,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
                 </button>
                 <button
                   type="button"
-                  className={`${cls.outlineBtn} border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300`}
+                  className={cls.cancelBtn}
                   onClick={() => patch({ confirmClearRivalryPins: false })}
                 >
                   Cancel
