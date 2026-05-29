@@ -19,8 +19,8 @@ export const cls = {
     "bg-transparent border px-4 py-2.5 rounded-md text-[13px] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
   outlineEmerald:
     "border-emerald-700 text-emerald-400 hover:border-emerald-600 hover:text-emerald-300",
-  outlineAmber:
-    "border-amber-700 text-amber-400 hover:border-amber-600 hover:text-amber-300",
+  outlineRed:
+    "border-red-700 text-red-400 hover:border-red-600 hover:text-red-300",
   card: "bg-slate-800 border border-slate-700 rounded-xl p-5 max-w-[700px] mx-auto",
   cardTitle: "text-base font-bold text-emerald-50 mb-1.5",
   hint: "text-xs text-slate-400 leading-relaxed mb-3",

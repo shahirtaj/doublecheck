@@ -581,7 +581,7 @@ export function StepReview(props: StepReviewProps) {
               {pastSeasonDoubles.size > 0 && (
                 <div className="mt-3">
                   <button
-                    className={`${cls.outlineBtn} ${cls.outlineAmber}`}
+                    className={`${cls.outlineBtn} ${cls.outlineRed}`}
                     onClick={() => patch({ confirmClearSelections: true })}
                   >
                     Clear Selections
@@ -781,7 +781,7 @@ export function StepReview(props: StepReviewProps) {
             </div>
           ) : (
             <button
-              className={`${cls.outlineBtn} ${cls.outlineAmber}`}
+              className={`${cls.outlineBtn} ${cls.outlineRed}`}
               onClick={() => patch({ confirmClearManualDoubles: true })}
               disabled={addingPastSeason}
             >
@@ -1381,7 +1381,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
             ) : (
               <button
                 type="button"
-                className={`${cls.outlineBtn} ${cls.outlineAmber}`}
+                className={`${cls.outlineBtn} ${cls.outlineRed}`}
                 onClick={() => patch({ confirmClearRivalryPins: true })}
                 disabled={addingPastSeason}
               >
