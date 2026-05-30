@@ -180,6 +180,7 @@ export default async function SharePage({
         <NotFoundView />
       ) : (
         <SharedScheduleView
+          slug={slug}
           format={data.format}
           leagueName={data.leagueName}
           seasonYear={data.seasonYear}

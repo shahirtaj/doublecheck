@@ -8,6 +8,7 @@ import { YahooAttribution } from "@/app/components/YahooAttribution";
 import { cls } from "@/app/components/styles";
 
 type Props = {
+  slug: string;
   format: { teamCount: number; weekCount: number };
   leagueName?: string;
   seasonYear?: number;
@@ -24,6 +25,7 @@ type Props = {
 };
 
 export function SharedScheduleView({
+  slug,
   format,
   leagueName,
   seasonYear,
@@ -40,6 +42,7 @@ export function SharedScheduleView({
   const viewerWeeks = displayWeeks ?? weeks;
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [scheduleCopied, setScheduleCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const doubledSet = new Set(doubledPairs);
   // Keyed by `${pairKey}@${week}` so we can ask "is this specific pair-week
   // appearance pinned?" Natural double weeks aren't in this map and render red.
@@ -70,6 +73,19 @@ export function SharedScheduleView({
     return headingPrefix + body + attribution;
   }
 
+  async function handleCopyLink() {
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/s/${slug}`,
+      );
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // Clipboard may be unavailable (insecure context); the URL is still
+      // available in the address bar as a fallback.
+    }
+  }
+
   async function handleCopySchedule() {
     try {
       await navigator.clipboard.writeText(formatScheduleText());
@@ -84,7 +100,12 @@ export function SharedScheduleView({
   return (
     <>
       <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 max-w-[700px] mx-auto">
-        <h2 className="text-base font-bold text-emerald-50 mb-3">{heading}</h2>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="text-base font-bold text-emerald-50">{heading}</h2>
+          <button className={cls.secondaryBtn} onClick={handleCopyLink}>
+            {linkCopied ? "✓ Copied" : "Copy link"}
+          </button>
+        </div>
 
         <div className="flex gap-1 flex-wrap mb-4">
           {weeks.map((_, i) => (
