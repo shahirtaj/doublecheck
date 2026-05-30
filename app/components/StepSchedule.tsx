@@ -83,7 +83,8 @@ export function StepSchedule(props: StepScheduleProps) {
         doubles,
         format: entryFormat,
       };
-      nextHistory = [...history, entry];
+      const withoutCurrent = history.filter((h) => h.season !== seasonLabel);
+      nextHistory = [...withoutCurrent, entry];
       nextManualDoubles = [];
       patch({
         history: nextHistory,
