@@ -1,4 +1,4 @@
-import type { LookbackWindow, Matching } from "@/lib/algorithm";
+import type { LookbackWindow, Matching, SeasonHistory } from "@/lib/algorithm";
 import type {
   ImportPlatform,
   ImportedSeasonRecord,
@@ -94,4 +94,20 @@ export function computeDisplayWeeks(
 
 export function abbrev(name: string): string {
   return name.length > 8 ? name.slice(0, 8) : name;
+}
+
+// Seasons strictly before `year`. Avoidance is scoped to prior seasons:
+// Save & Share records the current season into history so a next-year
+// restore has it in the avoidance window, but mid-session — scheduling that
+// same year — it must not drive avoidance or the schedule would avoid
+// itself. Unparseable years are kept (treated as historical) so this only
+// ever drops the current (or any future) year.
+export function priorSeasons(
+  history: readonly SeasonHistory[],
+  year: number,
+): SeasonHistory[] {
+  return history.filter((h) => {
+    const y = Number(h.season);
+    return !Number.isFinite(y) || y < year;
+  });
 }

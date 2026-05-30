@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { LookbackWindow, Matching } from "@/lib/algorithm";
+import type { LookbackWindow, Matching, SeasonHistory } from "@/lib/algorithm";
 import type { ImportedSeasonRecord } from "./types";
 import {
   computeDisplayWeeks,
   deriveLookback,
   detectFormatFromImport,
   extractSlug,
+  priorSeasons,
 } from "./utils";
 
 function makeSeason(
@@ -229,5 +230,43 @@ describe("computeDisplayWeeks", () => {
         .sort();
       expect(outputPairs).toEqual(inputPairs);
     });
+  });
+});
+
+describe("priorSeasons", () => {
+  it("drops an entry whose season equals year", () => {
+    const history: SeasonHistory[] = [
+      { season: "2024", doubles: [] },
+      { season: "2025", doubles: [] },
+    ];
+    const result = priorSeasons(history, 2025);
+    expect(result.map((h) => h.season)).toEqual(["2024"]);
+  });
+
+  it("keeps all entries when every season is earlier", () => {
+    const history: SeasonHistory[] = [
+      { season: "2022", doubles: [] },
+      { season: "2023", doubles: [] },
+      { season: "2024", doubles: [] },
+    ];
+    expect(priorSeasons(history, 2025)).toEqual(history);
+  });
+
+  it("keeps an entry with a non-numeric season string", () => {
+    const history: SeasonHistory[] = [{ season: "Last year", doubles: [] }];
+    expect(priorSeasons(history, 2025)).toEqual(history);
+  });
+
+  it("drops a future-year entry (season > year)", () => {
+    const history: SeasonHistory[] = [
+      { season: "2024", doubles: [] },
+      { season: "2026", doubles: [] },
+    ];
+    const result = priorSeasons(history, 2025);
+    expect(result.map((h) => h.season)).toEqual(["2024"]);
+  });
+
+  it("returns [] for empty history", () => {
+    expect(priorSeasons([], 2025)).toEqual([]);
   });
 });

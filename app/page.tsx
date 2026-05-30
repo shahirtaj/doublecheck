@@ -10,7 +10,11 @@ import {
 } from "@/lib/algorithm";
 import { STEP_ORDER, STORAGE_KEY } from "./components/constants";
 import type { ImportPlatform, SelectedFormat, Step } from "./components/types";
-import { computeDisplayWeeks, deriveLookback } from "./components/utils";
+import {
+  computeDisplayWeeks,
+  deriveLookback,
+  priorSeasons,
+} from "./components/utils";
 import { cls } from "./components/styles";
 import {
   initialState,
@@ -237,6 +241,7 @@ export default function GeneratePage() {
     ],
   );
 
+  const scheduleYear = new Date().getFullYear();
   const recommendedLookbackTotal = format
     ? format.lookback.hard + format.lookback.soft
     : 0;
@@ -261,8 +266,13 @@ export default function GeneratePage() {
   // materialize the auto-avoid sets once per render instead of inside
   // cellAvoidType.
   const avoidSets = useMemo(
-    () => buildAvoidMap(history, userIds, effectiveLookback),
-    [history, userIds, effectiveLookback],
+    () =>
+      buildAvoidMap(
+        priorSeasons(history, scheduleYear),
+        userIds,
+        effectiveLookback,
+      ),
+    [history, userIds, effectiveLookback, scheduleYear],
   );
   // Auto-avoid sets composed with the manual overlay. Consumed by the
   // schedule generator and by the rivalry-pin avoidance warning. Kept
@@ -277,7 +287,6 @@ export default function GeneratePage() {
     });
     return { hard, soft };
   }, [avoidSets, manualDoubles]);
-  const scheduleYear = new Date().getFullYear();
 
   function handleGenerate() {
     const { hard, soft } = mergedAvoidSets;
