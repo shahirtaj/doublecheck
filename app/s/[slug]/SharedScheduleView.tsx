@@ -5,6 +5,7 @@ import Link from "next/link";
 import { pairKey, type RivalryPlacement } from "@/lib/algorithm";
 import { MatchupSummary } from "@/app/components/MatchupSummary";
 import { ScheduleHeading } from "@/app/components/ScheduleHeading";
+import { buildScheduleText } from "@/app/components/utils";
 import { YahooAttribution } from "@/app/components/YahooAttribution";
 import { cls } from "@/app/components/styles";
 
@@ -61,18 +62,7 @@ export function SharedScheduleView({
 
   function formatScheduleText(): string {
     const headingPrefix = trimmedName ? `${heading}\n\n` : "";
-    const body = viewerWeeks
-      .map(
-        (week, wi) =>
-          `Week ${wi + 1}\n` +
-          week.map(([a, b]) => `  ${teams[a]}  vs  ${teams[b]}`).join("\n"),
-      )
-      .join("\n\n");
-    const attribution =
-      platform === "yahoo"
-        ? "\n\nFantasy data provided by Yahoo Fantasy\nhttps://sports.yahoo.com/fantasy/"
-        : "";
-    return headingPrefix + body + attribution;
+    return buildScheduleText(viewerWeeks, teams, platform, headingPrefix);
   }
 
   async function handleCopyLink() {

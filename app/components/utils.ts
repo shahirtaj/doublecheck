@@ -111,3 +111,28 @@ export function priorSeasons(
     return !Number.isFinite(y) || y < year;
   });
 }
+
+// Plain-text schedule export shared by Step 3's Copy button and the shared
+// schedule page's Copy Full Schedule. The body and Yahoo attribution are
+// identical between the two views; only the heading prefix differs (Step 3
+// always has a year, the share page may not), so callers compute and pass
+// their own `headingPrefix` (with trailing blank line, or "" for none).
+export function buildScheduleText(
+  weeks: Matching[],
+  teams: string[],
+  platform: string | undefined,
+  headingPrefix: string,
+): string {
+  const body = weeks
+    .map(
+      (week, wi) =>
+        `Week ${wi + 1}\n` +
+        week.map(([a, b]) => `  ${teams[a]}  vs  ${teams[b]}`).join("\n"),
+    )
+    .join("\n\n");
+  const attribution =
+    platform === "yahoo"
+      ? "\n\nFantasy data provided by Yahoo Fantasy\nhttps://sports.yahoo.com/fantasy/"
+      : "";
+  return headingPrefix + body + attribution;
+}

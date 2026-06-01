@@ -12,6 +12,7 @@ import {
 import { MatchupSummary } from "./MatchupSummary";
 import { ScheduleHeading } from "./ScheduleHeading";
 import { YahooAttribution } from "./YahooAttribution";
+import { buildScheduleText } from "./utils";
 import { cls } from "./styles";
 import type { Patch, SaveToStorageFn, State } from "./state";
 
@@ -155,23 +156,15 @@ export function StepSchedule(props: StepScheduleProps) {
   // dedicated Copy button stays in lockstep with what the user sees there.
   function formatScheduleText(): string {
     if (!schedule) return "";
-    const heading = leagueName
+    const headingPrefix = leagueName
       ? `${leagueName} ${scheduleYear} Schedule\n\n`
       : "";
-    const body = (displayWeeks ?? schedule.weeks)
-      .map(
-        (week, wi) =>
-          `Week ${wi + 1}\n` +
-          week
-            .map(([a, b]: [number, number]) => `  ${teams[a]}  vs  ${teams[b]}`)
-            .join("\n"),
-      )
-      .join("\n\n");
-    const attribution =
-      platform === "yahoo"
-        ? "\n\nFantasy data provided by Yahoo Fantasy\nhttps://sports.yahoo.com/fantasy/"
-        : "";
-    return heading + body + attribution;
+    return buildScheduleText(
+      displayWeeks ?? schedule.weeks,
+      teams,
+      platform,
+      headingPrefix,
+    );
   }
 
   async function handleCopySchedule() {
