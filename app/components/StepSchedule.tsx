@@ -10,6 +10,7 @@ import {
   type SeasonHistory,
 } from "@/lib/algorithm";
 import { MatchupSummary } from "./MatchupSummary";
+import { ScheduleHeading } from "./ScheduleHeading";
 import { YahooAttribution } from "./YahooAttribution";
 import { cls } from "./styles";
 import type { Patch, SaveToStorageFn, State } from "./state";
@@ -187,11 +188,12 @@ export function StepSchedule(props: StepScheduleProps) {
 
   return (
     <div className={cls.card}>
-      <h2 className={cls.cardTitle}>
-        {leagueName
-          ? `${leagueName} ${scheduleYear} Schedule`
-          : "Generated Schedule"}
-      </h2>
+      <ScheduleHeading
+        name={leagueName}
+        yearLabel={`${scheduleYear} `}
+        fallback="Generated Schedule"
+        className={cls.cardTitle}
+      />
 
       {schedule.hardRepeated.length > 0 && (
         <div className="bg-amber-950 border border-amber-800 rounded-md px-3 py-2 text-[11px] text-amber-400 mb-3">
