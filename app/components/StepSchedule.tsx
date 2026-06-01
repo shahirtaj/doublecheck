@@ -156,8 +156,11 @@ export function StepSchedule(props: StepScheduleProps) {
   // dedicated Copy button stays in lockstep with what the user sees there.
   function formatScheduleText(): string {
     if (!schedule) return "";
-    const headingPrefix = leagueName
-      ? `${leagueName} ${scheduleYear} Schedule\n\n`
+    // Trim to match the on-screen heading (ScheduleHeading trims), so a name
+    // with stray whitespace can't display trimmed but copy out untrimmed.
+    const trimmedName = leagueName.trim();
+    const headingPrefix = trimmedName
+      ? `${trimmedName} ${scheduleYear} Schedule\n\n`
       : "";
     return buildScheduleText(
       displayWeeks ?? schedule.weeks,
