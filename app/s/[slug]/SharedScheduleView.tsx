@@ -144,11 +144,13 @@ export function SharedScheduleView({
                   key={gi}
                   className="flex items-center gap-2.5 px-2.5 py-1.5 bg-slate-800 rounded-md border border-slate-700"
                 >
-                  <span className="flex-1 text-[13px] text-slate-200 text-center">
+                  <span className="flex-1 min-w-0 break-words text-[13px] text-slate-200 text-center">
                     {teams[a]}
                   </span>
-                  <span className={`text-[11px] font-bold ${vsTone}`}>vs</span>
-                  <span className="flex-1 text-[13px] text-slate-200 text-center">
+                  <span className={`shrink-0 text-[11px] font-bold ${vsTone}`}>
+                    vs
+                  </span>
+                  <span className="flex-1 min-w-0 break-words text-[13px] text-slate-200 text-center">
                     {teams[b]}
                   </span>
                 </div>
