@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { LookbackWindow, Matching, SeasonHistory } from "@/lib/algorithm";
 import type { ImportedSeasonRecord } from "./types";
 import {
+  buildScheduleText,
   computeDisplayWeeks,
   deriveLookback,
   detectFormatFromImport,
@@ -268,5 +269,56 @@ describe("priorSeasons", () => {
 
   it("returns [] for empty history", () => {
     expect(priorSeasons([], 2025)).toEqual([]);
+  });
+});
+
+describe("buildScheduleText", () => {
+  const teams = ["Alpha", "Bravo", "Charlie", "Delta"];
+  const weeks: Matching[] = [
+    [
+      [0, 1],
+      [2, 3],
+    ],
+    [
+      [0, 2],
+      [1, 3],
+    ],
+  ];
+
+  it("formats weeks with double-spaced vs and blank lines between weeks", () => {
+    expect(buildScheduleText(weeks, teams, "sleeper", "")).toBe(
+      "Week 1\n  Alpha  vs  Bravo\n  Charlie  vs  Delta\n\n" +
+        "Week 2\n  Alpha  vs  Charlie\n  Bravo  vs  Delta",
+    );
+  });
+
+  it("prepends the heading prefix verbatim", () => {
+    expect(
+      buildScheduleText(
+        [[[0, 1]]],
+        teams,
+        "sleeper",
+        "My League 2026 Schedule\n\n",
+      ),
+    ).toBe("My League 2026 Schedule\n\nWeek 1\n  Alpha  vs  Bravo");
+  });
+
+  it("appends Yahoo attribution when the platform is yahoo", () => {
+    expect(buildScheduleText([[[0, 1]]], teams, "yahoo", "")).toBe(
+      "Week 1\n  Alpha  vs  Bravo\n\n" +
+        "Fantasy data provided by Yahoo Fantasy\nhttps://sports.yahoo.com/fantasy/",
+    );
+  });
+
+  it("omits attribution for a non-yahoo or absent platform", () => {
+    expect(buildScheduleText([[[0, 1]]], teams, undefined, "")).toBe(
+      "Week 1\n  Alpha  vs  Bravo",
+    );
+  });
+
+  it("returns just the heading prefix for empty weeks", () => {
+    expect(buildScheduleText([], teams, "sleeper", "Heading\n\n")).toBe(
+      "Heading\n\n",
+    );
   });
 });
