@@ -54,9 +54,10 @@ export function SharedScheduleView({
 
   const trimmedName = leagueName?.trim();
   const yearLabel = seasonYear ? `${seasonYear} ` : "";
-  const heading = trimmedName
-    ? `${trimmedName} ${yearLabel}Schedule`
-    : `${format.teamCount}-team / ${format.weekCount}-week Schedule`;
+  // Heading prefix for the copied text export only; the <h2> renders via
+  // ScheduleHeading (which owns the no-name fallback). The copy export omits
+  // the heading entirely when there's no league name, so this needs no fallback.
+  const heading = trimmedName ? `${trimmedName} ${yearLabel}Schedule` : "";
 
   function formatScheduleText(): string {
     const headingPrefix = trimmedName ? `${heading}\n\n` : "";
