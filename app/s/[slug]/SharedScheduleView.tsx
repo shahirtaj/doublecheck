@@ -102,7 +102,10 @@ export function SharedScheduleView({
       <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 max-w-[700px] mx-auto">
         <div className="flex items-center justify-between gap-3 mb-3">
           <h2 className="text-base font-bold text-emerald-50">{heading}</h2>
-          <button className={cls.secondaryBtn} onClick={handleCopyLink}>
+          <button
+            className={`${cls.secondaryBtn} shrink-0 whitespace-nowrap`}
+            onClick={handleCopyLink}
+          >
             {linkCopied ? "✓ Copied" : "Copy link"}
           </button>
         </div>
