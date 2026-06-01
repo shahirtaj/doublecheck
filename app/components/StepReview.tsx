@@ -28,6 +28,10 @@ type StepReviewProps = {
   effectiveLookback: LookbackWindow;
   effectiveLookbackTotal: number;
   recommendedLookbackTotal: number;
+  // Count of seasons strictly before the scheduled year (history minus the
+  // in-progress season). Sizes the lookback control so it never claims more
+  // seasons than actually drive avoidance; see page.tsx priorHistory.
+  priorSeasonCount: number;
   showHeaderTooltip: (text: string, target: HTMLElement) => void;
   hideHeaderTooltip: () => void;
   // handleGenerate logic lives in page.tsx so StepSchedule's Regenerate button
@@ -47,6 +51,7 @@ export function StepReview(props: StepReviewProps) {
     effectiveLookback,
     effectiveLookbackTotal,
     recommendedLookbackTotal,
+    priorSeasonCount,
     showHeaderTooltip,
     hideHeaderTooltip,
     onGenerate,
@@ -106,13 +111,14 @@ export function StepReview(props: StepReviewProps) {
   const availablePastSeasonYears = pastSeasonYears.filter(
     (y) => !usedSeasonYears.has(String(y)),
   );
-  // When the user opens the add form with a history already filling (or
+  // When the user opens the add form with prior seasons already filling (or
   // exceeding) the recommended lookback window, surface a heads-up that
-  // further seasons won't influence schedule generation.
+  // further seasons won't influence schedule generation. Counts prior seasons,
+  // not history.length, so the in-progress season doesn't trip it one early.
   const showLookbackNote =
     addingPastSeason &&
     editingSeasonIndex === null &&
-    history.length >= recommendedLookbackTotal;
+    priorSeasonCount >= recommendedLookbackTotal;
 
   function toggleDouble(i: number, j: number) {
     const key = pairKey(i, j);
@@ -272,7 +278,7 @@ export function StepReview(props: StepReviewProps) {
     <div className={cls.card}>
       <h2 className={cls.cardTitle}>{leagueName || "Review"}</h2>
 
-      {history.length > 0 && (
+      {priorSeasonCount > 0 && (
         <div className="bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 mb-4">
           <h3 className={cls.sectionTitle}>Lookback Window</h3>
           <select
@@ -286,7 +292,7 @@ export function StepReview(props: StepReviewProps) {
             }}
           >
             {Array.from(
-              { length: Math.min(recommendedLookbackTotal, history.length) },
+              { length: Math.min(recommendedLookbackTotal, priorSeasonCount) },
               (_, i) => i + 1,
             ).map((n) => (
               <option key={n} value={n}>

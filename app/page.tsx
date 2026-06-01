@@ -245,15 +245,26 @@ export default function GeneratePage() {
   const recommendedLookbackTotal = format
     ? format.lookback.hard + format.lookback.soft
     : 0;
+  // Seasons strictly before the year being scheduled - the only ones that
+  // drive avoidance. Save & Share records the in-progress season into history
+  // for next-year restore, but it must not influence the current schedule, so
+  // the lookback control sizes off this prior-season count, never
+  // history.length. (history.length over-counts by one once the in-progress
+  // season has been saved, which would inflate the displayed window.)
+  const priorHistory = useMemo(
+    () => priorSeasons(history, scheduleYear),
+    [history, scheduleYear],
+  );
+  const priorSeasonCount = priorHistory.length;
   // Override may only dial the lookback down. Anything higher than the per-format
   // recommendation gets clamped so an over-constrained avoid set can't sneak in
   // from stale localStorage either. The window is also capped at the number of
-  // seasons we actually have, so the display and the dropdown's controlled value
-  // never claim more lookback than history can supply.
+  // prior seasons we actually have, so the display and the dropdown's controlled
+  // value never claim more lookback than history can supply.
   const effectiveLookbackTotal = Math.min(
     lookbackOverride ?? recommendedLookbackTotal,
     recommendedLookbackTotal,
-    history.length,
+    priorSeasonCount,
   );
   const effectiveLookback = useMemo<LookbackWindow>(
     () =>
@@ -266,13 +277,8 @@ export default function GeneratePage() {
   // materialize the auto-avoid sets once per render instead of inside
   // cellAvoidType.
   const avoidSets = useMemo(
-    () =>
-      buildAvoidMap(
-        priorSeasons(history, scheduleYear),
-        userIds,
-        effectiveLookback,
-      ),
-    [history, userIds, effectiveLookback, scheduleYear],
+    () => buildAvoidMap(priorHistory, userIds, effectiveLookback),
+    [priorHistory, userIds, effectiveLookback],
   );
   // Auto-avoid sets composed with the manual overlay. Consumed by the
   // schedule generator and by the rivalry-pin avoidance warning. Kept
@@ -447,6 +453,7 @@ export default function GeneratePage() {
               effectiveLookback={effectiveLookback}
               effectiveLookbackTotal={effectiveLookbackTotal}
               recommendedLookbackTotal={recommendedLookbackTotal}
+              priorSeasonCount={priorSeasonCount}
               showHeaderTooltip={showHeaderTooltip}
               hideHeaderTooltip={hideHeaderTooltip}
               onGenerate={handleGenerate}
