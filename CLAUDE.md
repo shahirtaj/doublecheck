@@ -22,7 +22,7 @@ Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3, Inter 
 - `app/api/share/` - share link creation and retrieval
 - `lib/algorithm/` - scheduling algorithm (format, schedule, matching, avoid, pair, types)
 - `lib/api/` - rate limiting, Yahoo token encryption
-- `app/components/MatchupSummary.tsx` - shared between StepSchedule and SharedScheduleView; update once for both views
+- `app/components/MatchupSummary.tsx`, `app/components/ScheduleHeading.tsx`, and `buildScheduleText` in `app/components/utils.ts` are shared between StepSchedule and SharedScheduleView; update once for both views. ScheduleHeading renders the schedule `<h2>` (each view passes its own size/color/margin class); buildScheduleText builds the copied plain-text export (each view passes its own heading prefix).
 - `@/*` path alias maps to the project root (configured in `tsconfig.json`), so `@/lib/algorithm` resolves to `./lib/algorithm`
 
 ## Code style
