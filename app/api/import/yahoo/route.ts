@@ -175,7 +175,14 @@ function parseLeaguesList(json: unknown): YahooLeagueMeta[] {
       byName.set(league.name, league);
     }
   }
-  return Array.from(byName.values());
+  return Array.from(byName.values()).sort((a, b) => {
+    const bySeason = b.season.localeCompare(a.season, undefined, {
+      numeric: true,
+    });
+    return bySeason !== 0
+      ? bySeason
+      : a.name.localeCompare(b.name, undefined, { numeric: true });
+  });
 }
 
 function parseLeagueDetails(json: unknown): YahooLeagueDetails | null {
