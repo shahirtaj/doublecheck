@@ -144,7 +144,8 @@ async function fetchUserLeaguesForYear(
       leagueId: l.league_id,
       name: (l.name || "").trim() || l.league_id,
       season: (l.season || "").trim() || String(year),
-    }));
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 }
 
 async function discoverChain(
