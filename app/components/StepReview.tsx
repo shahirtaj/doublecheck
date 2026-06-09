@@ -350,7 +350,9 @@ export function StepReview(props: StepReviewProps) {
                 key={si}
                 className="px-2 py-1.5 text-xs flex flex-wrap gap-2 items-center"
               >
-                <strong className="text-slate-200">{h.season}</strong>
+                <strong className="text-slate-200 tabular-nums">
+                  {h.season}
+                </strong>
                 <span className={`text-[10px] ${tone}`}>{label}</span>
                 {h.format !== "userid" &&
                   (confirmDeleteSeasonIndex === si ? (
