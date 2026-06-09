@@ -346,7 +346,7 @@ export default function GeneratePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen px-4 py-6">
+      <div className="min-h-dvh px-4 py-6">
         <p className="mt-20 text-center text-slate-400">Loading…</p>
       </div>
     );

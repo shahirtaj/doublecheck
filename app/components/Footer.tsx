@@ -1,6 +1,6 @@
 // Shared site footer rendered at the bottom of every page-level view
 // (homepage, shared schedule, error boundaries, 404). The `mt-auto` pins it to
-// the viewport bottom inside the `min-h-screen flex flex-col` page wrapper when
+// the viewport bottom inside the `min-h-dvh flex flex-col` page wrapper when
 // content is short. No hooks, so it works in both server and client components.
 
 export function Footer() {
