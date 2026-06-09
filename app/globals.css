@@ -5,7 +5,11 @@
 html,
 body {
   background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-  min-height: 100vh;
+  /* svh, not vh: 100vh on iOS Safari is the large (chrome-hidden) viewport,
+     so it overshoots the visible area when chrome shows and leaves a scroll
+     gap below the footer's mt-auto pin. 100svh matches the visible viewport;
+     svh === vh on desktop. */
+  min-height: 100svh;
   color: #e2e8f0;
 }
 
