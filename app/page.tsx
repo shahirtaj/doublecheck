@@ -353,7 +353,7 @@ export default function GeneratePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col px-4 py-6 text-slate-200">
+    <div className="min-h-dvh flex flex-col px-4 py-6 text-slate-200">
       {/* flex-1 keeps the content block-level inside the flex-col page wrapper.
           Without it the flex column stretches the step cards to the cross-axis,
           changing their width between steps on mobile. It also pushes <Footer/>
