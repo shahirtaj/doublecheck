@@ -7,6 +7,7 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SharedScheduleView } from "./SharedScheduleView";
+import { Footer } from "@/app/components/Footer";
 
 const redis = Redis.fromEnv();
 
@@ -166,7 +167,7 @@ export default async function SharePage({
   const data = await getShareData(slug);
 
   return (
-    <div className="min-h-screen px-4 py-6 text-slate-200">
+    <div className="min-h-screen flex flex-col px-4 py-6 text-slate-200">
       <div className="text-center mb-7">
         <h1 className="text-xl sm:text-2xl font-extrabold text-emerald-50 uppercase tracking-tight">
           <Link href="/">DoubleCheck</Link>
@@ -192,6 +193,8 @@ export default async function SharePage({
           rivalryPlacements={data.schedule.rivalryPlacements ?? []}
         />
       )}
+
+      <Footer />
     </div>
   );
 }

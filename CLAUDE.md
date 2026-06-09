@@ -23,6 +23,7 @@ Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3, Inter 
 - `lib/algorithm/` - scheduling algorithm (format, schedule, matching, avoid, pair, types)
 - `lib/api/` - rate limiting, Yahoo token encryption
 - `app/components/MatchupSummary.tsx`, `app/components/ScheduleHeading.tsx`, and `buildScheduleText` in `app/components/utils.ts` are shared between StepSchedule and SharedScheduleView; update once for both views. ScheduleHeading renders the schedule `<h2>` (each view passes its own size/color/margin class); buildScheduleText builds the copied plain-text export (each view passes its own heading prefix).
+- `app/components/Footer.tsx` is the shared site footer used by every page-level view (`app/page.tsx`, `app/s/[slug]/page.tsx`, both `error.tsx`, `not-found.tsx`). Each view wraps its content in `min-h-screen flex flex-col` so the footer's `mt-auto` pins it to the viewport bottom on short content - keep that wrapper class if you touch a page's layout. `app/page.tsx` additionally needs a `flex-1` content wrapper (see the inline note there before removing it).
 - `@/*` path alias maps to the project root (configured in `tsconfig.json`), so `@/lib/algorithm` resolves to `./lib/algorithm`
 
 ## Code style

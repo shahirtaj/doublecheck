@@ -8,6 +8,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { Footer } from "./components/Footer";
 
 const STORAGE_KEY = "ff-rotational-scheduler";
 
@@ -32,7 +33,7 @@ export default function HomeError({
   }
 
   return (
-    <div className="min-h-screen px-4 py-6 text-slate-200">
+    <div className="min-h-screen flex flex-col px-4 py-6 text-slate-200">
       <div className="text-center mb-7">
         <h1 className="text-xl sm:text-2xl font-extrabold text-emerald-50 uppercase tracking-tight">
           <Link href="/">DoubleCheck</Link>
@@ -62,6 +63,8 @@ export default function HomeError({
           </p>
         )}
       </div>
+
+      <Footer />
     </div>
   );
 }

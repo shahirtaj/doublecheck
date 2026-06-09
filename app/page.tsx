@@ -25,6 +25,7 @@ import {
 import { ImportSections, StepImport } from "./components/StepImport";
 import { StepReview } from "./components/StepReview";
 import { StepSchedule } from "./components/StepSchedule";
+import { Footer } from "./components/Footer";
 
 // ── Component ─────────────────────────────────────────────
 
@@ -353,189 +354,180 @@ export default function GeneratePage() {
 
   return (
     <div className="min-h-screen flex flex-col px-4 py-6 text-slate-200">
-      <div className="text-center mb-7">
-        <h1 className="text-xl sm:text-2xl font-extrabold text-emerald-50 uppercase tracking-tight">
-          <Link href="/">DoubleCheck</Link>
-        </h1>
-        <p className="text-[11px] text-emerald-400 mt-1 tracking-wider">
-          Fair schedules for fantasy football leagues
-        </p>
-      </div>
-
-      {!format ? (
-        <div className={cls.card}>
-          <h2 className={cls.cardTitle}>Import Your League</h2>
-          <ImportSections
-            state={state}
-            patch={patch}
-            saveToStorage={saveToStorage}
-            platformRef={platformRef}
-            recommendedLookbackTotal={recommendedLookbackTotal}
-          />
-        </div>
-      ) : isEdgeCaseFormat ? (
-        <div className={cls.card}>
-          <h2 className={cls.cardTitle}>No schedule needed</h2>
-          {format.variant === "pure-round-robin" ? (
-            <p className={cls.hint}>
-              Detected{" "}
-              <strong className="text-slate-200">
-                {teamCount}-team / {weekCount}-week
-              </strong>
-              : a pure round-robin where every team plays every opponent exactly
-              once. There are no doubled matchups, so there&apos;s no fairness
-              problem to solve and no rotational schedule needed.
-            </p>
-          ) : (
-            <p className={cls.hint}>
-              Detected{" "}
-              <strong className="text-slate-200">
-                {teamCount}-team / {weekCount}-week
-              </strong>
-              : a complete double round-robin where every team plays every
-              opponent exactly twice. The schedule is fully determined - every
-              pair is doubled - so there&apos;s no rotational fairness problem
-              to solve.
-            </p>
-          )}
-          <p className="text-[11px] text-slate-500 mt-3">
-            Use Reset below to clear and re-import a different league.
+      {/* flex-1 keeps the content block-level inside the flex-col page wrapper.
+          Without it the flex column stretches the step cards to the cross-axis,
+          changing their width between steps on mobile. It also pushes <Footer/>
+          (mt-auto) to the viewport bottom on short content. Don't remove it. */}
+      <div className="flex-1">
+        <div className="text-center mb-7">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-emerald-50 uppercase tracking-tight">
+            <Link href="/">DoubleCheck</Link>
+          </h1>
+          <p className="text-[11px] text-emerald-400 mt-1 tracking-wider">
+            Fair schedules for fantasy football leagues
           </p>
         </div>
-      ) : (
-        <>
-          <div className="flex justify-center gap-1 mb-6 flex-wrap">
-            {(
-              [
-                ["teams", "1. Import"],
-                ["doubles", "2. Review"],
-                ["schedule", "3. Schedule"],
-              ] as [Step, string][]
-            ).map(([key, label]) => {
-              const disabled =
-                STEP_ORDER.indexOf(key) > STEP_ORDER.indexOf(furthestStep);
-              return (
-                <button
-                  key={key}
-                  onClick={() => setStep(key)}
-                  disabled={disabled}
-                  className={`${cls.navBtn} bg-transparent border ${
-                    step === key
-                      ? "bg-emerald-800 border-emerald-600 text-emerald-50"
-                      : "border-slate-700 text-slate-400 hover:border-slate-500"
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
 
-          {/* ═══ STEP 1: IMPORT ═══ */}
-          {step === "teams" && (
-            <StepImport
+        {!format ? (
+          <div className={cls.card}>
+            <h2 className={cls.cardTitle}>Import Your League</h2>
+            <ImportSections
               state={state}
               patch={patch}
               saveToStorage={saveToStorage}
-              stepOrder={STEP_ORDER}
-            />
-          )}
-
-          {/* ═══ STEP 2: AVOID ═══ */}
-          {step === "doubles" && format && (
-            <StepReview
-              state={state}
-              patch={patch}
-              saveToStorage={saveToStorage}
-              format={format}
-              avoidSets={avoidSets}
-              mergedAvoidSets={mergedAvoidSets}
-              effectiveLookback={effectiveLookback}
-              effectiveLookbackTotal={effectiveLookbackTotal}
+              platformRef={platformRef}
               recommendedLookbackTotal={recommendedLookbackTotal}
-              priorSeasonCount={priorSeasonCount}
-              showHeaderTooltip={showHeaderTooltip}
-              hideHeaderTooltip={hideHeaderTooltip}
-              onGenerate={handleGenerate}
             />
-          )}
-
-          {/* ═══ STEP 3: SCHEDULE ═══ */}
-          {step === "schedule" && (
-            <StepSchedule
-              state={state}
-              patch={patch}
-              saveToStorage={saveToStorage}
-              scheduleYear={scheduleYear}
-              onGenerate={handleGenerate}
-            />
-          )}
-        </>
-      )}
-
-      {selectedFormat && (
-        <div className="max-w-[700px] mx-auto mt-6 text-center">
-          {!confirmReset ? (
-            <div className="inline-flex gap-2 items-center justify-center flex-wrap">
-              <button
-                className={`${cls.navBtn} bg-transparent border border-slate-700 text-slate-400 hover:border-slate-500`}
-                onClick={() => {
-                  if (step === "teams") {
-                    setSelectedFormat(null);
-                    setStep("teams");
-                    setFurthestStep("teams");
-                  } else {
-                    setStep(step === "schedule" ? "doubles" : "teams");
-                  }
-                }}
-              >
-                ← Back
-              </button>
-              <button
-                className={`${cls.navBtn} bg-transparent border border-red-700 text-red-400 hover:text-red-300 hover:border-red-600`}
-                onClick={() => setConfirmReset(true)}
-              >
-                Reset
-              </button>
+          </div>
+        ) : isEdgeCaseFormat ? (
+          <div className={cls.card}>
+            <h2 className={cls.cardTitle}>No schedule needed</h2>
+            {format.variant === "pure-round-robin" ? (
+              <p className={cls.hint}>
+                Detected{" "}
+                <strong className="text-slate-200">
+                  {teamCount}-team / {weekCount}-week
+                </strong>
+                : a pure round-robin where every team plays every opponent
+                exactly once. There are no doubled matchups, so there&apos;s no
+                fairness problem to solve and no rotational schedule needed.
+              </p>
+            ) : (
+              <p className={cls.hint}>
+                Detected{" "}
+                <strong className="text-slate-200">
+                  {teamCount}-team / {weekCount}-week
+                </strong>
+                : a complete double round-robin where every team plays every
+                opponent exactly twice. The schedule is fully determined - every
+                pair is doubled - so there&apos;s no rotational fairness problem
+                to solve.
+              </p>
+            )}
+            <p className="text-[11px] text-slate-500 mt-3">
+              Use Reset below to clear and re-import a different league.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="flex justify-center gap-1 mb-6 flex-wrap">
+              {(
+                [
+                  ["teams", "1. Import"],
+                  ["doubles", "2. Review"],
+                  ["schedule", "3. Schedule"],
+                ] as [Step, string][]
+              ).map(([key, label]) => {
+                const disabled =
+                  STEP_ORDER.indexOf(key) > STEP_ORDER.indexOf(furthestStep);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setStep(key)}
+                    disabled={disabled}
+                    className={`${cls.navBtn} bg-transparent border ${
+                      step === key
+                        ? "bg-emerald-800 border-emerald-600 text-emerald-50"
+                        : "border-slate-700 text-slate-400 hover:border-slate-500"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
-          ) : (
-            <div className="inline-flex gap-2 items-center flex-wrap justify-center">
-              <span className="text-[11px] text-red-400">
-                Reset everything? Can&apos;t be undone.
-              </span>
-              <button className={cls.dangerBtn} onClick={handleResetEverything}>
-                Yes, reset
-              </button>
-              <button
-                className={cls.cancelBtn}
-                onClick={() => setConfirmReset(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
-      <footer className="max-w-[700px] mx-auto mt-auto pt-4 text-center text-[11px] text-slate-500">
-        <a
-          href="https://github.com/shahirtaj/doublecheck/issues"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline decoration-slate-700 hover:text-slate-400 hover:decoration-slate-500"
-        >
-          Report a bug
-        </a>
-        <span className="mx-2">·</span>
-        <a
-          href="https://buymeacoffee.com/shahirtaj"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline decoration-slate-700 hover:text-slate-400 hover:decoration-slate-500"
-        >
-          Buy me a coffee
-        </a>
-      </footer>
+            {/* ═══ STEP 1: IMPORT ═══ */}
+            {step === "teams" && (
+              <StepImport
+                state={state}
+                patch={patch}
+                saveToStorage={saveToStorage}
+                stepOrder={STEP_ORDER}
+              />
+            )}
+
+            {/* ═══ STEP 2: AVOID ═══ */}
+            {step === "doubles" && format && (
+              <StepReview
+                state={state}
+                patch={patch}
+                saveToStorage={saveToStorage}
+                format={format}
+                avoidSets={avoidSets}
+                mergedAvoidSets={mergedAvoidSets}
+                effectiveLookback={effectiveLookback}
+                effectiveLookbackTotal={effectiveLookbackTotal}
+                recommendedLookbackTotal={recommendedLookbackTotal}
+                priorSeasonCount={priorSeasonCount}
+                showHeaderTooltip={showHeaderTooltip}
+                hideHeaderTooltip={hideHeaderTooltip}
+                onGenerate={handleGenerate}
+              />
+            )}
+
+            {/* ═══ STEP 3: SCHEDULE ═══ */}
+            {step === "schedule" && (
+              <StepSchedule
+                state={state}
+                patch={patch}
+                saveToStorage={saveToStorage}
+                scheduleYear={scheduleYear}
+                onGenerate={handleGenerate}
+              />
+            )}
+          </>
+        )}
+
+        {selectedFormat && (
+          <div className="max-w-[700px] mx-auto mt-6 text-center">
+            {!confirmReset ? (
+              <div className="inline-flex gap-2 items-center justify-center flex-wrap">
+                <button
+                  className={`${cls.navBtn} bg-transparent border border-slate-700 text-slate-400 hover:border-slate-500`}
+                  onClick={() => {
+                    if (step === "teams") {
+                      setSelectedFormat(null);
+                      setStep("teams");
+                      setFurthestStep("teams");
+                    } else {
+                      setStep(step === "schedule" ? "doubles" : "teams");
+                    }
+                  }}
+                >
+                  ← Back
+                </button>
+                <button
+                  className={`${cls.navBtn} bg-transparent border border-red-700 text-red-400 hover:text-red-300 hover:border-red-600`}
+                  onClick={() => setConfirmReset(true)}
+                >
+                  Reset
+                </button>
+              </div>
+            ) : (
+              <div className="inline-flex gap-2 items-center flex-wrap justify-center">
+                <span className="text-[11px] text-red-400">
+                  Reset everything? Can&apos;t be undone.
+                </span>
+                <button
+                  className={cls.dangerBtn}
+                  onClick={handleResetEverything}
+                >
+                  Yes, reset
+                </button>
+                <button
+                  className={cls.cancelBtn}
+                  onClick={() => setConfirmReset(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <Footer />
 
       {tooltipInfo && (
         <div
