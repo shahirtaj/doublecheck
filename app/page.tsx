@@ -352,7 +352,7 @@ export default function GeneratePage() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-6 text-slate-200">
+    <div className="min-h-screen flex flex-col px-4 py-6 text-slate-200">
       <div className="text-center mb-7">
         <h1 className="text-xl sm:text-2xl font-extrabold text-emerald-50 uppercase tracking-tight">
           <Link href="/">DoubleCheck</Link>
@@ -517,7 +517,7 @@ export default function GeneratePage() {
         </div>
       )}
 
-      <footer className="max-w-[700px] mx-auto mt-4 text-center text-[11px] text-slate-500">
+      <footer className="max-w-[700px] mx-auto mt-auto pt-4 text-center text-[11px] text-slate-500">
         <a
           href="https://github.com/shahirtaj/doublecheck/issues"
           target="_blank"
