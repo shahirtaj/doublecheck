@@ -4,10 +4,8 @@
 // slug is missing or the entry has expired.
 
 import { NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
+import { getRedis, hasRedisEnv } from "@/lib/api/redis";
 import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
-
-const redis = Redis.fromEnv();
 
 const RESTORE_WINDOW_MS = 60 * 60 * 1000;
 const RESTORE_MAX_PER_WINDOW = 30;
@@ -17,6 +15,15 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
+  // The zero-env local setup the README promises has no share storage - say
+  // so deliberately instead of letting an unconfigured client fail opaquely.
+  if (!hasRedisEnv()) {
+    return NextResponse.json(
+      { error: "Sharing requires Upstash Redis configuration." },
+      { status: 503 },
+    );
+  }
+
   const rl = await checkRateLimit(getClientIp(req), {
     windowMs: RESTORE_WINDOW_MS,
     max: RESTORE_MAX_PER_WINDOW,
@@ -36,7 +43,7 @@ export async function GET(
 
   let data: unknown;
   try {
-    data = await redis.get(`share:${slug}`);
+    data = await getRedis().get(`share:${slug}`);
   } catch (e) {
     return NextResponse.json(
       { error: (e as Error).message || "Failed to read share storage." },

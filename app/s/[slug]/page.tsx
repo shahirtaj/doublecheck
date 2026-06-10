@@ -2,15 +2,13 @@
 // Redis and renders a read-only view of the schedule. Returns a friendly
 // 404-style message if the slug is missing or the entry has expired.
 
-import { Redis } from "@upstash/redis";
+import { getRedis, hasRedisEnv } from "@/lib/api/redis";
 import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SharedScheduleView } from "./SharedScheduleView";
 import { Footer } from "@/app/components/Footer";
 import type { RivalryPlacement } from "@/lib/algorithm";
-
-const redis = Redis.fromEnv();
 
 type SharedPayload = {
   format: { teamCount: number; weekCount: number };
@@ -73,8 +71,11 @@ function isValidPayload(v: unknown): v is SharedPayload {
 }
 
 const getShareData = cache(async (slug: string): Promise<unknown> => {
+  // Without Redis configured there is no share storage; null lands both
+  // generateMetadata and the page body in the expired/not-found fallback.
+  if (!hasRedisEnv()) return null;
   try {
-    return await redis.get(`share:${slug}`);
+    return await getRedis().get(`share:${slug}`);
   } catch {
     return null;
   }

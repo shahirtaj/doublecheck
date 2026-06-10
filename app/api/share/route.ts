@@ -4,10 +4,8 @@
 // the link via the same flow if it expires.
 
 import { NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
+import { getRedis, hasRedisEnv } from "@/lib/api/redis";
 import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
-
-const redis = Redis.fromEnv();
 
 const SLUG_LENGTH = 8;
 const SLUG_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -220,6 +218,15 @@ function validatePayload(body: unknown): string | null {
 }
 
 export async function POST(req: Request) {
+  // The zero-env local setup the README promises has no share storage - say
+  // so deliberately instead of letting an unconfigured client fail opaquely.
+  if (!hasRedisEnv()) {
+    return NextResponse.json(
+      { error: "Sharing requires Upstash Redis configuration." },
+      { status: 503 },
+    );
+  }
+
   const rl = await checkRateLimit(getClientIp(req), {
     windowMs: SHARE_WINDOW_MS,
     max: SHARE_MAX_PER_WINDOW,
@@ -254,7 +261,7 @@ export async function POST(req: Request) {
   for (let i = 0; i < MAX_SLUG_ATTEMPTS; i++) {
     const candidate = generateSlug();
     try {
-      const result = await redis.set(`share:${candidate}`, body, {
+      const result = await getRedis().set(`share:${candidate}`, body, {
         nx: true,
         ex: TTL_SECONDS,
       });
