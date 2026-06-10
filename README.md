@@ -78,7 +78,7 @@ No platform exposes a write API for league schedules, so commissioners enter the
 - **React 19**
 - **Tailwind CSS** for styling
 - **ESLint 9** with flat config (`eslint.config.mjs`)
-- **Vitest** for the test suite (360 tests; algorithm coverage across all 7 supported formats, including rivalry pins, plus import/share route logic and import-flow component coverage via React Testing Library)
+- **Vitest** for the test suite (361 tests; algorithm coverage across all 7 supported formats, including rivalry pins, plus import/share route logic and import-flow component coverage via React Testing Library)
 - **Vercel** for deployment
 
 See [ROADMAP.md](ROADMAP.md) for the full product roadmap and current state.
@@ -95,7 +95,7 @@ npm run dev
 
 The app runs without any environment variables configured - Yahoo Fantasy OAuth and share links won't work, but Sleeper imports, ESPN imports (public leagues), manual entry, and schedule generation are fully functional locally.
 
-Run `npm test` to execute the test suite (360 tests). See [CLAUDE.md](CLAUDE.md) for the full command reference and project structure.
+Run `npm test` to execute the test suite (361 tests). See [CLAUDE.md](CLAUDE.md) for the full command reference and project structure.
 
 ## Support
 
