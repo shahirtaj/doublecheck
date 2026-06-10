@@ -31,6 +31,7 @@ type ImportSectionsProps = {
   patch: Patch;
   saveToStorage: SaveToStorageFn;
   platformRef: MutableRefObject<ImportPlatform>;
+  importSourceRef: MutableRefObject<ImportSource>;
   recommendedLookbackTotal: number;
 };
 
@@ -50,8 +51,14 @@ function filterToDetectedFormat(seasons: ImportedSeasonRecord[]): {
 }
 
 export function ImportSections(props: ImportSectionsProps) {
-  const { state, patch, saveToStorage, platformRef, recommendedLookbackTotal } =
-    props;
+  const {
+    state,
+    patch,
+    saveToStorage,
+    platformRef,
+    importSourceRef,
+    recommendedLookbackTotal,
+  } = props;
   const {
     platform,
     importSource,
@@ -91,6 +98,15 @@ export function ImportSections(props: ImportSectionsProps) {
   async function handleFetch() {
     const input = leagueId.trim();
     if (!input) return;
+    // Stale-response guard: if the user switches the platform dropdown (or
+    // flips to "Restore from link", which leaves `platform` alone by design)
+    // while this request is in flight, the response must not stomp the new
+    // selection's shared status fields. Checked after every await.
+    const requestPlatform = platform;
+    const requestSource = importSource;
+    const stale = () =>
+      platformRef.current !== requestPlatform ||
+      importSourceRef.current !== requestSource;
     patch({
       importPreview: null,
       sleeperLeagues: null,
@@ -111,7 +127,9 @@ export function ImportSections(props: ImportSectionsProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username: input }),
         });
+        if (stale()) return;
         const data = await res.json();
+        if (stale()) return;
         if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
         const leagues = (data?.leagues || []) as SleeperLeagueOption[];
         if (leagues.length === 0) {
@@ -131,6 +149,7 @@ export function ImportSections(props: ImportSectionsProps) {
           importMsg: `Found ${leagues.length} Sleeper leagues - pick one.`,
         });
       } catch (e) {
+        if (stale()) return;
         patch({
           importStatus: "error",
           importMsg: (e as Error).message || "Sleeper username lookup failed.",
@@ -152,7 +171,9 @@ export function ImportSections(props: ImportSectionsProps) {
           body: JSON.stringify({ leagueId: input }),
         },
       );
+      if (stale()) return;
       const data = await res.json();
+      if (stale()) return;
       if (!res.ok) {
         if (typeof data?.helpUrl === "string")
           patch({ importHelpUrl: data.helpUrl });
@@ -174,6 +195,7 @@ export function ImportSections(props: ImportSectionsProps) {
         importMsg: "",
       });
     } catch (e) {
+      if (stale()) return;
       patch({
         importStatus: "error",
         importMsg: (e as Error).message || "Fetch failed.",
@@ -182,6 +204,9 @@ export function ImportSections(props: ImportSectionsProps) {
   }
 
   async function fetchSleeperLeagueSeasons(specificLeagueId: string) {
+    const stale = () =>
+      platformRef.current !== "sleeper" ||
+      importSourceRef.current !== "sleeper";
     patch({
       importStatus: "loading",
       importMsg: "Loading season data from Sleeper…",
@@ -196,7 +221,9 @@ export function ImportSections(props: ImportSectionsProps) {
           body: JSON.stringify({ leagueId: specificLeagueId }),
         },
       );
+      if (stale()) return;
       const data = await res.json();
+      if (stale()) return;
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       const seasons = data as ImportedSeasonRecord[];
       if (!Array.isArray(seasons) || seasons.length === 0) {
@@ -214,6 +241,7 @@ export function ImportSections(props: ImportSectionsProps) {
         importMsg: "",
       });
     } catch (e) {
+      if (stale()) return;
       patch({
         importStatus: "error",
         importMsg: (e as Error).message || "Fetch failed.",
@@ -227,6 +255,8 @@ export function ImportSections(props: ImportSectionsProps) {
   // OAuth yet (or their refresh token expired); the UI shows Connect Yahoo.
 
   async function fetchYahooLeagueSeasons(leagueKey: string) {
+    const stale = () =>
+      platformRef.current !== "yahoo" || importSourceRef.current !== "yahoo";
     patch({
       importStatus: "loading",
       importMsg: "Loading season data from Yahoo Fantasy…",
@@ -241,9 +271,9 @@ export function ImportSections(props: ImportSectionsProps) {
           body: JSON.stringify({ leagueKey }),
         },
       );
-      if (platformRef.current !== "yahoo") return;
+      if (stale()) return;
       const data = await res.json();
-      if (platformRef.current !== "yahoo") return;
+      if (stale()) return;
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       const seasons = data as ImportedSeasonRecord[];
       if (!Array.isArray(seasons) || seasons.length === 0) {
@@ -261,7 +291,7 @@ export function ImportSections(props: ImportSectionsProps) {
         importMsg: "",
       });
     } catch (e) {
-      if (platformRef.current !== "yahoo") return;
+      if (stale()) return;
       patch({
         importStatus: "error",
         importMsg: (e as Error).message || "Fetch failed.",
@@ -270,6 +300,8 @@ export function ImportSections(props: ImportSectionsProps) {
   }
 
   async function fetchYahooLeagues() {
+    const stale = () =>
+      platformRef.current !== "yahoo" || importSourceRef.current !== "yahoo";
     patch({
       importStatus: "loading",
       importMsg: "Loading Yahoo Fantasy leagues…",
@@ -283,7 +315,7 @@ export function ImportSections(props: ImportSectionsProps) {
         headers: { "Content-Type": "application/json" },
         body: "{}",
       });
-      if (platformRef.current !== "yahoo") return;
+      if (stale()) return;
       if (res.status === 401) {
         // Treated as "not connected" — clear status so the Connect Yahoo
         // button shows. The user will run through OAuth to get a token.
@@ -295,7 +327,7 @@ export function ImportSections(props: ImportSectionsProps) {
         return;
       }
       const data = await res.json();
-      if (platformRef.current !== "yahoo") return;
+      if (stale()) return;
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       const leagues = (data?.leagues || []) as YahooLeagueOption[];
       patch({ yahooLeagues: leagues });
@@ -316,7 +348,7 @@ export function ImportSections(props: ImportSectionsProps) {
         importMsg: `Found ${leagues.length} Yahoo Fantasy leagues - pick one.`,
       });
     } catch (e) {
-      if (platformRef.current !== "yahoo") return;
+      if (stale()) return;
       patch({
         importStatus: "error",
         importMsg:
@@ -433,6 +465,10 @@ export function ImportSections(props: ImportSectionsProps) {
   }
 
   async function handleFetchLink() {
+    // Switching the dropdown off "Restore from link" leaves `platform`
+    // unchanged, so the source ref is the only signal that this response
+    // is stale.
+    const stale = () => importSourceRef.current !== "link";
     const slug = extractSlug(shareLinkInput);
     if (!slug) {
       patch({
@@ -449,7 +485,9 @@ export function ImportSections(props: ImportSectionsProps) {
     });
     try {
       const res = await fetch(`/api/share/${slug}`);
+      if (stale()) return;
       const raw = await res.json();
+      if (stale()) return;
       if (!res.ok) throw new Error(raw?.error || `HTTP ${res.status}`);
       if (
         !raw ||
@@ -492,6 +530,7 @@ export function ImportSections(props: ImportSectionsProps) {
         importMsg: "",
       });
     } catch (e) {
+      if (stale()) return;
       patch({
         importStatus: "error",
         importMsg: (e as Error).message || "Could not fetch this share link.",

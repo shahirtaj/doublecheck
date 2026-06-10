@@ -9,7 +9,12 @@ import {
   type LookbackWindow,
 } from "@/lib/algorithm";
 import { STEP_ORDER, STORAGE_KEY } from "./components/constants";
-import type { ImportPlatform, SelectedFormat, Step } from "./components/types";
+import type {
+  ImportPlatform,
+  ImportSource,
+  SelectedFormat,
+  Step,
+} from "./components/types";
 import {
   computeDisplayWeeks,
   deriveLookback,
@@ -46,6 +51,7 @@ export default function GeneratePage() {
     loading,
     confirmReset,
     platform,
+    importSource,
     tooltipInfo,
   } = state;
 
@@ -94,13 +100,19 @@ export default function GeneratePage() {
     (format.variant === "pure-round-robin" ||
       format.variant === "complete-double-round-robin");
 
-  // Mirrors `platform` so in-flight Yahoo fetches can detect when the user
-  // has switched platforms mid-request and bail out instead of stomping on
-  // the new platform's state.
+  // Mirror `platform` and `importSource` so in-flight import fetches can
+  // detect when the user has switched platforms or sources mid-request and
+  // bail out instead of stomping on the new selection's state. Both refs are
+  // needed: switching to "Restore from link" intentionally leaves `platform`
+  // unchanged, so a platform check alone wouldn't catch it.
   const platformRef = useRef<ImportPlatform>("sleeper");
   useEffect(() => {
     platformRef.current = platform;
   }, [platform]);
+  const importSourceRef = useRef<ImportSource>("sleeper");
+  useEffect(() => {
+    importSourceRef.current = importSource;
+  }, [importSource]);
 
   // Header tooltip: rendered as a fixed-position div at the root of the
   // return so it escapes the matrix's overflow containers. The hovered
@@ -381,6 +393,7 @@ export default function GeneratePage() {
               patch={patch}
               saveToStorage={saveToStorage}
               platformRef={platformRef}
+              importSourceRef={importSourceRef}
               recommendedLookbackTotal={recommendedLookbackTotal}
             />
           </div>
