@@ -850,6 +850,32 @@ function classifyPinsForWeekly(
     }
   }
 
+  // Teams with a specific-week pin, by week. The any-week placements in
+  // passes C and D consult this so they never claim a week that a
+  // not-yet-processed specific pin needs for one of the same teams -
+  // feasibility must not depend on the order pins happen to be processed
+  // in (the same guard resolvePins maintains). A group's own specific week
+  // is already excluded from its any-week candidates, so the self entry
+  // never blocks it. Weeks claimed by already-processed pins are rejected
+  // by claimWeek either way; this map only adds the not-yet-processed ones.
+  const pinnedTeamsAtWeek = new Map<number, Set<number>>();
+  for (const [, g] of groups) {
+    for (const p of g.pins) {
+      if (p.week === null) continue;
+      let s = pinnedTeamsAtWeek.get(p.week);
+      if (!s) {
+        s = new Set<number>();
+        pinnedTeamsAtWeek.set(p.week, s);
+      }
+      s.add(g.pair[0]);
+      s.add(g.pair[1]);
+    }
+  }
+  const pinnedTeamsConflict = (W: number, a: number, b: number): boolean => {
+    const s = pinnedTeamsAtWeek.get(W);
+    return !!s && (s.has(a) || s.has(b));
+  };
+
   const teamsInWeek = new Map<number, Set<number>>();
   const claimWeek = (W: number, a: number, b: number): boolean => {
     let s = teamsInWeek.get(W);
@@ -961,6 +987,7 @@ function classifyPinsForWeekly(
     let placed = false;
     for (const W of candidates) {
       if (W1 !== null && W === W1) continue;
+      if (pinnedTeamsConflict(W, a, b)) continue;
       if (claimWeek(W, a, b)) {
         W2 = W;
         placed = true;
@@ -983,6 +1010,7 @@ function classifyPinsForWeekly(
       let firstPlaced = false;
       for (const W of w1Candidates) {
         if (W === W2) continue;
+        if (pinnedTeamsConflict(W, a, b)) continue;
         if (claimWeek(W, a, b)) {
           W1 = W;
           firstPlaced = true;
@@ -1034,6 +1062,7 @@ function classifyPinsForWeekly(
     for (const W of candidates) {
       const tw = teamsInWeek.get(W);
       if (tw && (tw.has(a) || tw.has(b))) continue;
+      if (pinnedTeamsConflict(W, a, b)) continue;
       if (claimWeek(W, a, b)) {
         addMust(W, g.pair);
         placements.push({

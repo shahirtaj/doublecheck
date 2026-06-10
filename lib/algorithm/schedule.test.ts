@@ -1364,6 +1364,41 @@ describe("buildSchedule rivalry pins", () => {
       for (const k of w3) if (w6.has(k)) overlap.push(k);
       expect(overlap).toEqual([k01]);
     });
+
+    it("any-week placement does not depend on the order pin groups were added", () => {
+      // (2,3)'s any-week leg used to be chosen knowing only already-processed
+      // claims; processed first, it deterministically landed on week 1 and
+      // stole it from (2,4)'s specific pin (shared team 2), failing a
+      // satisfiable set that succeeded with the groups swapped. The
+      // precomputed pinned-teams-by-week guard (the resolvePins pattern)
+      // must make both orders succeed.
+      const trigger = [pinTo(3, 0, 1), pinTo(6, 0, 1)];
+      const group23 = [pinTo(5, 2, 3), pinTo(null, 2, 3)];
+      const group24 = [pinTo(1, 2, 4), pinTo(null, 2, 4)];
+      for (const pins of [
+        [...trigger, ...group23, ...group24],
+        [...trigger, ...group24, ...group23],
+      ]) {
+        for (let s = 0; s < 10; s++) {
+          const r = buildSchedule({
+            teamCount: 12,
+            weekCount: 14,
+            rivalryPins: pins,
+            random: mulberry32(0x0d3 + s),
+          });
+          assertSuccess(r);
+          const placed24 = r.rivalryPlacements.filter(
+            (p) => p.teamA === 2 && p.teamB === 4,
+          );
+          expect(placed24.some((p) => p.placedWeek === 1)).toBe(true);
+          const anyWeek23 = r.rivalryPlacements.find(
+            (p) => p.teamA === 2 && p.teamB === 3 && p.pinnedWeek === null,
+          );
+          expect(anyWeek23).toBeDefined();
+          expect(anyWeek23!.placedWeek).not.toBe(1);
+        }
+      }
+    });
   });
 
   describe("soft avoidance through the non-partner-pin path", () => {
