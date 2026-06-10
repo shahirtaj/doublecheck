@@ -219,10 +219,20 @@ export default function GeneratePage() {
     if (status === "connected") {
       // pendingYahooConnect bridges to fetchYahooLeagues, which lives inside
       // ImportSections — that component picks up the flag and runs the fetch.
-      patch({ platform: "yahoo", pendingYahooConnect: true });
+      // importSource must be patched alongside platform: OAuth is a full-page
+      // redirect, so importSource is back at its "sleeper" default, and the
+      // auto-load fetch's stale() guard checks importSourceRef at response
+      // time - without this the response is discarded and the UI hangs on
+      // the loading status.
+      patch({
+        platform: "yahoo",
+        importSource: "yahoo",
+        pendingYahooConnect: true,
+      });
     } else if (status === "error") {
       patch({
         platform: "yahoo",
+        importSource: "yahoo",
         importStatus: "error",
         importMsg: `Yahoo Fantasy connection failed: ${(reason || "unknown").replace(/_/g, " ")}.`,
       });
