@@ -327,6 +327,33 @@ describe("computeDisplayWeeks", () => {
     expect(result[2]).toContainEqual([0, 1]);
   });
 
+  it("keeps both legs in the entered order when both pins match (no auto-flip)", () => {
+    // Deliberately NOT auto-flipped into home-and-home: entered order is
+    // the contract even when both pins were entered the same way - the
+    // Rivalry Weeks hint teaches the opposite-orders recipe instead of
+    // overriding the user's input.
+    const doubled: Matching[] = [
+      [
+        [0, 1],
+        [2, 3],
+      ],
+      [
+        [0, 2],
+        [1, 3],
+      ],
+      [
+        [0, 1],
+        [2, 3],
+      ],
+    ];
+    const result = computeDisplayWeeks(doubled, teams, [
+      { teamA: 1, teamB: 0, week: 1 },
+      { teamA: 1, teamB: 0, week: 3 },
+    ]);
+    expect(result[0]).toContainEqual([1, 0]);
+    expect(result[2]).toContainEqual([1, 0]);
+  });
+
   it("flips the unpinned leg of a doubled one-pin rivalry (home-and-home)", () => {
     const doubled: Matching[] = [
       [
