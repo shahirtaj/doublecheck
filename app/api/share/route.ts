@@ -15,6 +15,9 @@ const TTL_SECONDS = 60 * 60 * 24 * 365;
 const MAX_SLUG_ATTEMPTS = 5;
 const SHARE_WINDOW_MS = 60 * 60 * 1000;
 const SHARE_MAX_PER_WINDOW = 15;
+const MAX_TEAM_COUNT = 32;
+const MAX_TEAM_NAME_LENGTH = 64;
+const MAX_LEAGUE_NAME_LENGTH = 128;
 
 function generateSlug(): string {
   const bytes = new Uint8Array(SLUG_LENGTH);
@@ -43,17 +46,46 @@ function validatePayload(body: unknown): string | null {
   ) {
     return "format.teamCount and format.weekCount must be integers.";
   }
+  // Mirror lib/algorithm's validate(): only even round-robin shapes are
+  // schedulable. Not restricted to the 7 supported formats - import
+  // auto-detection intentionally allows other even shapes. The 32 cap just
+  // bounds payload size.
+  if (
+    format.teamCount < 2 ||
+    format.teamCount % 2 !== 0 ||
+    format.teamCount > MAX_TEAM_COUNT
+  ) {
+    return `format.teamCount must be an even integer between 2 and ${MAX_TEAM_COUNT}.`;
+  }
+  if (
+    format.weekCount < format.teamCount - 1 ||
+    format.weekCount > 2 * (format.teamCount - 1)
+  ) {
+    return "format.weekCount must be between teamCount - 1 and 2 * (teamCount - 1).";
+  }
+  const teamCount = format.teamCount;
 
   if (!Array.isArray(body.teams)) return "teams must be an array.";
-  if (body.teams.length !== format.teamCount) {
+  if (body.teams.length !== teamCount) {
     return "teams length must match format.teamCount.";
   }
-  if (!body.teams.every((t) => typeof t === "string")) {
-    return "teams must be strings.";
+  // Empty names are allowed (the UI permits them); the length cap is well
+  // above the UI's 24-char limit, just bounding hand-crafted payloads.
+  if (
+    !body.teams.every(
+      (t) => typeof t === "string" && t.length <= MAX_TEAM_NAME_LENGTH,
+    )
+  ) {
+    return `teams must be strings of at most ${MAX_TEAM_NAME_LENGTH} characters.`;
   }
 
-  if (body.leagueName !== undefined && typeof body.leagueName !== "string") {
-    return "leagueName must be a string when provided.";
+  if (body.leagueName !== undefined) {
+    if (
+      typeof body.leagueName !== "string" ||
+      body.leagueName.length > MAX_LEAGUE_NAME_LENGTH
+    ) {
+      return `leagueName must be a string of at most ${MAX_LEAGUE_NAME_LENGTH} characters when provided.`;
+    }
   }
 
   if (
@@ -102,12 +134,41 @@ function validatePayload(body: unknown): string | null {
     }
   }
 
+  // Weeks arrays render directly in SharedScheduleView, so they get full
+  // per-pair validation: every matchup is [int, int] with both indices in
+  // [0, teamCount). `field` is interpolated into the error messages.
+  const validateWeeks = (weeks: unknown[], field: string): string | null => {
+    for (const week of weeks) {
+      if (!Array.isArray(week)) {
+        return `Each ${field} entry must be an array.`;
+      }
+      for (const pair of week) {
+        if (
+          !Array.isArray(pair) ||
+          pair.length !== 2 ||
+          !pair.every(
+            (n) =>
+              typeof n === "number" &&
+              Number.isInteger(n) &&
+              n >= 0 &&
+              n < teamCount,
+          )
+        ) {
+          return `Each ${field} matchup must be [int, int] with team indices in [0, teamCount).`;
+        }
+      }
+    }
+    return null;
+  };
+
   const schedule = body.schedule;
   if (!isPlainObject(schedule)) return "Missing schedule.";
   if (!Array.isArray(schedule.weeks)) return "schedule.weeks must be an array.";
   if (schedule.weeks.length !== format.weekCount) {
     return "schedule.weeks length must match format.weekCount.";
   }
+  const weeksError = validateWeeks(schedule.weeks, "schedule.weeks");
+  if (weeksError) return weeksError;
   if (!Array.isArray(schedule.doubledPairs)) {
     return "schedule.doubledPairs must be an array.";
   }
@@ -115,7 +176,7 @@ function validatePayload(body: unknown): string | null {
   // displayWeeks is optional (older clients won't send it). When present, it
   // mirrors schedule.weeks in shape but with the home/away display order
   // applied — same number of weeks, each week an array of [number, number]
-  // tuples. Loose validation: shape only, no per-pair sanity check.
+  // tuples.
   if (schedule.displayWeeks !== undefined) {
     if (!Array.isArray(schedule.displayWeeks)) {
       return "schedule.displayWeeks must be an array when provided.";
@@ -123,20 +184,11 @@ function validatePayload(body: unknown): string | null {
     if (schedule.displayWeeks.length !== format.weekCount) {
       return "schedule.displayWeeks length must match format.weekCount.";
     }
-    for (const week of schedule.displayWeeks) {
-      if (!Array.isArray(week)) {
-        return "Each schedule.displayWeeks entry must be an array.";
-      }
-      for (const pair of week) {
-        if (
-          !Array.isArray(pair) ||
-          pair.length !== 2 ||
-          !pair.every((n) => typeof n === "number" && Number.isInteger(n))
-        ) {
-          return "Each schedule.displayWeeks matchup must be [int, int].";
-        }
-      }
-    }
+    const displayWeeksError = validateWeeks(
+      schedule.displayWeeks,
+      "schedule.displayWeeks",
+    );
+    if (displayWeeksError) return displayWeeksError;
   }
 
   if (schedule.rivalryPlacements !== undefined) {
