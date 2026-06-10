@@ -397,19 +397,57 @@ export async function POST(req: Request) {
       );
     }
 
+    // Fetch seasons concurrently and tolerate per-season failures: one dead
+    // season (e.g. a deleted league mid-chain) shouldn't 502 the seasons that
+    // did load. allSettled preserves input order, so the response stays
+    // most-recent-first regardless of which fetch finishes when.
     const toFetch = completed.slice(0, seasonsCount);
-    const results = [];
-    for (const target of toFetch) {
-      const data = await fetchSeason(target.leagueId, target.settings);
-      results.push({
-        seasonYear: target.season,
-        seasonName: target.name,
-        teamNames: data.teamNames,
-        userIds: data.userIds,
-        doubles: data.doubles,
-        totalMatchups: data.totalMatchups,
-        regWeeks: data.regWeeks,
-      });
+    const settled = await Promise.allSettled(
+      toFetch.map((target) => fetchSeason(target.leagueId, target.settings)),
+    );
+
+    const results: {
+      seasonYear: string;
+      seasonName: string;
+      teamNames: string[];
+      userIds: (string | null)[];
+      doubles: string[];
+      totalMatchups: number;
+      regWeeks: number;
+    }[] = [];
+    const errors: string[] = [];
+
+    settled.forEach((result, i) => {
+      const target = toFetch[i]!;
+      if (result.status === "fulfilled") {
+        const data = result.value;
+        results.push({
+          seasonYear: target.season,
+          seasonName: target.name,
+          teamNames: data.teamNames,
+          userIds: data.userIds,
+          doubles: data.doubles,
+          totalMatchups: data.totalMatchups,
+          regWeeks: data.regWeeks,
+        });
+      } else {
+        const msg =
+          result.reason instanceof Error
+            ? result.reason.message
+            : typeof result.reason === "string"
+              ? result.reason
+              : "unknown error";
+        errors.push(`${target.season || target.leagueId}: ${msg}`);
+      }
+    });
+
+    if (results.length === 0) {
+      return NextResponse.json(
+        {
+          error: `Could not fetch any seasons from Sleeper. ${errors.join(" | ")}.`,
+        },
+        { status: 502 },
+      );
     }
 
     return NextResponse.json(results);
