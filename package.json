@@ -40,6 +40,6 @@
     "react-dom": "^19.2.6"
   },
   "lint-staged": {
-    "*": "prettier --check --ignore-unknown"
+    "*": "prettier --write --ignore-unknown"
   }
 }
