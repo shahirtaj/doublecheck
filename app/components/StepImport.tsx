@@ -625,6 +625,10 @@ export function ImportSections(props: ImportSectionsProps) {
       // UI, so even a same-shape re-import must set it to land on the steps.
       selectedFormat: detected,
       priorFormat: null,
+      // Explicit, not inherited: hydration can restore step "doubles"
+      // before a Yahoo OAuth auto-import lands here, and a fresh apply must
+      // start at name verification.
+      step: "teams",
       ...(leagueChanged ? { lookbackOverride: null } : {}),
       teams: nextTeams,
       userIds: nextUserIds,
@@ -645,9 +649,11 @@ export function ImportSections(props: ImportSectionsProps) {
       teams: nextTeams,
       userIds: nextUserIds,
       format: detected,
-      // The patch above hasn't flushed, so the cleared pins must ride along
-      // or the save would persist the closure's stale pin list.
+      // The patch above hasn't flushed, so the cleared pins and the Step 1
+      // landing must ride along or the save would persist the closure's
+      // stale values.
       rivalryPins: [],
+      step: "teams",
       ...(nextLeagueName ? { leagueName: nextLeagueName } : {}),
       ...(leagueChanged ? { lookbackOverride: null } : {}),
     });
@@ -851,6 +857,7 @@ export function ImportSections(props: ImportSectionsProps) {
       rivalryPins: remappedRivalryPins,
       lookbackOverride: null,
       platform: restoredPlatform,
+      step: "teams",
     });
   }
 
@@ -915,6 +922,7 @@ export function ImportSections(props: ImportSectionsProps) {
       manualDoubles: [],
       rivalryPins: [],
       lookbackOverride: null,
+      step: "teams",
     });
   }
 

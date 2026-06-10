@@ -166,6 +166,7 @@ export function reducer(state: State, action: Action): State {
 export type Patch = (p: Partial<State>) => void;
 
 export type SaveToStorageExtra = Partial<{
+  step: Step;
   teams: string[];
   userIds: (string | null)[];
   history: SeasonHistory[];

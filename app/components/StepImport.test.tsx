@@ -430,9 +430,13 @@ describe("re-import after Back", () => {
 
     expect(h.getState().rivalryPins).toEqual([]);
     expect(h.getState().confirmRemovePinIndex).toBeNull();
+    // The patch hasn't flushed at save time, so the cleared pins and the
+    // Step 1 landing must ride the extras (a stale persisted step would
+    // make the next reload skip name verification).
     expect(h.saveToStorage).toHaveBeenCalledWith(
-      expect.objectContaining({ rivalryPins: [] }),
+      expect.objectContaining({ rivalryPins: [], step: "teams" }),
     );
+    expect(h.getState().step).toBe("teams");
   });
 
   it("drops existing history when a same-shape import shares no roster member", async () => {

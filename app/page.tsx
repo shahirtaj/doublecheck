@@ -268,6 +268,15 @@ export default function GeneratePage() {
             hydration.importSource = d.platform;
           }
           hydration.furthestStep = "doubles";
+          // Land where the user left off, clamped to Step 2: the generated
+          // schedule is never persisted (regenerate fresh against current
+          // avoidance), so "schedule" has nothing to render after a reload
+          // and falls back to the matrix with Generate one tap away. A
+          // stored "teams" (or an older payload without the field) keeps
+          // the Step 1 default.
+          if (d.step === "doubles" || d.step === "schedule") {
+            hydration.step = "doubles";
+          }
         }
       }
     } catch {
@@ -288,6 +297,7 @@ export default function GeneratePage() {
     (extra: SaveToStorageExtra = {}) => {
       try {
         const payload = {
+          step,
           teams,
           userIds,
           history,
@@ -305,6 +315,7 @@ export default function GeneratePage() {
       }
     },
     [
+      step,
       teams,
       userIds,
       history,
