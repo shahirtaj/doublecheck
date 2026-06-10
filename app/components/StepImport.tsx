@@ -17,7 +17,12 @@ import type {
   SleeperLeagueOption,
   YahooLeagueOption,
 } from "./types";
-import { detectFormatFromImport, extractSlug, platformLabel } from "./utils";
+import {
+  detectFormatFromImport,
+  extractSlug,
+  mergeImportedHistory,
+  platformLabel,
+} from "./utils";
 import type { Patch, SaveToStorageFn, State } from "./state";
 
 type ImportSectionsProps = {
@@ -368,8 +373,7 @@ export function ImportSections(props: ImportSectionsProps) {
     // format changes we drop existing history because its team indices belong
     // to a different roster size.
     const seasonsOldestFirst = [...importPreview.seasons].reverse();
-    const newHistory: SeasonHistory[] = formatChanged ? [] : [...history];
-    for (const season of seasonsOldestFirst) {
+    const importedRows: SeasonHistory[] = seasonsOldestFirst.map((season) => {
       const sUserIds = season.userIds;
       const hasUids = sUserIds.some((id) => id != null);
       let importDoubles: PairKey[];
@@ -381,23 +385,16 @@ export function ImportSections(props: ImportSectionsProps) {
       } else {
         importDoubles = season.doubles;
       }
-
-      const candidateYear =
-        season.seasonYear || String(new Date().getFullYear() - 1);
-      const candidateDoublesStr = [...importDoubles].sort().join(",");
-      const isDuplicate = newHistory.some(
-        (entry) =>
-          entry.season === candidateYear &&
-          [...entry.doubles].sort().join(",") === candidateDoublesStr,
-      );
-      if (!isDuplicate) {
-        newHistory.push({
-          season: candidateYear,
-          doubles: importDoubles,
-          format: hasUids ? "userid" : "index",
-        });
-      }
-    }
+      return {
+        season: season.seasonYear || String(new Date().getFullYear() - 1),
+        doubles: importDoubles,
+        format: hasUids ? "userid" : "index",
+      };
+    });
+    const newHistory = mergeImportedHistory(
+      formatChanged ? [] : history,
+      importedRows,
+    );
 
     // Adopt the most recent season's league name. The Yahoo picker, ESPN's
     // settings.name, and Sleeper's league.name all flow through seasonName.

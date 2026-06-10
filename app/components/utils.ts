@@ -112,6 +112,26 @@ export function priorSeasons(
   });
 }
 
+// Merge freshly imported seasons into existing history. Skips an imported
+// row only when an exact duplicate (same season year and same doubles set)
+// is already present.
+export function mergeImportedHistory(
+  existing: readonly SeasonHistory[],
+  imported: readonly SeasonHistory[],
+): SeasonHistory[] {
+  const merged = [...existing];
+  for (const row of imported) {
+    const doublesStr = [...row.doubles].sort().join(",");
+    const isDuplicate = merged.some(
+      (entry) =>
+        entry.season === row.season &&
+        [...entry.doubles].sort().join(",") === doublesStr,
+    );
+    if (!isDuplicate) merged.push(row);
+  }
+  return merged;
+}
+
 // Plain-text schedule export shared by Step 3's Copy button and the shared
 // schedule page's Copy Full Schedule. The body and Yahoo attribution are
 // identical between the two views; only the heading prefix differs (Step 3
