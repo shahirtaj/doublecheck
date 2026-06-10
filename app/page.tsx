@@ -110,6 +110,14 @@ export default function GeneratePage() {
   useEffect(() => {
     importSourceRef.current = importSource;
   }, [importSource]);
+  // Monotonic counter for import requests. Each fetch helper claims the next
+  // value at entry and the import dropdown bumps it on every switch, so
+  // stale() can detect supersession that the value-equality platform/source
+  // checks can't: an A-B-A dropdown round trip (sleeper -> espn -> sleeper)
+  // lands the refs back on their original values, and a second fetch on the
+  // SAME platform (a typo'd league ID refetched) never changes them at all -
+  // either way a slow first response would land last and win.
+  const importSeqRef = useRef(0);
 
   // Header tooltip: rendered as a fixed-position div at the root of the
   // return so it escapes the matrix's overflow containers. The hovered
@@ -410,6 +418,7 @@ export default function GeneratePage() {
               saveToStorage={saveToStorage}
               platformRef={platformRef}
               importSourceRef={importSourceRef}
+              importSeqRef={importSeqRef}
               recommendedLookbackTotal={recommendedLookbackTotal}
             />
           </div>

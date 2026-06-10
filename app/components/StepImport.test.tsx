@@ -23,6 +23,7 @@ function renderImportSections(seed: Partial<State>) {
   const importSourceRef = {
     current: seed.importSource ?? initialState.importSource,
   } as MutableRefObject<ImportSource>;
+  const importSeqRef = { current: 0 } as MutableRefObject<number>;
   const saveToStorage = vi.fn();
   let current: State = { ...initialState, ...seed };
 
@@ -40,6 +41,7 @@ function renderImportSections(seed: Partial<State>) {
         saveToStorage={saveToStorage}
         platformRef={platformRef}
         importSourceRef={importSourceRef}
+        importSeqRef={importSeqRef}
         recommendedLookbackTotal={3}
       />
     );
@@ -50,6 +52,7 @@ function renderImportSections(seed: Partial<State>) {
     getState: () => current,
     platformRef,
     importSourceRef,
+    importSeqRef,
     saveToStorage,
   };
 }
@@ -386,6 +389,75 @@ describe("stale-response guards", () => {
     expect(h.getState().importPreview).toBeNull();
     expect(h.getState().importStatus).toBe("loading");
     expect(h.getState().importMsg).toBe("Fetching season data from Sleeper…");
+  });
+
+  it("discards a response superseded by a newer fetch on the same platform", async () => {
+    // Two in-flight Sleeper fetches (a typo'd league ID corrected and
+    // refetched) have identical platform and source values, so only the
+    // request counter can tell them apart - without it the slow first
+    // response lands last and wins.
+    let resolveFetch!: (r: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockReturnValue(
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+      ),
+    );
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      leagueId: "123456789",
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    // A second fetch claims the next sequence number while the first is
+    // still in flight.
+    h.importSeqRef.current++;
+    resolveFetch(
+      jsonResponse([importedSeason("2025"), importedSeason("2024")]),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(h.getState().importPreview).toBeNull();
+    expect(h.getState().importStatus).toBe("loading");
+  });
+
+  it("discards a response after an A-B-A platform round trip", async () => {
+    // sleeper -> espn -> sleeper restores the ref VALUES the request was
+    // started for, so the value-equality checks pass; the dropdown bumps
+    // the sequence counter on every switch, which is what catches this.
+    let resolveFetch!: (r: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockReturnValue(
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+      ),
+    );
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      leagueId: "123456789",
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    // The user round-trips the dropdown; the refs land back on "sleeper"
+    // but each switch bumps the counter (simulated here the same way the
+    // other ref mutations are).
+    h.importSeqRef.current++;
+    h.importSeqRef.current++;
+    resolveFetch(
+      jsonResponse([importedSeason("2025"), importedSeason("2024")]),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(h.getState().importPreview).toBeNull();
+    expect(h.getState().importStatus).toBe("loading");
   });
 
   it("discards a link restore response after the source switches away from link", async () => {

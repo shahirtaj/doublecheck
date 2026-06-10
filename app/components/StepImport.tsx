@@ -41,6 +41,7 @@ type ImportSectionsProps = {
   saveToStorage: SaveToStorageFn;
   platformRef: MutableRefObject<ImportPlatform>;
   importSourceRef: MutableRefObject<ImportSource>;
+  importSeqRef: MutableRefObject<number>;
   recommendedLookbackTotal: number;
 };
 
@@ -110,6 +111,7 @@ export function ImportSections(props: ImportSectionsProps) {
     saveToStorage,
     platformRef,
     importSourceRef,
+    importSeqRef,
     recommendedLookbackTotal,
   } = props;
   const {
@@ -234,9 +236,14 @@ export function ImportSections(props: ImportSectionsProps) {
     // selection's shared status fields. Checked after every await.
     const requestPlatform = platform;
     const requestSource = importSource;
+    // The seq claim also covers what value checks can't: a newer fetch on
+    // the SAME platform/source (typo'd ID refetched) or an A-B-A dropdown
+    // round trip that lands the refs back on their original values.
+    const requestSeq = ++importSeqRef.current;
     const stale = () =>
       platformRef.current !== requestPlatform ||
-      importSourceRef.current !== requestSource;
+      importSourceRef.current !== requestSource ||
+      importSeqRef.current !== requestSeq;
     patch({
       importPreview: null,
       sleeperLeagues: null,
@@ -325,9 +332,11 @@ export function ImportSections(props: ImportSectionsProps) {
   }
 
   async function fetchSleeperLeagueSeasons(specificLeagueId: string) {
+    const requestSeq = ++importSeqRef.current;
     const stale = () =>
       platformRef.current !== "sleeper" ||
-      importSourceRef.current !== "sleeper";
+      importSourceRef.current !== "sleeper" ||
+      importSeqRef.current !== requestSeq;
     patch({
       importStatus: "loading",
       importMsg: "Fetching season data from Sleeper…",
@@ -364,8 +373,11 @@ export function ImportSections(props: ImportSectionsProps) {
   // OAuth yet (or their refresh token expired); the UI shows Connect Yahoo.
 
   async function fetchYahooLeagueSeasons(leagueKey: string) {
+    const requestSeq = ++importSeqRef.current;
     const stale = () =>
-      platformRef.current !== "yahoo" || importSourceRef.current !== "yahoo";
+      platformRef.current !== "yahoo" ||
+      importSourceRef.current !== "yahoo" ||
+      importSeqRef.current !== requestSeq;
     patch({
       importStatus: "loading",
       importMsg: "Fetching season data from Yahoo Fantasy…",
@@ -398,8 +410,11 @@ export function ImportSections(props: ImportSectionsProps) {
   }
 
   async function fetchYahooLeagues() {
+    const requestSeq = ++importSeqRef.current;
     const stale = () =>
-      platformRef.current !== "yahoo" || importSourceRef.current !== "yahoo";
+      platformRef.current !== "yahoo" ||
+      importSourceRef.current !== "yahoo" ||
+      importSeqRef.current !== requestSeq;
     patch({
       importStatus: "loading",
       importMsg: "Fetching Yahoo Fantasy leagues…",
@@ -561,7 +576,9 @@ export function ImportSections(props: ImportSectionsProps) {
     // Switching the dropdown off "Restore from link" leaves `platform`
     // unchanged, so the source ref is the only signal that this response
     // is stale.
-    const stale = () => importSourceRef.current !== "link";
+    const requestSeq = ++importSeqRef.current;
+    const stale = () =>
+      importSourceRef.current !== "link" || importSeqRef.current !== requestSeq;
     const slug = extractSlug(shareLinkInput);
     if (!slug) {
       patch({
@@ -853,6 +870,11 @@ export function ImportSections(props: ImportSectionsProps) {
               onChange={(e) => {
                 const next = e.target.value as ImportSource;
                 if (next === importSource) return;
+                // Invalidate every in-flight request - the seq check is what
+                // catches an A-B-A switch back to the original selection,
+                // where the platform/source values match again at response
+                // time.
+                importSeqRef.current++;
                 patch({
                   importSource: next,
                   leagueId: "",
