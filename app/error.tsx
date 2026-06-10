@@ -9,8 +9,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { Footer } from "./components/Footer";
-
-const STORAGE_KEY = "ff-rotational-scheduler";
+import { STORAGE_KEY } from "./components/constants";
 
 export default function HomeError({
   error,
