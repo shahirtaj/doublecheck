@@ -132,6 +132,177 @@ describe("withholding warning render", () => {
   });
 });
 
+describe("re-import after Back", () => {
+  // Back clears selectedFormat (that's what re-enters the import UI) but
+  // stashes it in priorFormat, so these seeds mirror the post-Back state of
+  // a league whose teams/history are still loaded.
+  const teams = Array.from({ length: 10 }, (_, i) => `Team ${i + 1}`);
+
+  it("merges into existing history when the imported shape matches priorFormat", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          seasons: [importedSeason("2025"), importedSeason("2024")],
+          failed: [{ season: "2023", error: "HTTP 502" }],
+        }),
+      ),
+    );
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      leagueId: "123456789",
+      priorFormat: { teamCount: 10, weekCount: 13 },
+      teams,
+      history: [{ season: "2023", doubles: ["0-1"], format: "index" }],
+      lookbackOverride: 2,
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    await screen.findByText("2 seasons: 2025, 2024");
+    // The failed 2023 fetch is not a gap: the existing manual row fills it,
+    // so nothing is withheld and no warning renders.
+    expect(h.getState().importMsg).toBe("");
+
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(h.getState().history.map((r) => r.season)).toEqual([
+      "2023",
+      "2024",
+      "2025",
+    ]);
+    expect(h.getState().history[0]!.doubles).toEqual(["0-1"]);
+    expect(h.getState().selectedFormat).toEqual({
+      teamCount: 10,
+      weekCount: 13,
+    });
+    expect(h.getState().priorFormat).toBeNull();
+    expect(h.getState().lookbackOverride).toBe(2);
+  });
+
+  it("drops existing history when a same-shape import shares no roster member", async () => {
+    // A commissioner of two leagues imports league B over league A without
+    // Reset: same shape, but zero roster overlap (different names, no IDs).
+    // League A's rows must not feed league B's avoidance.
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse([importedSeason("2025"), importedSeason("2024")]),
+        ),
+    );
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      leagueId: "123456789",
+      priorFormat: { teamCount: 10, weekCount: 13 },
+      teams: Array.from({ length: 10 }, (_, i) => `Other ${i + 1}`),
+      history: [{ season: "2023", doubles: ["0-1"], format: "index" }],
+      lookbackOverride: 2,
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    await screen.findByText("2 seasons: 2025, 2024");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(h.getState().history.map((r) => r.season)).toEqual(["2024", "2025"]);
+    expect(h.getState().lookbackOverride).toBeNull();
+  });
+
+  it("drops existing history and the lookback override on a format change", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse([importedSeason("2025"), importedSeason("2024")]),
+        ),
+    );
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      leagueId: "123456789",
+      priorFormat: { teamCount: 12, weekCount: 14 },
+      teams: Array.from({ length: 12 }, (_, i) => `Team ${i + 1}`),
+      history: [{ season: "2023", doubles: ["0-1"], format: "index" }],
+      lookbackOverride: 2,
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    await screen.findByText("2 seasons: 2025, 2024");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(h.getState().history.map((r) => r.season)).toEqual(["2024", "2025"]);
+    expect(h.getState().selectedFormat).toEqual({
+      teamCount: 10,
+      weekCount: 13,
+    });
+    expect(h.getState().lookbackOverride).toBeNull();
+  });
+});
+
+describe("link restore format bounds", () => {
+  it("rejects a restored format outside the round-robin range", async () => {
+    // Links predating the server validator's format bounds could carry an
+    // unschedulable shape; the client must refuse it rather than restore a
+    // format that misrenders or fails generation.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          format: { teamCount: 8, weekCount: 15 },
+          teams: Array.from({ length: 8 }, (_, i) => `Team ${i + 1}`),
+          userIds: Array.from({ length: 8 }, () => null),
+        }),
+      ),
+    );
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "link",
+      shareLinkInput: "https://doublecheckff.com/s/abc12345",
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+
+    await waitFor(() => expect(h.getState().importStatus).toBe("error"));
+    expect(h.getState().importMsg).toBe(
+      "This share link has an invalid format.",
+    );
+    expect(h.getState().linkPreview).toBeNull();
+  });
+});
+
+describe("manual entry", () => {
+  it("disables out-of-range week options with a hint and clamps the selection", async () => {
+    const h = renderImportSections({
+      platform: "manual",
+      importSource: "manual",
+      manualTeamCount: 12,
+      manualWeekCount: 15,
+    });
+    const user = userEvent.setup();
+
+    // 12 teams: every week option is in range.
+    expect(screen.getByRole("option", { name: "15 weeks" })).toBeEnabled();
+
+    await user.selectOptions(screen.getByDisplayValue("12 teams"), "8");
+
+    // 8 teams caps at 2*(8-1) = 14 weeks: the selection clamps to 14, and
+    // the 15-week option stays visible but disabled - 8/15 leagues exist on
+    // platforms (a third matchup), they're just outside DoubleCheck's scope,
+    // so the option teaches the limit instead of vanishing.
+    expect(h.getState().manualWeekCount).toBe(14);
+    expect(
+      screen.getByRole("option", { name: "15 weeks (needs 10+ teams)" }),
+    ).toBeDisabled();
+  });
+});
+
 describe("Yahoo OAuth pending-connect hand-off", () => {
   it("fires the leagues fetch and renders the picker on success", async () => {
     const leagues = [

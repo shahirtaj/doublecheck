@@ -19,12 +19,16 @@ import type {
   YahooLeagueOption,
 } from "./types";
 import {
+  buildImportedHistoryRows,
   describeWithholdingGap,
   detectFormatFromImport,
   extractSlug,
+  formatDetectionErrorMessage,
   mergeImportedHistory,
   normalizeHistory,
   platformLabel,
+  remapIndexRowsByName,
+  sharesRoster,
   withholdingErrorMessage,
   withholdingWarningMessage,
   withholdPreGapSeasons,
@@ -39,6 +43,16 @@ type ImportSectionsProps = {
   importSourceRef: MutableRefObject<ImportSource>;
   recommendedLookbackTotal: number;
 };
+
+// Manual entry dropdown options. A week count outside the selected team
+// count's round-robin range (8 teams caps at 2*(8-1) = 14) renders disabled
+// with a "needs N+ teams" hint rather than hidden: such seasons exist on
+// real platforms (someone just plays a third matchup), they're outside
+// DoubleCheck's once-or-twice scope - so the UI should teach the limit, not
+// imply the league shape doesn't exist. Switching team counts still clamps
+// an out-of-range selection (a select can't keep a disabled value).
+const MANUAL_TEAM_OPTIONS = [8, 10, 12, 14];
+const MANUAL_WEEK_OPTIONS = [13, 14, 15];
 
 // Filter imported seasons down to the format detected from the most recent
 // season. Older seasons with a different roster size are dropped because
@@ -116,11 +130,20 @@ export function ImportSections(props: ImportSectionsProps) {
     manualTeamCount,
     manualWeekCount,
     selectedFormat,
+    priorFormat,
+    teams,
+    userIds,
     history,
     pendingYahooConnect,
   } = state;
 
   const importBusy = importStatus === "loading";
+
+  // selectedFormat is null whenever this component is mounted (the import UI
+  // only renders without a format) — Back stashes the cleared format in
+  // priorFormat so re-imports can still compare against the league whose
+  // teams/history are loaded. Null only on a truly fresh start.
+  const baselineFormat = selectedFormat ?? priorFormat;
 
   // Shared landing for every platform season fetch. Splits the response
   // shape, filters to the detected format, and withholds imported seasons
@@ -142,14 +165,17 @@ export function ImportSections(props: ImportSectionsProps) {
     }
     const detected = filterToDetectedFormat(seasons);
     if (!detected) {
-      throw new Error(
-        "Could not detect a valid league format from the most recent season (need an even team count and a regular-season week count).",
-      );
+      throw new Error(formatDetectionErrorMessage(seasons[0]!));
     }
     const formatChanged =
-      !selectedFormat ||
-      selectedFormat.teamCount !== detected.detected.teamCount ||
-      selectedFormat.weekCount !== detected.detected.weekCount;
+      !baselineFormat ||
+      baselineFormat.teamCount !== detected.detected.teamCount ||
+      baselineFormat.weekCount !== detected.detected.weekCount;
+    // A same-shape import of a different league drops history too (see
+    // sharesRoster) - the withholding decision must agree with what Apply
+    // will do, so the old league's rows never fill the new league's gaps.
+    const leagueChanged =
+      formatChanged || !sharesRoster(teams, userIds, detected.seasons[0]!);
     // Roster-filtered years are gaps too: a 12 -> 10 -> 12 league loses the
     // 10-team middle year(s) to the format filter, and the surviving run has
     // the same hole a failed fetch would leave. The messaging distinguishes
@@ -164,7 +190,7 @@ export function ImportSections(props: ImportSectionsProps) {
     const { kept, withheldYears, gapYears } = withholdPreGapSeasons(
       detected.seasons,
       [...failed, ...rosterGapCandidates],
-      formatChanged ? [] : history,
+      leagueChanged ? [] : history,
     );
 
     const { cause, remedy } = describeWithholdingGap(
@@ -452,13 +478,16 @@ export function ImportSections(props: ImportSectionsProps) {
     if (!detected) return;
 
     // Reimport always replaces the roster with the imported names; fresh
-    // data wins over any local edits. A format change additionally resets
-    // selectedFormat and the lookback override and drops the prior history
-    // (handled below) since its team indices belong to a different roster.
+    // data wins over any local edits. A format change - or a same-shape
+    // import of a different league (see sharesRoster) - additionally resets
+    // the lookback override and drops the prior history (handled below)
+    // since its rows belong to a different roster.
     const formatChanged =
-      !selectedFormat ||
-      selectedFormat.teamCount !== detected.teamCount ||
-      selectedFormat.weekCount !== detected.weekCount;
+      !baselineFormat ||
+      baselineFormat.teamCount !== detected.teamCount ||
+      baselineFormat.weekCount !== detected.weekCount;
+    const leagueChanged =
+      formatChanged || !sharesRoster(teams, userIds, mostRecent);
 
     let nextTeams: string[] = mostRecent.teamNames;
     let nextUserIds: (string | null)[] = mostRecent.userIds;
@@ -479,32 +508,21 @@ export function ImportSections(props: ImportSectionsProps) {
     // format changes we drop existing history because its team indices belong
     // to a different roster size.
     const seasonsOldestFirst = [...importPreview.seasons].reverse();
-    const importedRows: SeasonHistory[] = seasonsOldestFirst.map((season) => {
-      const sUserIds = season.userIds;
-      const hasUids = sUserIds.some((id) => id != null);
-      let importDoubles: PairKey[];
-      if (hasUids) {
-        importDoubles = season.doubles.map((key) => {
-          const [a, b] = unpackPairKey(key);
-          return [sUserIds[a], sUserIds[b]].sort().join(":");
-        });
-      } else {
-        importDoubles = season.doubles;
-      }
-      return {
-        season: season.seasonYear || String(new Date().getFullYear() - 1),
-        doubles: importDoubles,
-        format: hasUids ? "userid" : "index",
-      };
-    });
+    const importedRows: SeasonHistory[] = buildImportedHistoryRows(
+      seasonsOldestFirst,
+      nextTeams,
+    );
     // Upsert by year + chronological re-sort. A Save & Share row for the
     // in-progress season may be replaced here: Yahoo (isFinished gate) and
     // ESPN (default start = currentYear - 1) only return completed seasons,
     // but Sleeper includes the current year once week 1 has points. That's
     // fine - the upsert keeps one row, and priorSeasons keeps the current
-    // year out of avoidance.
+    // year out of avoidance. Surviving index rows are re-keyed onto the
+    // re-sorted roster first - the merge replaces same-year rows wholesale,
+    // but rows the import doesn't cover would otherwise keep positions from
+    // the old sort order.
     const newHistory = mergeImportedHistory(
-      formatChanged ? [] : history,
+      leagueChanged ? [] : remapIndexRowsByName(history, teams, nextTeams),
       importedRows,
     );
 
@@ -513,9 +531,11 @@ export function ImportSections(props: ImportSectionsProps) {
     const nextLeagueName = (mostRecent.seasonName || "").trim();
 
     patch({
-      ...(formatChanged
-        ? { selectedFormat: detected, lookbackOverride: null }
-        : {}),
+      // Always restore selectedFormat: Back cleared it to re-enter the import
+      // UI, so even a same-shape re-import must set it to land on the steps.
+      selectedFormat: detected,
+      priorFormat: null,
+      ...(leagueChanged ? { lookbackOverride: null } : {}),
       teams: nextTeams,
       userIds: nextUserIds,
       history: newHistory,
@@ -533,7 +553,7 @@ export function ImportSections(props: ImportSectionsProps) {
       userIds: nextUserIds,
       format: detected,
       ...(nextLeagueName ? { leagueName: nextLeagueName } : {}),
-      ...(formatChanged ? { lookbackOverride: null } : {}),
+      ...(leagueChanged ? { lookbackOverride: null } : {}),
     });
   }
 
@@ -583,9 +603,16 @@ export function ImportSections(props: ImportSectionsProps) {
         manualDoubles?: PairKey[];
         rivalryPins?: RivalryPin[];
       };
+      // Range-checked, not just type-checked: links predating the server
+      // validator's format bounds could carry an unschedulable shape (e.g.
+      // 8 teams / 15 weeks), which would misrender or fail generation.
       if (
         typeof payload.format.teamCount !== "number" ||
-        typeof payload.format.weekCount !== "number"
+        typeof payload.format.weekCount !== "number" ||
+        payload.format.teamCount < 2 ||
+        payload.format.teamCount % 2 !== 0 ||
+        payload.format.weekCount < payload.format.teamCount - 1 ||
+        payload.format.weekCount > 2 * (payload.format.teamCount - 1)
       ) {
         throw new Error("This share link has an invalid format.");
       }
@@ -680,6 +707,7 @@ export function ImportSections(props: ImportSectionsProps) {
 
     patch({
       selectedFormat: nextFormat,
+      priorFormat: null,
       teams: nextTeams,
       userIds: nextUserIds,
       leagueName: restoredLeagueName,
@@ -721,12 +749,17 @@ export function ImportSections(props: ImportSectionsProps) {
       history: remappedHistory,
       manualDoubles: [],
       lookbackOverride: null,
+      platform: restoredPlatform,
     });
   }
 
   function handleManualStart() {
     const tc = manualTeamCount;
     const wc = manualWeekCount;
+    // The dropdowns keep the pair inside the round-robin range, but guard
+    // anyway - an out-of-range pair (e.g. 8 teams / 15 weeks) would land on
+    // a factually wrong edge-case card instead of a schedulable format.
+    if (wc < tc - 1 || wc > 2 * (tc - 1)) return;
     const name = manualLeagueName.trim();
     const initialTeams = Array.from({ length: tc }, (_, i) => `Team ${i + 1}`);
     const initialUserIds = Array.from({ length: tc }, () => null) as (
@@ -745,6 +778,7 @@ export function ImportSections(props: ImportSectionsProps) {
     const nextUserIds = sortedPairs.map((p) => p.userId);
     patch({
       selectedFormat: { teamCount: tc, weekCount: wc },
+      priorFormat: null,
       teams: nextTeams,
       userIds: nextUserIds,
       leagueName: name,
@@ -929,14 +963,25 @@ export function ImportSections(props: ImportSectionsProps) {
                   <select
                     className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 outline-none focus:border-slate-500"
                     value={manualTeamCount}
-                    onChange={(e) =>
-                      patch({ manualTeamCount: Number(e.target.value) })
-                    }
+                    onChange={(e) => {
+                      const tc = Number(e.target.value);
+                      // Clamp the week count into the new team count's valid
+                      // round-robin range so the pair can never go out of
+                      // bounds (8 teams caps at 2*(8-1) = 14 weeks).
+                      const maxWeeks = 2 * (tc - 1);
+                      patch({
+                        manualTeamCount: tc,
+                        ...(manualWeekCount > maxWeeks
+                          ? { manualWeekCount: maxWeeks }
+                          : {}),
+                      });
+                    }}
                   >
-                    <option value={8}>8 teams</option>
-                    <option value={10}>10 teams</option>
-                    <option value={12}>12 teams</option>
-                    <option value={14}>14 teams</option>
+                    {MANUAL_TEAM_OPTIONS.map((tc) => (
+                      <option key={tc} value={tc}>
+                        {tc} teams
+                      </option>
+                    ))}
                   </select>
                   <select
                     className="flex-1 sm:flex-none min-w-0 bg-slate-800 border border-slate-700 rounded-md px-2.5 py-2 text-[13px] text-slate-200 outline-none focus:border-slate-500"
@@ -945,9 +990,21 @@ export function ImportSections(props: ImportSectionsProps) {
                       patch({ manualWeekCount: Number(e.target.value) })
                     }
                   >
-                    <option value={13}>13 weeks</option>
-                    <option value={14}>14 weeks</option>
-                    <option value={15}>15 weeks</option>
+                    {MANUAL_WEEK_OPTIONS.map((w) => {
+                      const valid =
+                        w >= manualTeamCount - 1 &&
+                        w <= 2 * (manualTeamCount - 1);
+                      const minTeams = MANUAL_TEAM_OPTIONS.find(
+                        (tc) => w >= tc - 1 && w <= 2 * (tc - 1),
+                      );
+                      return (
+                        <option key={w} value={w} disabled={!valid}>
+                          {valid || !minTeams
+                            ? `${w} weeks`
+                            : `${w} weeks (needs ${minTeams}+ teams)`}
+                        </option>
+                      );
+                    })}
                   </select>
                   <button
                     className={cls.primaryBtn}

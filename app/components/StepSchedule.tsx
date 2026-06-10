@@ -65,14 +65,22 @@ export function StepSchedule(props: StepScheduleProps) {
     let nextManualDoubles: PairKey[] = [...manualDoubles];
     if (!saved) {
       const seasonLabel = String(new Date().getFullYear());
+      // Prefer userid format - IDs follow managers across team renames. A
+      // pair whose member has no user ID is skipped openly rather than
+      // written as a broken half-key ("ABC:") that resolveKey would silently
+      // drop at read time (same effective avoidance, but deliberate). Index
+      // format only when no team has an ID; see buildImportedHistoryRows
+      // (utils.ts) for why missing IDs don't demote the row to index.
       const hasUserIds = userIds.some((id) => id != null);
 
       let doubles: PairKey[];
       let entryFormat: "userid" | "index";
       if (hasUserIds) {
-        doubles = [...schedule.doubledPairs].map((key) => {
+        doubles = [...schedule.doubledPairs].flatMap((key) => {
           const [a, b] = unpackPairKey(key);
-          return [userIds[a], userIds[b]].sort().join(":");
+          const ua = userIds[a];
+          const ub = userIds[b];
+          return ua != null && ub != null ? [[ua, ub].sort().join(":")] : [];
         });
         entryFormat = "userid";
       } else {

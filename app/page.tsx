@@ -9,12 +9,7 @@ import {
   type LookbackWindow,
 } from "@/lib/algorithm";
 import { STEP_ORDER, STORAGE_KEY } from "./components/constants";
-import type {
-  ImportPlatform,
-  ImportSource,
-  SelectedFormat,
-  Step,
-} from "./components/types";
+import type { ImportPlatform, ImportSource, Step } from "./components/types";
 import {
   computeDisplayWeeks,
   deriveLookback,
@@ -66,25 +61,6 @@ export default function GeneratePage() {
   // like the old useState API; the underlying state lives in the single
   // useReducer above.
   const setStep = useCallback((v: Step) => patch({ step: v }), [patch]);
-  const setFurthestStep = useCallback(
-    (v: Step | ((prev: Step) => Step)) => {
-      if (typeof v === "function") {
-        dispatch({
-          type: "patch",
-          patch: {
-            furthestStep: (v as (prev: Step) => Step)(state.furthestStep),
-          },
-        });
-      } else {
-        patch({ furthestStep: v });
-      }
-    },
-    [patch, state.furthestStep],
-  );
-  const setSelectedFormat = useCallback(
-    (v: SelectedFormat | null) => patch({ selectedFormat: v }),
-    [patch],
-  );
   const setConfirmReset = useCallback(
     (v: boolean) => patch({ confirmReset: v }),
     [patch],
@@ -100,6 +76,26 @@ export default function GeneratePage() {
     !!format &&
     (format.variant === "pure-round-robin" ||
       format.variant === "complete-double-round-robin");
+  // Edge-case card opener. Imports read "Detected an 8-team / 14-week
+  // format: …" (the shape was inferred from league data); manual entry reads
+  // the declarative "An 8-team / 14-week format is …" - nothing was
+  // detected, the user chose it. "format", not "league": the shape is
+  // what's being described, the league is the named thing that has it.
+  // Among even team counts only 8 and 18 take "an".
+  const formatArticle = teamCount === 8 || teamCount === 18 ? "an" : "a";
+  const edgeCaseOpener = (
+    <>
+      {platform === "manual"
+        ? formatArticle === "an"
+          ? "An"
+          : "A"
+        : `Detected ${formatArticle}`}{" "}
+      <strong className="text-slate-200">
+        {teamCount}-team / {weekCount}-week
+      </strong>{" "}
+      format{platform === "manual" ? " is " : ": "}
+    </>
+  );
 
   // Mirror `platform` and `importSource` so in-flight import fetches can
   // detect when the user has switched platforms or sources mid-request and
@@ -154,20 +150,45 @@ export default function GeneratePage() {
     return () => mq.removeEventListener("change", handler);
   }, [patch]);
 
-  // Hydrate from localStorage on mount.
+  // Hydrate from localStorage on mount, folding in the Yahoo OAuth callback
+  // hand-off (the callback route redirects to /?yahoo=connected on success or
+  // /?yahoo=error&reason=... on failure; yahooOAuthReturnPatch switches to
+  // the Yahoo platform and either flags the auto-load or surfaces the error
+  // message). The two must land together: the OAuth return needs the import
+  // UI on screen - ImportSections owns the pendingYahooConnect bridge and
+  // renders the error message - so when storage would restore a format we
+  // stash it in priorFormat instead of mounting the steps UI over the
+  // hand-off. Teams/history still hydrate, so the auto-loaded Yahoo
+  // re-import merges like any post-Back re-import.
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    let oauthPatch: Partial<State> | null = null;
+    if (params.get("yahoo")) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("yahoo");
+      url.searchParams.delete("reason");
+      window.history.replaceState({}, "", url.toString());
+      oauthPatch = yahooOAuthReturnPatch(params);
+    }
+
+    let hydration: Partial<State> = {};
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const d = JSON.parse(raw);
         let storedTeamCount = 0;
-        const hydration: Partial<State> = {};
+        // Range-checked, not just type-checked: an out-of-range stored
+        // format (e.g. 8 teams / 15 weeks from a legacy payload) would
+        // misrender as an edge-case card or fail generation - better to
+        // fall back to a fresh start than restore an unschedulable shape.
         if (
           d.format &&
           typeof d.format.teamCount === "number" &&
           typeof d.format.weekCount === "number" &&
           d.format.teamCount >= 2 &&
-          d.format.teamCount % 2 === 0
+          d.format.teamCount % 2 === 0 &&
+          d.format.weekCount >= d.format.teamCount - 1 &&
+          d.format.weekCount <= 2 * (d.format.teamCount - 1)
         ) {
           hydration.selectedFormat = {
             teamCount: d.format.teamCount,
@@ -191,34 +212,35 @@ export default function GeneratePage() {
             hydration.lookbackOverride = d.lookbackOverride;
           if (typeof d.leagueName === "string")
             hydration.leagueName = d.leagueName;
+          // Platform drives Step 3's apply instructions, the Yahoo
+          // attribution block, and the share payload. Older payloads lack it;
+          // the "sleeper" default stands for those. importSource comes along
+          // so a later Back lands on the same dropdown selection.
+          if (
+            d.platform === "sleeper" ||
+            d.platform === "espn" ||
+            d.platform === "yahoo" ||
+            d.platform === "manual"
+          ) {
+            hydration.platform = d.platform;
+            hydration.importSource = d.platform;
+          }
           hydration.furthestStep = "doubles";
         }
-        patch({ ...hydration, loading: false });
-        return;
       }
     } catch {
       // Ignore corrupt storage; fall back to empty state.
+      hydration = {};
     }
-    patch({ loading: false });
+    if (oauthPatch) {
+      hydration = {
+        ...hydration,
+        selectedFormat: null,
+        priorFormat: hydration.selectedFormat ?? null,
+      };
+    }
+    patch({ ...hydration, ...oauthPatch, loading: false });
   }, [patch]);
-
-  // Yahoo OAuth callback hand-off. The callback route redirects to
-  // /?yahoo=connected on success or /?yahoo=error&reason=... on failure. We
-  // strip the params, then yahooOAuthReturnPatch switches to the Yahoo
-  // platform and either flags the auto-load or surfaces the error message.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    if (!params.get("yahoo")) return;
-    const url = new URL(window.location.href);
-    url.searchParams.delete("yahoo");
-    url.searchParams.delete("reason");
-    window.history.replaceState({}, "", url.toString());
-
-    const oauthPatch = yahooOAuthReturnPatch(params);
-    if (oauthPatch) patch(oauthPatch);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const saveToStorage = useCallback(
     (extra: SaveToStorageExtra = {}) => {
@@ -231,6 +253,7 @@ export default function GeneratePage() {
           format: selectedFormat,
           lookbackOverride,
           leagueName,
+          platform,
           ...extra,
         };
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -246,6 +269,7 @@ export default function GeneratePage() {
       selectedFormat,
       lookbackOverride,
       leagueName,
+      platform,
     ],
   );
 
@@ -394,28 +418,23 @@ export default function GeneratePage() {
             <h2 className={cls.cardTitle}>No schedule needed</h2>
             {format.variant === "pure-round-robin" ? (
               <p className={cls.hint}>
-                Detected{" "}
-                <strong className="text-slate-200">
-                  {teamCount}-team / {weekCount}-week
-                </strong>
-                : a pure round-robin where every team plays every opponent
-                exactly once. There are no doubled matchups, so there&apos;s no
-                fairness problem to solve and no rotational schedule needed.
+                {edgeCaseOpener}a pure round-robin where every team plays every
+                opponent exactly once. There are no doubled matchups, so
+                there&apos;s no fairness problem to solve and no rotational
+                schedule needed.
               </p>
             ) : (
               <p className={cls.hint}>
-                Detected{" "}
-                <strong className="text-slate-200">
-                  {teamCount}-team / {weekCount}-week
-                </strong>
-                : a complete double round-robin where every team plays every
-                opponent exactly twice. The schedule is fully determined - every
-                pair is doubled - so there&apos;s no rotational fairness problem
-                to solve.
+                {edgeCaseOpener}a complete double round-robin where every team
+                plays every opponent exactly twice. The schedule is fully
+                determined - every pair is doubled - so there&apos;s no
+                rotational fairness problem to solve.
               </p>
             )}
             <p className="text-[11px] text-slate-500 mt-3">
-              Use Reset below to clear and re-import a different league.
+              {platform === "manual"
+                ? "Use Reset below to clear and start over with a different league."
+                : "Use Reset below to clear and re-import a different league."}
             </p>
           </div>
         ) : (
@@ -497,9 +516,15 @@ export default function GeneratePage() {
                   className={`${cls.navBtn} bg-transparent border border-slate-700 text-slate-400 hover:border-slate-500`}
                   onClick={() => {
                     if (step === "teams") {
-                      setSelectedFormat(null);
-                      setStep("teams");
-                      setFurthestStep("teams");
+                      // Stash the format as the re-import baseline: the
+                      // import flow's formatChanged check needs to know the
+                      // shape of the league whose teams/history stay loaded.
+                      patch({
+                        selectedFormat: null,
+                        priorFormat: selectedFormat,
+                        step: "teams",
+                        furthestStep: "teams",
+                      });
                     } else {
                       setStep(step === "schedule" ? "doubles" : "teams");
                     }
