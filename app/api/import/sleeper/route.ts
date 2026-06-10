@@ -90,15 +90,19 @@ async function fetchJson<T>(url: string): Promise<T> {
 async function lookupUserLeagues(
   username: string,
 ): Promise<SleeperLeagueOption[]> {
-  let user: { user_id?: string } | null;
-  try {
-    user = await fetchJson<{ user_id?: string } | null>(
-      `${BASE}/user/${encodeURIComponent(username)}`,
-    );
-  } catch {
-    throw new UserNotFoundError(
-      `Sleeper user "${username}" not found. Check the spelling.`,
-    );
+  // Sleeper answers an unknown username with a 404 (or a null body) - those
+  // are definitive lookup misses and earn the "not found" wording. Anything
+  // else (5xx, network failure) is an upstream problem and must propagate as
+  // a plain error so the route's 502 path reports it - telling the user
+  // their own username is wrong during a Sleeper outage sends them
+  // re-checking spelling that was never the problem.
+  const res = await fetch(`${BASE}/user/${encodeURIComponent(username)}`);
+  let user: { user_id?: string } | null = null;
+  if (res.status !== 404) {
+    // No platform name here - the route wraps this as "Failed to look up
+    // Sleeper user: <detail>", which would otherwise read "Sleeper … Sleeper".
+    if (!res.ok) throw new Error(`HTTP ${res.status}.`);
+    user = (await res.json()) as { user_id?: string } | null;
   }
   if (!user || typeof user.user_id !== "string" || !user.user_id) {
     throw new UserNotFoundError(
