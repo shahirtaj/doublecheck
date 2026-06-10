@@ -7,7 +7,7 @@ import type { Matching, Pair, PairKey } from "./types";
 // `mustInclude` pins specific pairs into the matching up front; the backtracking
 // search then fills the remaining unpaired teams. Returns null if no perfect
 // matching exists (including when must-include pairs conflict or aren't available).
-export function findPerfectMatching(
+function findPerfectMatching(
   n: number,
   available: ReadonlySet<PairKey>,
   softAvoid: ReadonlySet<PairKey> | null,

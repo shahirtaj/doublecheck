@@ -105,6 +105,11 @@ export async function checkRateLimit(
   return checkRateLimitMemory(ip, windowMs, max, opts.namespace);
 }
 
+// Trusting the FIRST x-forwarded-for hop is only safe behind a proxy that
+// overwrites the header (Vercel does). Behind a proxy that appends instead,
+// the first hop is client-controlled - one fresh fake IP per request would
+// bypass rate limiting entirely. Re-check this if the app ever moves off
+// Vercel or gains another proxy layer.
 export function getClientIp(req: Request): string {
   const xff = req.headers.get("x-forwarded-for");
   if (xff) {

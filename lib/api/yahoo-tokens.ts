@@ -36,7 +36,7 @@ export function encryptTokens(tokens: YahooTokens): string {
   return Buffer.concat([iv, tag, ciphertext]).toString("base64url");
 }
 
-export function decryptTokens(encrypted: string): YahooTokens | null {
+function decryptTokens(encrypted: string): YahooTokens | null {
   try {
     const buf = Buffer.from(encrypted, "base64url");
     if (buf.length < IV_LEN + TAG_LEN + 1) return null;
