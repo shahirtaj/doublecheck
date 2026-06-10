@@ -79,7 +79,7 @@ export async function POST(req: Request) {
       }
     } catch (e) {
       return NextResponse.json(
-        { error: (e as Error).message || "Failed to write to share storage." },
+        { error: (e as Error).message || "Could not write to share storage." },
         { status: 502 },
       );
     }

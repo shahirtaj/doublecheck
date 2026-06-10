@@ -234,7 +234,12 @@ export default function GeneratePage() {
         platform: "yahoo",
         importSource: "yahoo",
         importStatus: "error",
-        importMsg: `Yahoo Fantasy connection failed: ${(reason || "unknown").replace(/_/g, " ")}.`,
+        // The reason is either a snake_case OAuth code (state_mismatch) or an
+        // Error message that already ends with a period - strip it so the
+        // appended terminal period never doubles up.
+        importMsg: `Could not connect to Yahoo Fantasy: ${(reason || "unknown")
+          .replace(/_/g, " ")
+          .replace(/\.$/, "")}.`,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -337,7 +342,9 @@ export default function GeneratePage() {
           result.reason === "generation-failed"
             ? rivalryPins.length > 0
               ? result.message
-              : "Could not generate a valid schedule. Try clearing some avoid-pairs."
+              : // Hard avoids come from manual avoids AND doubled history, so
+                // the remedy names both controls that shrink the constraint set.
+                "Could not generate a valid schedule. Try clearing some manual avoids or shrinking the Lookback Window."
             : result.message,
         saved: false,
         shareStatus: "idle",

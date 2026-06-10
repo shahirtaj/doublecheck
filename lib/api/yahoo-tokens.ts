@@ -88,7 +88,11 @@ export async function exchangeAuthCode(
   });
 
   if (!res.ok) {
-    throw new Error(`Yahoo token exchange failed (${res.status}).`);
+    // No "Yahoo" prefix: both surfaces re-add Yahoo context - the import
+    // route wraps this as "Yahoo Fantasy token error: <this message>" and
+    // the OAuth callback feeds it into "Could not connect to Yahoo
+    // Fantasy: <this message>".
+    throw new Error(`Token exchange failed (${res.status}).`);
   }
   const json = (await res.json()) as {
     access_token?: string;
@@ -130,7 +134,8 @@ export async function refreshAccessToken(
   });
 
   if (!res.ok) {
-    throw new Error(`Yahoo token refresh failed (${res.status}).`);
+    // Same no-prefix rationale as the exchange error above.
+    throw new Error(`Token refresh failed (${res.status}).`);
   }
   const json = (await res.json()) as {
     access_token?: string;

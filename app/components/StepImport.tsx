@@ -288,7 +288,10 @@ export function ImportSections(props: ImportSectionsProps) {
         if (stale()) return;
         const data = await res.json();
         if (stale()) return;
-        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+        if (!res.ok)
+          throw new Error(
+            data?.error || `Request failed (HTTP ${res.status}).`,
+          );
         const leagues = (data?.leagues || []) as SleeperLeagueOption[];
         if (leagues.length === 0) {
           throw new Error("No Sleeper NFL leagues found for this user.");
@@ -310,7 +313,7 @@ export function ImportSections(props: ImportSectionsProps) {
         if (stale()) return;
         patch({
           importStatus: "error",
-          importMsg: (e as Error).message || "Sleeper username lookup failed.",
+          importMsg: (e as Error).message || "Could not look up Sleeper user.",
         });
       }
       return;
@@ -318,7 +321,7 @@ export function ImportSections(props: ImportSectionsProps) {
 
     patch({
       importStatus: "loading",
-      importMsg: `Fetching from ${platformLabel(platform)}…`,
+      importMsg: `Fetching season data from ${platformLabel(platform)}…`,
     });
     try {
       const res = await fetch(
@@ -335,14 +338,16 @@ export function ImportSections(props: ImportSectionsProps) {
       if (!res.ok) {
         if (typeof data?.helpUrl === "string")
           patch({ importHelpUrl: data.helpUrl });
-        throw new Error(data?.error || `HTTP ${res.status}`);
+        throw new Error(data?.error || `Request failed (HTTP ${res.status}).`);
       }
       previewFetchedSeasons(platform, data);
     } catch (e) {
       if (stale()) return;
       patch({
         importStatus: "error",
-        importMsg: (e as Error).message || "Fetch failed.",
+        importMsg:
+          (e as Error).message ||
+          `Could not fetch season data from ${platformLabel(platform)}.`,
       });
     }
   }
@@ -353,7 +358,7 @@ export function ImportSections(props: ImportSectionsProps) {
       importSourceRef.current !== "sleeper";
     patch({
       importStatus: "loading",
-      importMsg: "Loading season data from Sleeper…",
+      importMsg: "Fetching season data from Sleeper…",
       importPreview: null,
     });
     try {
@@ -368,13 +373,15 @@ export function ImportSections(props: ImportSectionsProps) {
       if (stale()) return;
       const data = await res.json();
       if (stale()) return;
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      if (!res.ok)
+        throw new Error(data?.error || `Request failed (HTTP ${res.status}).`);
       previewFetchedSeasons("sleeper", data);
     } catch (e) {
       if (stale()) return;
       patch({
         importStatus: "error",
-        importMsg: (e as Error).message || "Fetch failed.",
+        importMsg:
+          (e as Error).message || "Could not fetch season data from Sleeper.",
       });
     }
   }
@@ -389,7 +396,7 @@ export function ImportSections(props: ImportSectionsProps) {
       platformRef.current !== "yahoo" || importSourceRef.current !== "yahoo";
     patch({
       importStatus: "loading",
-      importMsg: "Loading season data from Yahoo Fantasy…",
+      importMsg: "Fetching season data from Yahoo Fantasy…",
       importPreview: null,
     });
     try {
@@ -404,13 +411,16 @@ export function ImportSections(props: ImportSectionsProps) {
       if (stale()) return;
       const data = await res.json();
       if (stale()) return;
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      if (!res.ok)
+        throw new Error(data?.error || `Request failed (HTTP ${res.status}).`);
       previewFetchedSeasons("yahoo", data);
     } catch (e) {
       if (stale()) return;
       patch({
         importStatus: "error",
-        importMsg: (e as Error).message || "Fetch failed.",
+        importMsg:
+          (e as Error).message ||
+          "Could not fetch season data from Yahoo Fantasy.",
       });
     }
   }
@@ -420,7 +430,7 @@ export function ImportSections(props: ImportSectionsProps) {
       platformRef.current !== "yahoo" || importSourceRef.current !== "yahoo";
     patch({
       importStatus: "loading",
-      importMsg: "Loading Yahoo Fantasy leagues…",
+      importMsg: "Fetching Yahoo Fantasy leagues…",
       yahooLeagues: null,
       selectedYahooLeague: "",
       importPreview: null,
@@ -444,7 +454,8 @@ export function ImportSections(props: ImportSectionsProps) {
       }
       const data = await res.json();
       if (stale()) return;
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      if (!res.ok)
+        throw new Error(data?.error || `Request failed (HTTP ${res.status}).`);
       const leagues = (data?.leagues || []) as YahooLeagueOption[];
       patch({ yahooLeagues: leagues });
       if (leagues.length === 0) {
@@ -468,7 +479,7 @@ export function ImportSections(props: ImportSectionsProps) {
       patch({
         importStatus: "error",
         importMsg:
-          (e as Error).message || "Failed to load Yahoo Fantasy leagues.",
+          (e as Error).message || "Could not fetch Yahoo Fantasy leagues.",
       });
     }
   }
@@ -604,7 +615,8 @@ export function ImportSections(props: ImportSectionsProps) {
       if (stale()) return;
       const raw = await res.json();
       if (stale()) return;
-      if (!res.ok) throw new Error(raw?.error || `HTTP ${res.status}`);
+      if (!res.ok)
+        throw new Error(raw?.error || `Request failed (HTTP ${res.status}).`);
       if (
         !raw ||
         typeof raw !== "object" ||
@@ -940,7 +952,7 @@ export function ImportSections(props: ImportSectionsProps) {
                     disabled={!selectedYahooLeague || importBusy}
                   >
                     {importStatus === "loading"
-                      ? "Loading…"
+                      ? "Fetching…"
                       : "Use this league"}
                   </button>
                 </>
@@ -953,7 +965,7 @@ export function ImportSections(props: ImportSectionsProps) {
                   disabled={importBusy}
                 >
                   {importStatus === "loading"
-                    ? "Loading…"
+                    ? "Fetching…"
                     : "Connect to Yahoo Fantasy"}
                 </button>
               )
@@ -1026,7 +1038,7 @@ export function ImportSections(props: ImportSectionsProps) {
                   }
                   disabled={!selectedSleeperLeague || importBusy}
                 >
-                  {importStatus === "loading" ? "Loading…" : "Use this league"}
+                  {importStatus === "loading" ? "Fetching…" : "Use this league"}
                 </button>
               </>
             ) : (

@@ -107,7 +107,9 @@ async function fetchYahooJson(
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (res.status === 401) throw new Error("UNAUTHORIZED");
-  if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
+  // No "Yahoo" prefix: the route-level wrappers already read "… from Yahoo
+  // Fantasy: <this message>".
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
@@ -477,7 +479,10 @@ export async function POST(req: Request) {
       const msg = (e as Error).message;
       if (msg === "UNAUTHORIZED") {
         return NextResponse.json(
-          { error: "Yahoo Fantasy authorization expired. Please reconnect." },
+          {
+            error:
+              "Yahoo Fantasy authorization expired. Reconnect and try again.",
+          },
           { status: 401 },
         );
       }

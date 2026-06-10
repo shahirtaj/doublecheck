@@ -129,13 +129,14 @@ export function StepSchedule(props: StepScheduleProps) {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      if (!res.ok)
+        throw new Error(data?.error || `Request failed (HTTP ${res.status}).`);
       const fullUrl = `${window.location.origin}${data.url}`;
       patch({ shareUrl: fullUrl, shareStatus: "ready" });
     } catch (e) {
       patch({
         shareStatus: "error",
-        shareError: (e as Error).message || "Share failed.",
+        shareError: (e as Error).message || "Could not create a share link.",
       });
     }
   }

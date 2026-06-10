@@ -23,7 +23,7 @@ type SlotAssignment = {
 };
 
 const PIN_FAIL_MESSAGE =
-  "Can't generate a schedule with these constraints. Try removing some rivalry pins.";
+  "Could not generate a schedule with these constraints. Try removing some rivalry pins.";
 
 export function buildSchedule(config: ScheduleConfig): ScheduleResult {
   const { teamCount, weekCount } = config;

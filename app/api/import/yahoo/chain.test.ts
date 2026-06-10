@@ -119,7 +119,7 @@ describe("walkSeasonChain", () => {
       5,
       depsFrom({
         ...THREE_SEASON_CHAIN,
-        "nfl.l.2": new Error("Yahoo HTTP 500"),
+        "nfl.l.2": new Error("HTTP 500"),
       }),
     );
     expect(records.map((r) => r.seasonYear)).toEqual(["2025"]);
@@ -138,7 +138,7 @@ describe("walkSeasonChain", () => {
     const records = await walkSeasonChain(
       "nfl.l.3",
       5,
-      depsFrom(THREE_SEASON_CHAIN, { "nfl.l.2": new Error("Yahoo HTTP 502") }),
+      depsFrom(THREE_SEASON_CHAIN, { "nfl.l.2": new Error("HTTP 502") }),
     );
     expect(records.map((r) => r.seasonYear)).toEqual(["2025"]);
   });
@@ -159,10 +159,10 @@ describe("walkSeasonChain", () => {
         5,
         depsFrom({
           ...THREE_SEASON_CHAIN,
-          "nfl.l.3": new Error("Yahoo HTTP 500"),
+          "nfl.l.3": new Error("HTTP 500"),
         }),
       ),
-    ).rejects.toThrow("Yahoo HTTP 500");
+    ).rejects.toThrow("HTTP 500");
   });
 
   it("propagates a first-link record failure", async () => {
@@ -171,10 +171,10 @@ describe("walkSeasonChain", () => {
         "nfl.l.3",
         5,
         depsFrom(THREE_SEASON_CHAIN, {
-          "nfl.l.3": new Error("Yahoo HTTP 502"),
+          "nfl.l.3": new Error("HTTP 502"),
         }),
       ),
-    ).rejects.toThrow("Yahoo HTTP 502");
+    ).rejects.toThrow("HTTP 502");
   });
 
   it("propagates UNAUTHORIZED even mid-chain with records already collected", async () => {

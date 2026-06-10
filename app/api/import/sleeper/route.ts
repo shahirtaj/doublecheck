@@ -158,7 +158,7 @@ async function discoverChain(
     } catch (e) {
       if (depth === 0) {
         throw new LeagueNotFoundError(
-          `Sleeper league ${currentId} could not be loaded. Verify the league ID.`,
+          `Could not fetch Sleeper league ${currentId}. Check the league ID.`,
         );
       }
       // Mid-chain failures (e.g. an old league that's been deleted) just stop
@@ -169,7 +169,7 @@ async function discoverChain(
     if (!league || typeof league !== "object" || !league.league_id) {
       if (depth === 0) {
         throw new LeagueNotFoundError(
-          `Sleeper returned no league for ID ${currentId}. Verify the league ID.`,
+          `Sleeper returned no league for ID ${currentId}. Check the league ID.`,
         );
       }
       break;

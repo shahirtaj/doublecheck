@@ -46,7 +46,7 @@ export async function GET(
     data = await getRedis().get(`share:${slug}`);
   } catch (e) {
     return NextResponse.json(
-      { error: (e as Error).message || "Failed to read share storage." },
+      { error: (e as Error).message || "Could not read share storage." },
       { status: 502 },
     );
   }

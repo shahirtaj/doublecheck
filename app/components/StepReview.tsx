@@ -593,7 +593,7 @@ export function StepReview(props: StepReviewProps) {
                     className={`${cls.outlineBtn} ${cls.outlineRed}`}
                     onClick={() => patch({ confirmClearSelections: true })}
                   >
-                    Clear Selections
+                    Clear selections
                   </button>
                 </div>
               )}
