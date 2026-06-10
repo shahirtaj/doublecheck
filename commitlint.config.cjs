@@ -1,5 +1,10 @@
 module.exports = {
   extends: ["@commitlint/config-conventional"],
+  // Dependabot's headers ("chore(deps-dev): bump <package> from X to Y")
+  // exceed 72 chars when the package name is long, and dependabot.yml's
+  // commit-message options can't shorten them. Everything else about its
+  // messages passes, so exempt its commits rather than relax the rules.
+  ignores: [(message) => message.includes("Signed-off-by: dependabot[bot]")],
   rules: {
     // Subject line: aim for 50, hard limit at 72.
     // Conventional Commits prefixes eat 15-20 chars, so 50 causes
