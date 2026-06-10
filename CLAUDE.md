@@ -9,7 +9,7 @@ Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3, Inter 
 - `npm run build` - production build
 - `npm run typecheck` - TypeScript check
 - `npm run lint` - ESLint (flat config in `eslint.config.mjs`)
-- `npm test` - Vitest (225 tests)
+- `npm test` - Vitest (279 tests)
 - `npm run test:watch` - Vitest in watch mode
 
 ## Project structure
@@ -40,6 +40,7 @@ Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3, Inter 
 ## Testing
 
 - Algorithm tests are in `lib/algorithm/schedule.test.ts`
+- API route logic tests are colocated with the routes (`app/api/**/*.test.ts`). The testable logic lives in sibling modules (`seasons.ts`, `chain.ts`, `validate.ts`) because Next.js route files may only export route handlers - put new route logic there, not inline in `route.ts`. `vitest.config.ts` maps the `@/*` alias for these tests.
 - Tests use deterministic Mulberry32 PRNG seeded per test case
 - All 7 supported formats have full constraint coverage
 - Run tests after any change to `lib/algorithm/`
