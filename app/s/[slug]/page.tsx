@@ -99,10 +99,17 @@ export async function generateMetadata({
   const fallbackDescription =
     "View this shared fantasy football schedule on DoubleCheck";
 
+  // Slugs are unguessable but indexable: a share link posted publicly would
+  // surface league/team names in search results. noindex (with crawling
+  // allowed, so crawlers can see the directive - no robots.txt Disallow)
+  // keeps these pages out of indexes while OG link previews keep working.
+  const robots = { index: false, follow: false };
+
   if (!isValidPayload(data)) {
     return {
       title: fallbackTitle,
       description: fallbackDescription,
+      robots,
       openGraph: {
         title: fallbackTitle,
         description: fallbackDescription,
@@ -123,6 +130,7 @@ export async function generateMetadata({
   return {
     title,
     description,
+    robots,
     openGraph: {
       title,
       description,
