@@ -56,14 +56,18 @@ function renderImportSections(seed: Partial<State>) {
   };
 }
 
-function importedSeason(year: string, teamCount = 10): ImportedSeasonRecord {
+function importedSeason(
+  year: string,
+  teamCount = 10,
+  regWeeks = 13,
+): ImportedSeasonRecord {
   return {
     seasonYear: year,
     seasonName: "Test League",
     teamNames: Array.from({ length: teamCount }, (_, i) => `Team ${i + 1}`),
     userIds: Array.from({ length: teamCount }, () => null),
     doubles: [],
-    regWeeks: 13,
+    regWeeks,
   };
 }
 
@@ -178,6 +182,99 @@ describe("import request sizing", () => {
 
     // 10/13: hard 1 + soft 1 prior seasons, + 1 for the anchor season.
     expect(fetchMock.mock.calls[0]![0]).toBe("/api/import/sleeper?seasons=3");
+  });
+
+  it("refetches once at the detected size when the league's shape outgrew the baseline", async () => {
+    // Re-import sized to priorFormat (10/13 -> seasons=3), but the response
+    // is a 14/14 league wanting 14 - and the request was the binding
+    // constraint (3 returned for 3 asked), so more history may exist. The
+    // client must refetch at the detected size instead of silently landing
+    // with a 3-season avoidance window.
+    const fourteen = (years: string[]) =>
+      jsonResponse(years.map((y) => importedSeason(y, 14, 14)));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(fourteen(["2025", "2024", "2023"]))
+      .mockResolvedValueOnce(
+        fourteen(["2025", "2024", "2023", "2022", "2021"]),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      leagueId: "123456789",
+      priorFormat: { teamCount: 10, weekCount: 13 },
+      teams: Array.from({ length: 10 }, (_, i) => `Team ${i + 1}`),
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    await screen.findByText("5 seasons: 2025, 2024, 2023, 2022, 2021");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]![0]).toBe("/api/import/sleeper?seasons=3");
+    // 14/14: hard 12 + soft 1 priors, + 1 anchor.
+    expect(fetchMock.mock.calls[1]![0]).toBe("/api/import/sleeper?seasons=14");
+    expect(h.getState().importPreview?.seasons).toHaveLength(5);
+  });
+
+  it("does not refetch when the league has less history than was requested", async () => {
+    // Same shape change, but only 2 seasons came back for 3 asked - the
+    // league is exhausted (e.g. it just expanded to 14 teams), so a larger
+    // request can't return more. One fetch, preview as-is.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse([
+          importedSeason("2025", 14, 14),
+          importedSeason("2024", 14, 14),
+        ]),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      leagueId: "123456789",
+      priorFormat: { teamCount: 10, weekCount: 13 },
+      teams: Array.from({ length: 10 }, (_, i) => `Team ${i + 1}`),
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    await screen.findByText("2 seasons: 2025, 2024");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the first response when the right-size refetch fails", async () => {
+    // The first response was valid, just possibly short - a failed refetch
+    // must not turn a working import into an error (the pre-refetch
+    // behavior is the floor).
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse([
+          importedSeason("2025", 14, 14),
+          importedSeason("2024", 14, 14),
+          importedSeason("2023", 14, 14),
+        ]),
+      )
+      .mockRejectedValueOnce(new Error("network down"));
+    vi.stubGlobal("fetch", fetchMock);
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      leagueId: "123456789",
+      priorFormat: { teamCount: 10, weekCount: 13 },
+      teams: Array.from({ length: 10 }, (_, i) => `Team ${i + 1}`),
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    await screen.findByText("3 seasons: 2025, 2024, 2023");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(h.getState().importStatus).toBe("ready");
   });
 });
 

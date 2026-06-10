@@ -55,6 +55,10 @@ type ImportSectionsProps = {
 const MANUAL_TEAM_OPTIONS = [8, 10, 12, 14];
 const MANUAL_WEEK_OPTIONS = [13, 14, 15];
 
+// Sentinel for "this response went stale mid-flight and must be discarded" -
+// distinct from every JSON value a route can return (including null).
+const STALE = Symbol("stale-import-response");
+
 // Filter imported seasons down to the format detected from the most recent
 // season. Older seasons with a different roster size are dropped because
 // their team-index space wouldn't line up with the detected format. The
@@ -164,7 +168,20 @@ export function ImportSections(props: ImportSectionsProps) {
   // merge time (handleApplyImport), so existing rows can't fill gaps in
   // that case. Throws (for the caller's catch → importStatus error) when
   // nothing importable survives.
-  function previewFetchedSeasons(plat: ImportPlatform, data: unknown) {
+  // `requestedSeasons` is the size the request was sent with. When detection
+  // reveals the league wants more than that - the request was sized to
+  // baselineFormat, but the league (or which league) changed shape to a
+  // bigger-lookback format - AND the request was the binding constraint
+  // (attempted = returned + failed filled it; a league with less real
+  // history than requested has nothing more to give), the function returns
+  // the right size to refetch with INSTEAD of patching the preview. Pass
+  // null to disable the check (the refetch itself); returns null after
+  // patching.
+  function previewFetchedSeasons(
+    plat: ImportPlatform,
+    data: unknown,
+    requestedSeasons: number | null,
+  ): number | null {
     const { seasons, failed } = splitImportResponse(data);
     if (seasons.length === 0) {
       throw new Error("No seasons returned.");
@@ -172,6 +189,15 @@ export function ImportSections(props: ImportSectionsProps) {
     const detected = filterToDetectedFormat(seasons);
     if (!detected) {
       throw new Error(formatDetectionErrorMessage(seasons[0]!));
+    }
+    if (requestedSeasons !== null) {
+      const needed = importSeasonsParam(detected.detected);
+      if (
+        needed > requestedSeasons &&
+        seasons.length + failed.length >= requestedSeasons
+      ) {
+        return needed;
+      }
     }
     const formatChanged =
       !baselineFormat ||
@@ -217,6 +243,73 @@ export function ImportSections(props: ImportSectionsProps) {
           ? withholdingWarningMessage(cause, remedy, withheldYears)
           : "",
     });
+    return null;
+  }
+
+  // One POST round trip to an import route. Returns the parsed body, or
+  // STALE when the response should be discarded (the caller returns
+  // immediately). Non-OK responses throw the route's error message for the
+  // caller's catch; captureHelpUrl forwards an error body's helpUrl into
+  // state first (the ESPN private-league instructions link).
+  async function postSeasonsRequest(
+    plat: ImportPlatform,
+    seasons: number,
+    body: Record<string, unknown>,
+    stale: () => boolean,
+    captureHelpUrl: boolean,
+  ): Promise<unknown> {
+    const res = await fetch(`/api/import/${plat}?seasons=${seasons}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (stale()) return STALE;
+    const data = await res.json();
+    if (stale()) return STALE;
+    if (!res.ok) {
+      if (captureHelpUrl && typeof data?.helpUrl === "string") {
+        patch({ importHelpUrl: data.helpUrl });
+      }
+      throw new Error(data?.error || `Request failed (HTTP ${res.status}).`);
+    }
+    return data;
+  }
+
+  // Fetch a platform's seasons and land them in the preview. When detection
+  // reveals a bigger lookback appetite than the request was sized for (see
+  // previewFetchedSeasons), refetch once at the detected size; if that
+  // second fetch fails, fall back to previewing the first response - it was
+  // valid, just possibly short, which is exactly the pre-refetch behavior.
+  async function fetchSeasonsIntoPreview(
+    plat: ImportPlatform,
+    body: Record<string, unknown>,
+    stale: () => boolean,
+    captureHelpUrl = false,
+  ): Promise<void> {
+    const data = await postSeasonsRequest(
+      plat,
+      requestSeasons,
+      body,
+      stale,
+      captureHelpUrl,
+    );
+    if (data === STALE) return;
+    const refetchSize = previewFetchedSeasons(plat, data, requestSeasons);
+    if (refetchSize === null) return;
+    let second: unknown = null;
+    try {
+      second = await postSeasonsRequest(
+        plat,
+        refetchSize,
+        body,
+        stale,
+        captureHelpUrl,
+      );
+    } catch {
+      second = null;
+    }
+    if (second === STALE) return;
+    previewFetchedSeasons(plat, second ?? data, null);
   }
 
   function resetImportUi() {
@@ -307,23 +400,7 @@ export function ImportSections(props: ImportSectionsProps) {
       importMsg: `Fetching season data from ${platformLabel(platform)}…`,
     });
     try {
-      const res = await fetch(
-        `/api/import/${platform}?seasons=${requestSeasons}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ leagueId: input }),
-        },
-      );
-      if (stale()) return;
-      const data = await res.json();
-      if (stale()) return;
-      if (!res.ok) {
-        if (typeof data?.helpUrl === "string")
-          patch({ importHelpUrl: data.helpUrl });
-        throw new Error(data?.error || `Request failed (HTTP ${res.status}).`);
-      }
-      previewFetchedSeasons(platform, data);
+      await fetchSeasonsIntoPreview(platform, { leagueId: input }, stale, true);
     } catch (e) {
       if (stale()) return;
       patch({
@@ -347,17 +424,11 @@ export function ImportSections(props: ImportSectionsProps) {
       importPreview: null,
     });
     try {
-      const res = await fetch(`/api/import/sleeper?seasons=${requestSeasons}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leagueId: specificLeagueId }),
-      });
-      if (stale()) return;
-      const data = await res.json();
-      if (stale()) return;
-      if (!res.ok)
-        throw new Error(data?.error || `Request failed (HTTP ${res.status}).`);
-      previewFetchedSeasons("sleeper", data);
+      await fetchSeasonsIntoPreview(
+        "sleeper",
+        { leagueId: specificLeagueId },
+        stale,
+      );
     } catch (e) {
       if (stale()) return;
       patch({
@@ -385,17 +456,7 @@ export function ImportSections(props: ImportSectionsProps) {
       importPreview: null,
     });
     try {
-      const res = await fetch(`/api/import/yahoo?seasons=${requestSeasons}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leagueKey }),
-      });
-      if (stale()) return;
-      const data = await res.json();
-      if (stale()) return;
-      if (!res.ok)
-        throw new Error(data?.error || `Request failed (HTTP ${res.status}).`);
-      previewFetchedSeasons("yahoo", data);
+      await fetchSeasonsIntoPreview("yahoo", { leagueKey }, stale);
     } catch (e) {
       if (stale()) return;
       patch({
