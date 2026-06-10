@@ -320,6 +320,8 @@ Phases 1-16 are complete. Phase 9 Wave 2 (late July/August 2026 Reddit redraft-s
 
 - **Sleeper import tolerates partial season fetch failures.** After `discoverChain` marked seasons as `hasData`, the route fetched them sequentially in a `for...await` loop with no per-season error handling - a single `fetchSeason` failure (e.g. Sleeper returning no rosters for one old league in the chain) 502'd the whole request even when every other season succeeded. The ESPN route already handled this with `Promise.allSettled`; the Sleeper route now does the same: seasons fetch concurrently (each season's weekly matchup calls were already parallel internally; the total stays well under Sleeper's informal rate limits even at the 13-season cap), output order stays most-recent-first since `allSettled` preserves input order, partial failures return the successful seasons, and only when ALL seasons fail does the route return a 502 with the joined per-season error messages, mirroring the ESPN route's shape. No client changes - the client already consumes `ImportedSeasonRecord[]`. Route handlers have no test coverage today, so no test changes (212).
 
+- **Baseline security headers.** `next.config.mjs` now sets `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY` (nothing on the site is meant to be embedded, share pages included), and a `Permissions-Policy` denying camera/microphone/geolocation on every route; a strict CSP is deferred (Next's inline runtime scripts make it a separate project - TODO in the config). No test changes (212).
+
 ### Superseded files removed
 
 - `fetch-sleeper.js` - replaced by `/api/import/sleeper` server-side route
