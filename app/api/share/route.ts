@@ -47,16 +47,21 @@ export async function POST(req: Request) {
     );
   }
 
+  // Size-check the raw text before parsing so an oversized body is rejected
+  // without paying its parse cost. Vercel's platform body cap is the outer
+  // bound; this is the app-level one.
   let body: unknown;
   try {
-    body = await req.json();
+    const text = await req.text();
+    if (text.length > 512_000) {
+      return NextResponse.json(
+        { error: "Payload too large." },
+        { status: 413 },
+      );
+    }
+    body = JSON.parse(text);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-
-  const payloadSize = JSON.stringify(body).length;
-  if (payloadSize > 512_000) {
-    return NextResponse.json({ error: "Payload too large." }, { status: 413 });
   }
 
   const validationError = validatePayload(body);

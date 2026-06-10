@@ -5,6 +5,7 @@
 
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
+import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,18 @@ function getRedirectUri(): string {
   return `${base.replace(/\/$/, "")}/api/auth/yahoo/callback`;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  // Own namespace so OAuth attempts and league imports don't share a quota.
+  const rl = await checkRateLimit(getClientIp(req), {
+    namespace: "yahoo-oauth",
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: `Rate limit exceeded. Retry in ${rl.retryAfter}s.` },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
+  }
+
   const clientId = process.env.YAHOO_CLIENT_ID;
   if (!clientId) {
     return NextResponse.json(

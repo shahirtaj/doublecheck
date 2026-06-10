@@ -4,6 +4,7 @@
 // a hint param the UI uses to auto-fetch leagues.
 
 import { NextResponse } from "next/server";
+import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
 import {
   encryptTokens,
   exchangeAuthCode,
@@ -51,6 +52,22 @@ function clearStateCookie(res: NextResponse) {
 }
 
 export async function GET(req: Request) {
+  // Unthrottled, every bogus ?code= hit would trigger a server-side token
+  // exchange POST to Yahoo with the app's client credentials - outbound
+  // amplification that risks Yahoo throttling the app's client ID. This
+  // route only ever answers with redirects, so the rate-limit response is
+  // the same in-app error surface as the other failure paths.
+  const rl = await checkRateLimit(getClientIp(req), {
+    namespace: "yahoo-oauth",
+  });
+  if (!rl.ok) {
+    const res = NextResponse.redirect(
+      getHomeUrl(req, { yahoo: "error", reason: "rate_limited" }),
+    );
+    clearStateCookie(res);
+    return res;
+  }
+
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
