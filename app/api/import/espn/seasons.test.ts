@@ -112,6 +112,44 @@ describe("settleEspnSeasons", () => {
     expect(calls).toEqual({ 2024: 1, 2023: 2 });
   });
 
+  it("flags allNotFound (not allPrivate) when every season 404s", async () => {
+    // A typo'd or nonexistent league ID 404s every requested year. That must
+    // not read as "this league is private" - the make-it-public remedy would
+    // mislead - so the route can answer with a definitive 404 instead.
+    const { fetchOne, calls } = scriptedFetcher({
+      2025: notFoundError(2025),
+      2024: notFoundError(2024),
+    });
+
+    const { results, allPrivate, allNotFound } = await settleEspnSeasons(
+      [2025, 2024],
+      fetchOne,
+    );
+
+    expect(results).toEqual([]);
+    expect(allNotFound).toBe(true);
+    expect(allPrivate).toBe(false);
+    // Deterministic statuses still get exactly one attempt.
+    expect(calls).toEqual({ 2025: 1, 2024: 1 });
+  });
+
+  it("keeps mixed private + not-found as allPrivate", async () => {
+    // A young private league 404s the years before it existed; making the
+    // league public is still the remedy, so the private classification wins.
+    const { fetchOne } = scriptedFetcher({
+      2025: privateError(2025),
+      2024: notFoundError(2024),
+    });
+
+    const { allPrivate, allNotFound } = await settleEspnSeasons(
+      [2025, 2024],
+      fetchOne,
+    );
+
+    expect(allPrivate).toBe(true);
+    expect(allNotFound).toBe(false);
+  });
+
   it("classifies a mixed outcome: success, unretried private, retried transient", async () => {
     const { fetchOne, calls } = scriptedFetcher({
       2024: privateError(2024),

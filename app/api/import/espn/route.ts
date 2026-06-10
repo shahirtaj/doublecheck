@@ -281,12 +281,21 @@ export async function POST(req: Request) {
       { length: seasonsCount },
       (_, i) => startSeason - i,
     );
-    const { results, failed, errors, allPrivate } = await settleEspnSeasons(
-      years,
-      (year) => fetchEspnSeason(leagueId, year),
-    );
+    const { results, failed, errors, allPrivate, allNotFound } =
+      await settleEspnSeasons(years, (year) => fetchEspnSeason(leagueId, year));
 
     if (results.length === 0) {
+      // Every season 404'd: a wrong or nonexistent league ID. Definitive
+      // lookup answer, so "not found" wording - and not the private-league
+      // message, whose make-it-public remedy would mislead here.
+      if (allNotFound) {
+        return NextResponse.json(
+          {
+            error: `ESPN league "${leagueId}" not found. Check the league ID.`,
+          },
+          { status: 404 },
+        );
+      }
       // If every season failed because the league is private, surface that as
       // a 403 with a clean message instead of burying it in a 502 dump.
       if (allPrivate) {

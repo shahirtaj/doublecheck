@@ -11,10 +11,15 @@ export type SettledEspnSeasons<T> = {
   results: T[];
   failed: FailedSeason[];
   errors: string[];
-  // True when every failure was a deterministic private/not-found status and
-  // nothing succeeded - the route surfaces that as a clean 403 instead of a
-  // 502 dump.
+  // True when nothing succeeded, every failure was a deterministic
+  // private/not-found status, and at least one was private - the route
+  // surfaces that as a clean 403 instead of a 502 dump. Mixed
+  // private + not-found stays private: a young private league 404s its
+  // pre-creation years, and making the league public is still the remedy.
   allPrivate: boolean;
+  // True when nothing succeeded and EVERY failure was not-found - a wrong or
+  // nonexistent league ID, where "make your league public" would mislead.
+  allNotFound: boolean;
 };
 
 export async function settleEspnSeasons<T>(
@@ -52,13 +57,14 @@ export async function settleEspnSeasons<T>(
   // leagues that genuinely skipped a year.
   const failed: FailedSeason[] = [];
   const errors: string[] = [];
-  let allPrivate = true;
+  let sawPrivate = false;
+  let allDeterministic = true;
+  let allNotFound = true;
 
   settled.forEach((result, i) => {
     const year = years[i]!;
     if (result.status === "fulfilled") {
       results.push(result.value);
-      allPrivate = false;
     } else {
       const msg =
         result.reason instanceof Error
@@ -66,8 +72,11 @@ export async function settleEspnSeasons<T>(
           : typeof result.reason === "string"
             ? result.reason
             : "unknown error";
-      if (!msg.includes("is private.") && !msg.includes("not found"))
-        allPrivate = false;
+      const isPrivate = msg.includes("is private.");
+      const isNotFound = msg.includes("not found");
+      if (isPrivate) sawPrivate = true;
+      if (!isPrivate && !isNotFound) allDeterministic = false;
+      if (!isNotFound) allNotFound = false;
       failed.push({ season: String(year), error: msg });
       // Trailing period stripped: the route joins these with " | " and adds
       // its own terminal period, so a kept period would double up.
@@ -75,5 +84,12 @@ export async function settleEspnSeasons<T>(
     }
   });
 
-  return { results, failed, errors, allPrivate };
+  const nothingSucceeded = results.length === 0 && failed.length > 0;
+  return {
+    results,
+    failed,
+    errors,
+    allPrivate: nothingSucceeded && allDeterministic && sawPrivate,
+    allNotFound: nothingSucceeded && allNotFound,
+  };
 }
