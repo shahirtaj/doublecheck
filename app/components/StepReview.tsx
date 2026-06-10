@@ -12,7 +12,7 @@ import {
   type SeasonHistory,
 } from "@/lib/algorithm";
 import { cls } from "./styles";
-import { abbrev } from "./utils";
+import { abbrev, priorSeasonAges } from "./utils";
 import { CURRENT_YEAR, CURRENT_YEAR_STR } from "./constants";
 import type { Patch, SaveToStorageFn, State } from "./state";
 
@@ -111,6 +111,9 @@ export function StepReview(props: StepReviewProps) {
   const availablePastSeasonYears = pastSeasonYears.filter(
     (y) => !usedSeasonYears.has(String(y)),
   );
+  // Drives the Season History HARD/SOFT/ROTATED OUT labels; see the note at
+  // the list for why this ages over prior seasons, not the full history.
+  const seasonAges = priorSeasonAges(history, CURRENT_YEAR);
   // When the user opens the add form with prior seasons already filling (or
   // exceeding) the recommended lookback window, surface a heads-up that
   // further seasons won't influence schedule generation. Counts prior seasons,
@@ -332,19 +335,31 @@ export function StepReview(props: StepReviewProps) {
           </summary>
           {[...history].reverse().map((h, displayIdx) => {
             const si = history.length - 1 - displayIdx;
-            const age = history.length - si;
+            // Age within priorSeasons, NOT the full history - avoidance ages
+            // positionally over prior seasons only, and the in-progress
+            // season (absent from the map; recorded by Save & Share or a
+            // mid-season Sleeper import) drives nothing this year. Aging over
+            // the full history would shift every label one tier and
+            // contradict the matrix beside it. Its tag states the avoidance
+            // treatment ("NOT COUNTED") like its siblings - an identity tag
+            // ("CURRENT SEASON") would leave the treatment ambiguous.
+            const age = seasonAges.get(h.season);
             const tone =
-              age <= effectiveLookback.hard
-                ? "text-red-400"
-                : age <= effectiveLookback.hard + effectiveLookback.soft
-                  ? "text-amber-400"
-                  : "text-slate-600";
+              age === undefined
+                ? "text-slate-400"
+                : age <= effectiveLookback.hard
+                  ? "text-red-400"
+                  : age <= effectiveLookback.hard + effectiveLookback.soft
+                    ? "text-amber-400"
+                    : "text-slate-600";
             const label =
-              age <= effectiveLookback.hard
-                ? "HARD AVOID"
-                : age <= effectiveLookback.hard + effectiveLookback.soft
-                  ? "SOFT AVOID"
-                  : "ROTATED OUT";
+              age === undefined
+                ? "NOT COUNTED"
+                : age <= effectiveLookback.hard
+                  ? "HARD AVOID"
+                  : age <= effectiveLookback.hard + effectiveLookback.soft
+                    ? "SOFT AVOID"
+                    : "ROTATED OUT";
             return (
               <div
                 key={si}
@@ -863,7 +878,9 @@ export function StepReview(props: StepReviewProps) {
                       numeric: true,
                     });
                   }
-                  return a.name.localeCompare(b.name);
+                  return a.name.localeCompare(b.name, undefined, {
+                    numeric: true,
+                  });
                 });
                 return (
                   <div
