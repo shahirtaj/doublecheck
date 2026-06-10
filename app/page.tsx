@@ -222,7 +222,10 @@ export default function GeneratePage() {
           // Entries get the share validator's bounds treatment - malformed
           // ones are dropped instead of reaching the pin builder. Older
           // payloads lack the field; the [] default stands for those.
-          if (Array.isArray(d.rivalryPins)) {
+          // Gated on teams having hydrated too: a payload whose teams failed
+          // their own length check would leave pins pointing into an empty
+          // roster, and the pin list's name sort indexes teams directly.
+          if (Array.isArray(d.rivalryPins) && hydration.teams) {
             const storedWeekCount = d.format.weekCount as number;
             hydration.rivalryPins = d.rivalryPins.filter(
               (p: unknown): p is RivalryPin => {
