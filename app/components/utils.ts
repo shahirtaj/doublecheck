@@ -1,4 +1,6 @@
+import { describeFormat } from "@/lib/algorithm";
 import type { LookbackWindow, Matching, SeasonHistory } from "@/lib/algorithm";
+import { CURRENT_YEAR } from "./constants";
 import type {
   FailedImportSeason,
   ImportPlatform,
@@ -220,6 +222,95 @@ export function withholdPreGapSeasons(
     }
   }
   return { kept, withheldYears, gapYears: gapNums.map(String) };
+}
+
+// Cause-specific messaging for a gap-withholding decision.
+// withholdPreGapSeasons is cause-blind; this is where the causes split,
+// because the remedies differ - retry can recover a failed fetch, never a
+// roster-filtered season. `gapYears` and `failed` come from the same
+// withholding decision; `dropped` is the roster-filtered season records
+// (their team counts feed the message); `detected` is the format anchored
+// on the newest season.
+export function describeWithholdingGap(
+  gapYears: readonly string[],
+  failed: readonly FailedImportSeason[],
+  dropped: readonly ImportedSeasonRecord[],
+  detected: SelectedFormat,
+): { cause: string; remedy: string } {
+  let cause = "";
+  let remedy = "";
+  if (gapYears.length > 0) {
+    const failedYearSet = new Set(failed.map((f) => f.season.trim()));
+    const rosterSizeByYear = new Map<string, number>();
+    for (const s of dropped) {
+      const y = (s.seasonYear ?? "").trim();
+      if (y) rosterSizeByYear.set(y, s.teamNames?.length ?? 0);
+    }
+    // Every gap year came from one of the two source lists, and a
+    // fetch-failed year can't also be a roster drop (it was never fetched).
+    const fetchGaps = gapYears.filter((y) => failedYearSet.has(y));
+    const rosterGaps = gapYears.filter((y) => !failedYearSet.has(y));
+
+    const causeParts: string[] = [];
+    if (fetchGaps.length > 0) {
+      causeParts.push(`${fetchGaps.join(", ")} failed to import`);
+    }
+    if (rosterGaps.length > 0) {
+      causeParts.push(
+        `${rosterGaps
+          .map((y) => `${y} was a ${rosterSizeByYear.get(y)}-team season`)
+          .join(" and ")} (this import is ${detected.teamCount} teams)`,
+      );
+    }
+    cause = causeParts.join(", and ");
+
+    // Only advertise a remedy Add Past Season can deliver: its year
+    // dropdown reaches back the detected format's recommended lookback
+    // from the current year. gapYears are numeric by construction
+    // (withholdPreGapSeasons ignores non-numeric failed years).
+    const lookback = describeFormat(
+      detected.teamCount,
+      detected.weekCount,
+    ).lookback;
+    const oldestOfferableYear = CURRENT_YEAR - (lookback.hard + lookback.soft);
+    const fillableRosterGaps = rosterGaps.filter((y) => {
+      const n = Number(y);
+      return n >= oldestOfferableYear && n <= CURRENT_YEAR - 1;
+    });
+    if (rosterGaps.length === 0) {
+      remedy = `Retry the import, or add ${fetchGaps.join(", ")} via Add Past Season and re-import.`;
+    } else if (fetchGaps.length === 0) {
+      remedy =
+        fillableRosterGaps.length > 0
+          ? `Retrying won't change this - to keep the older seasons, add ${fillableRosterGaps.join(", ")} via Add Past Season (marking ${fillableRosterGaps.length > 1 ? "each season's" : "that season's"} doubled matchups among the current teams), then re-import.`
+          : `Retrying won't change this, and Add Past Season only reaches back to ${oldestOfferableYear}, so the older seasons can't be restored.`;
+    } else {
+      remedy =
+        fillableRosterGaps.length > 0
+          ? `Retrying may recover ${fetchGaps.join(", ")}; ${fillableRosterGaps.join(", ")} ${fillableRosterGaps.length > 1 ? "need" : "needs"} Add Past Season (marking doubles among the current teams) before a re-import can keep the older seasons.`
+          : `Retrying may recover ${fetchGaps.join(", ")}, but ${rosterGaps.join(", ")} can't be restored (Add Past Season only reaches back to ${oldestOfferableYear}).`;
+    }
+  }
+  return { cause, remedy };
+}
+
+// Import error for when nothing importable survives the withholding
+// decision - the newest attempted season itself failed - carrying the same
+// cause/remedy guidance as the partial-import warning.
+export function withholdingErrorMessage(cause: string, remedy: string): string {
+  return `${cause}, and every season that did load is older - keeping them would leave a gap in season history, which corrupts recency-based avoidance. ${remedy}`;
+}
+
+// Amber preview warning for a partial import: newer seasons survived, the
+// ones behind the gap were withheld.
+export function withholdingWarningMessage(
+  cause: string,
+  remedy: string,
+  withheldYears: readonly string[],
+): string {
+  return `${cause}, so ${withheldYears.join(", ")} ${
+    withheldYears.length > 1 ? "were" : "was"
+  } withheld - a gap in season history corrupts recency-based avoidance. ${remedy}`;
 }
 
 // Plain-text schedule export shared by Step 3's Copy button and the shared
