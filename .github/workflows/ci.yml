@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege for the GITHUB_TOKEN: every step only reads the repo.
+# Without this the token inherits the repository default, which can include
+# write scopes none of these steps need.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
