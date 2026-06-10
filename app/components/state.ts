@@ -170,6 +170,7 @@ export type SaveToStorageExtra = Partial<{
   userIds: (string | null)[];
   history: SeasonHistory[];
   manualDoubles: PairKey[];
+  rivalryPins: RivalryPin[];
   format: SelectedFormat | null;
   lookbackOverride: number | null;
   leagueName: string;

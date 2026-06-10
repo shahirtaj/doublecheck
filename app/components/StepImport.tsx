@@ -555,6 +555,9 @@ export function ImportSections(props: ImportSectionsProps) {
       ...(nextLeagueName ? { leagueName: nextLeagueName } : {}),
       manualDoubles: new Set(),
       rivalryPins: [],
+      // The pin list was just replaced, so an armed per-row Remove confirm
+      // would re-arm on whatever pin lands at that index next.
+      confirmRemovePinIndex: null,
       pinTeamA: 0,
       pinTeamB: 1,
       pinWeek: null,
@@ -565,6 +568,9 @@ export function ImportSections(props: ImportSectionsProps) {
       teams: nextTeams,
       userIds: nextUserIds,
       format: detected,
+      // The patch above hasn't flushed, so the cleared pins must ride along
+      // or the save would persist the closure's stale pin list.
+      rivalryPins: [],
       ...(nextLeagueName ? { leagueName: nextLeagueName } : {}),
       ...(leagueChanged ? { lookbackOverride: null } : {}),
     });
@@ -729,6 +735,8 @@ export function ImportSections(props: ImportSectionsProps) {
       history: remappedHistory,
       manualDoubles: new Set(),
       rivalryPins: remappedRivalryPins,
+      // Replaced pin list - drop any armed per-row Remove confirm.
+      confirmRemovePinIndex: null,
       pinTeamA: 0,
       pinTeamB: 1,
       pinWeek: null,
@@ -763,6 +771,7 @@ export function ImportSections(props: ImportSectionsProps) {
       leagueName: restoredLeagueName,
       history: remappedHistory,
       manualDoubles: [],
+      rivalryPins: remappedRivalryPins,
       lookbackOverride: null,
       platform: restoredPlatform,
     });
@@ -800,6 +809,8 @@ export function ImportSections(props: ImportSectionsProps) {
       history: [],
       manualDoubles: new Set(),
       rivalryPins: [],
+      // Replaced pin list - drop any armed per-row Remove confirm.
+      confirmRemovePinIndex: null,
       pinTeamA: 0,
       pinTeamB: 1,
       pinWeek: null,
@@ -825,6 +836,7 @@ export function ImportSections(props: ImportSectionsProps) {
       leagueName: name,
       history: [],
       manualDoubles: [],
+      rivalryPins: [],
       lookbackOverride: null,
     });
   }

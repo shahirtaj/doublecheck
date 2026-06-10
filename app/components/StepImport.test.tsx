@@ -230,6 +230,41 @@ describe("re-import after Back", () => {
     expect(h.getState().lookbackOverride).toBe(2);
   });
 
+  it("clears pins, the armed remove confirm, and the persisted pin list on apply", async () => {
+    // Apply replaces the pin list, so the armed per-row Remove confirm must
+    // disarm (it would re-arm on whatever pin lands at that index next) and
+    // the cleared list must ride the saveToStorage extras - the patch hasn't
+    // flushed at save time, so the closure still sees the old pins.
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse([importedSeason("2025"), importedSeason("2024")]),
+        ),
+    );
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      leagueId: "123456789",
+      priorFormat: { teamCount: 10, weekCount: 13 },
+      teams: Array.from({ length: 10 }, (_, i) => `Team ${i + 1}`),
+      rivalryPins: [{ teamA: 0, teamB: 1, week: 3 }],
+      confirmRemovePinIndex: 0,
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    await screen.findByText("2 seasons: 2025, 2024");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(h.getState().rivalryPins).toEqual([]);
+    expect(h.getState().confirmRemovePinIndex).toBeNull();
+    expect(h.saveToStorage).toHaveBeenCalledWith(
+      expect.objectContaining({ rivalryPins: [] }),
+    );
+  });
+
   it("drops existing history when a same-shape import shares no roster member", async () => {
     // A commissioner of two leagues imports league B over league A without
     // Reset: same shape, but zero roster overlap (different names, no IDs).

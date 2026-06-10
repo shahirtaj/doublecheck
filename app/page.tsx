@@ -7,6 +7,7 @@ import {
   buildSchedule,
   describeFormat,
   type LookbackWindow,
+  type RivalryPin,
 } from "@/lib/algorithm";
 import { STEP_ORDER, STORAGE_KEY } from "./components/constants";
 import type { ImportPlatform, ImportSource, Step } from "./components/types";
@@ -216,6 +217,36 @@ export default function GeneratePage() {
             hydration.history = normalizeHistory(d.history);
           if (Array.isArray(d.manualDoubles))
             hydration.manualDoubles = new Set(d.manualDoubles);
+          // Rivalry pins round-trip safely: team indices are assigned once
+          // at import and the persisted teams restore index-identically.
+          // Entries get the share validator's bounds treatment - malformed
+          // ones are dropped instead of reaching the pin builder. Older
+          // payloads lack the field; the [] default stands for those.
+          if (Array.isArray(d.rivalryPins)) {
+            const storedWeekCount = d.format.weekCount as number;
+            hydration.rivalryPins = d.rivalryPins.filter(
+              (p: unknown): p is RivalryPin => {
+                if (!p || typeof p !== "object") return false;
+                const pin = p as Record<string, unknown>;
+                return (
+                  typeof pin.teamA === "number" &&
+                  Number.isInteger(pin.teamA) &&
+                  typeof pin.teamB === "number" &&
+                  Number.isInteger(pin.teamB) &&
+                  pin.teamA >= 0 &&
+                  pin.teamA < storedTeamCount &&
+                  pin.teamB >= 0 &&
+                  pin.teamB < storedTeamCount &&
+                  pin.teamA !== pin.teamB &&
+                  (pin.week === null ||
+                    (typeof pin.week === "number" &&
+                      Number.isInteger(pin.week) &&
+                      pin.week >= 1 &&
+                      pin.week <= storedWeekCount))
+                );
+              },
+            );
+          }
           if (typeof d.lookbackOverride === "number")
             hydration.lookbackOverride = d.lookbackOverride;
           if (typeof d.leagueName === "string")
@@ -258,6 +289,7 @@ export default function GeneratePage() {
           userIds,
           history,
           manualDoubles: [...manualDoubles],
+          rivalryPins,
           format: selectedFormat,
           lookbackOverride,
           leagueName,
@@ -274,6 +306,7 @@ export default function GeneratePage() {
       userIds,
       history,
       manualDoubles,
+      rivalryPins,
       selectedFormat,
       lookbackOverride,
       leagueName,

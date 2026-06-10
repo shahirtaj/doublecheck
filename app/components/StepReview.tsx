@@ -1397,7 +1397,13 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
                   type="button"
                   className={cls.dangerBtn}
                   onClick={() =>
-                    patch({ rivalryPins: [], confirmClearRivalryPins: false })
+                    patch({
+                      rivalryPins: [],
+                      confirmClearRivalryPins: false,
+                      // The list is gone - an armed per-row Remove confirm
+                      // would re-arm on the next pin added at that index.
+                      confirmRemovePinIndex: null,
+                    })
                   }
                 >
                   Yes, clear
