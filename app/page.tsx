@@ -293,6 +293,16 @@ export default function GeneratePage() {
     patch({ ...hydration, ...oauthPatch, loading: false });
   }, [patch]);
 
+  // Persist the active step on every navigation. The other save triggers
+  // are data edits, and the navigation handlers can't do it themselves:
+  // Step 1's Next saves and patches step in the same tick (the closure
+  // trap - it would persist the pre-patch step), and the stepper/Back
+  // clicks don't save at all. This effect runs after the patch flushes, so
+  // the closure is fresh, and last-write-wins over any same-tick handler
+  // save. The ref keeps it to actual step changes (saveToStorage's
+  // identity changes with every dep); no saves while the import UI is up
+  // (format null - persisting then would wipe the stored league's format).
+  const lastSavedStepRef = useRef<Step | null>(null);
   const saveToStorage = useCallback(
     (extra: SaveToStorageExtra = {}) => {
       try {
@@ -327,6 +337,12 @@ export default function GeneratePage() {
       platform,
     ],
   );
+  useEffect(() => {
+    if (loading || !selectedFormat) return;
+    if (lastSavedStepRef.current === step) return;
+    lastSavedStepRef.current = step;
+    saveToStorage();
+  }, [step, loading, selectedFormat, saveToStorage]);
 
   const scheduleYear = new Date().getFullYear();
   const recommendedLookbackTotal = format
