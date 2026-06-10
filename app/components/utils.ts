@@ -1,5 +1,10 @@
-import { describeFormat } from "@/lib/algorithm";
-import type { LookbackWindow, Matching, SeasonHistory } from "@/lib/algorithm";
+import { describeFormat, pairKey, unpackPairKey } from "@/lib/algorithm";
+import type {
+  LookbackWindow,
+  Matching,
+  PairKey,
+  SeasonHistory,
+} from "@/lib/algorithm";
 import { CURRENT_YEAR } from "./constants";
 import type {
   FailedImportSeason,
@@ -33,6 +38,41 @@ export function detectFormatFromImport(
   if (teamCount < 2 || teamCount % 2 !== 0) return null;
   if (weekCount < teamCount - 1 || weekCount > 2 * (teamCount - 1)) return null;
   return { teamCount, weekCount };
+}
+
+// Cause-specific message for a failed format detection.
+// detectFormatFromImport answers "is this schedulable?" with null; this
+// names WHY, because the remedies differ and the old catch-all ("need an
+// even team count and a regular-season week count") told an 8-team/15-week
+// commissioner - whose league is real, just out of scope because some
+// opponents play three times - nothing actionable. Week-count bounds reuse
+// the algorithm validate() phrasing ("two full round-robins", "incomplete
+// round-robins are not supported") so the two surfaces describe the same
+// limits in the same words.
+export function formatDetectionErrorMessage(
+  season: ImportedSeasonRecord,
+): string {
+  const teamCount = season.teamNames?.length ?? 0;
+  const weekCount = season.regWeeks ?? 0;
+  const prefix = "Could not detect a valid league format -";
+  if (teamCount === 0) {
+    return `${prefix} the most recent season has no team data.`;
+  }
+  if (teamCount % 2 !== 0) {
+    return `${prefix} the most recent season has ${teamCount} teams, and odd-sized leagues are not supported.`;
+  }
+  if (weekCount <= 0) {
+    return `${prefix} the most recent season is missing a regular-season week count.`;
+  }
+  if (weekCount < teamCount - 1) {
+    return `${prefix} a ${weekCount}-week regular season is shorter than a single round-robin for ${teamCount} teams (${teamCount - 1} weeks), and incomplete round-robins are not supported.`;
+  }
+  if (weekCount > 2 * (teamCount - 1)) {
+    return `${prefix} a ${weekCount}-week regular season is longer than two full round-robins for ${teamCount} teams (${2 * (teamCount - 1)} weeks), so some opponents play three or more times. DoubleCheck only schedules each opponent once or twice.`;
+  }
+  // Unreachable when callers gate on a null detection; kept as a fallback so
+  // a future caller can't render an empty message.
+  return `${prefix} the most recent season's data is incomplete.`;
 }
 
 // "espn" needs to render as the full acronym; "yahoo" renders with the
@@ -116,6 +156,21 @@ export function priorSeasons(
   });
 }
 
+// Age of each prior season, keyed by season label - the same positional
+// aging buildAvoidMap applies to priorSeasons(history, year), so the Season
+// History list's HARD/SOFT/ROTATED OUT labels match what actually drives
+// avoidance. Rows missing from the map (the in-progress season Save & Share
+// records) drive no avoidance this year.
+export function priorSeasonAges(
+  history: readonly SeasonHistory[],
+  year: number,
+): Map<string, number> {
+  const prior = priorSeasons(history, year);
+  const ages = new Map<string, number>();
+  prior.forEach((row, idx) => ages.set(row.season, prior.length - idx));
+  return ages;
+}
+
 // One row per season, oldest first. Keeps the LAST row for each season label
 // so fresher data wins over whatever came before it, then sorts ascending by
 // numeric year (stable sort, so rows with unparseable years keep their
@@ -135,6 +190,116 @@ export function normalizeHistory(
       if (Number.isNaN(aN) || Number.isNaN(bN)) return 0;
       return aN - bN;
     });
+}
+
+// Convert imported season records (oldest first) into history rows aligned
+// with the freshly sorted roster. Rows prefer userid format - platform user
+// IDs follow the manager across team renames. A pair whose member has no
+// user ID can't be expressed in that format and is skipped at write time,
+// openly - the same pairs resolveKey already discarded when older code wrote
+// them as broken half-keys ("ABC:"), so effective avoidance is unchanged.
+// Deliberately NOT demoted to whole-season index format when some IDs are
+// missing: that would key EVERY pair by team name, trading the whole
+// league's rename-proof records for the one ownerless team's - renames are
+// routine in fantasy, ownerless slots are rare.
+// Only seasons with NO user IDs at all (manual platforms, fully ownerless
+// imports) use index format: each double's indices point into that season's
+// own platform-ordered teamNames, so they're remapped by team name onto the
+// sorted roster. Pairs naming teams no longer in the league can't be
+// expressed as roster indices and are dropped - the same fate resolveKey
+// gives departed users.
+export function buildImportedHistoryRows(
+  seasonsOldestFirst: readonly ImportedSeasonRecord[],
+  sortedTeams: readonly string[],
+): SeasonHistory[] {
+  const indexByName = new Map<string, number>();
+  sortedTeams.forEach((name, i) => indexByName.set(name, i));
+  return seasonsOldestFirst.map((season) => {
+    const sUserIds = season.userIds;
+    const hasUids = sUserIds.some((id) => id != null);
+    let doubles: PairKey[];
+    if (hasUids) {
+      doubles = season.doubles.flatMap((key) => {
+        const [a, b] = unpackPairKey(key);
+        const ua = sUserIds[a];
+        const ub = sUserIds[b];
+        return ua != null && ub != null ? [[ua, ub].sort().join(":")] : [];
+      });
+    } else {
+      doubles = season.doubles.flatMap((key) => {
+        const [a, b] = unpackPairKey(key);
+        const i = indexByName.get(season.teamNames[a] ?? "");
+        const j = indexByName.get(season.teamNames[b] ?? "");
+        return i !== undefined && j !== undefined && i !== j
+          ? [pairKey(i, j)]
+          : [];
+      });
+    }
+    return {
+      season: season.seasonYear || String(CURRENT_YEAR - 1),
+      doubles,
+      format: hasUids ? "userid" : "index",
+    };
+  });
+}
+
+// True when the imported season's roster plausibly belongs to the league
+// currently loaded. IDs are compared first when both sides have them - a
+// disjoint ID set is a different league even if team names collide (two
+// leagues full of default "Team N" names must not merge) - with shared team
+// names as the fallback when either side has no IDs. Extends the import
+// flow's formatChanged decision: a same-shape import of a DIFFERENT league
+// must drop existing history exactly like a format change, or the old
+// league's rows would silently feed the new league's avoidance. Same-league
+// re-imports always share returning managers' IDs, so zero overlap means a
+// league switch - or a roster so fully turned over that the old history
+// couldn't be mapped onto it anyway; dropping is the safe answer both ways.
+export function sharesRoster(
+  teams: readonly string[],
+  userIds: readonly (string | null)[],
+  season: ImportedSeasonRecord,
+): boolean {
+  const currentIds = new Set(userIds.filter((id): id is string => id != null));
+  const seasonIds = season.userIds.filter((id): id is string => id != null);
+  if (currentIds.size > 0 && seasonIds.length > 0) {
+    return seasonIds.some((id) => currentIds.has(id));
+  }
+  const names = new Set(teams);
+  return season.teamNames.some((n) => names.has(n));
+}
+
+// Re-key index-format history rows that survive a same-league re-import.
+// Index keys are positions in the roster array, and a re-import re-sorts the
+// roster - a rename that changes the alphabetical order shifts every
+// position after it, so surviving rows (manual Add Past Season entries,
+// no-ID Save & Share rows) are remapped old position -> team name -> new
+// position. Pairs whose team name is no longer in the new roster can't be
+// expressed as roster indices and are dropped - same policy as
+// buildImportedHistoryRows. userid rows pass through untouched (IDs don't
+// care about positions), as do legacy ":" keys inside index rows (mirroring
+// handleApplyLinkImport's remap tolerance).
+export function remapIndexRowsByName(
+  rows: readonly SeasonHistory[],
+  oldTeams: readonly string[],
+  newTeams: readonly string[],
+): SeasonHistory[] {
+  const newIndexByName = new Map<string, number>();
+  newTeams.forEach((name, i) => newIndexByName.set(name, i));
+  return rows.map((row) => {
+    if (row.format === "userid") return row;
+    return {
+      ...row,
+      doubles: (row.doubles ?? []).flatMap((key) => {
+        if (key.indexOf(":") >= 0) return [key];
+        const [a, b] = unpackPairKey(key);
+        const i = newIndexByName.get(oldTeams[a] ?? "");
+        const j = newIndexByName.get(oldTeams[b] ?? "");
+        return i !== undefined && j !== undefined && i !== j
+          ? [pairKey(i, j)]
+          : [];
+      }),
+    };
+  });
 }
 
 // Merge freshly imported seasons into existing history. Imported data always

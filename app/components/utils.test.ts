@@ -3,15 +3,20 @@ import type { LookbackWindow, Matching, SeasonHistory } from "@/lib/algorithm";
 import { CURRENT_YEAR } from "./constants";
 import type { ImportedSeasonRecord, SelectedFormat } from "./types";
 import {
+  buildImportedHistoryRows,
   buildScheduleText,
   computeDisplayWeeks,
   deriveLookback,
   describeWithholdingGap,
   detectFormatFromImport,
   extractSlug,
+  formatDetectionErrorMessage,
   mergeImportedHistory,
   normalizeHistory,
+  priorSeasonAges,
   priorSeasons,
+  remapIndexRowsByName,
+  sharesRoster,
   withholdingErrorMessage,
   withholdingWarningMessage,
   withholdPreGapSeasons,
@@ -156,6 +161,49 @@ describe("detectFormatFromImport", () => {
   });
 });
 
+describe("formatDetectionErrorMessage", () => {
+  it("names the three-matchups cause for a too-long regular season", () => {
+    // The case that motivated cause-specific messaging: a real 8-team /
+    // 15-week league (someone plays a third matchup) is out of scope, not
+    // malformed - the message must say which, or the commissioner has
+    // nothing to act on.
+    expect(formatDetectionErrorMessage(makeSeason(8, 15))).toBe(
+      "Could not detect a valid league format - a 15-week regular season is longer than two full round-robins for 8 teams (14 weeks), so some opponents play three or more times. DoubleCheck only schedules each opponent once or twice.",
+    );
+  });
+
+  it("names the incomplete-round-robin cause for a too-short regular season", () => {
+    expect(formatDetectionErrorMessage(makeSeason(12, 9))).toBe(
+      "Could not detect a valid league format - a 9-week regular season is shorter than a single round-robin for 12 teams (11 weeks), and incomplete round-robins are not supported.",
+    );
+  });
+
+  it("names an odd team count", () => {
+    expect(formatDetectionErrorMessage(makeSeason(11, 13))).toBe(
+      "Could not detect a valid league format - the most recent season has 11 teams, and odd-sized leagues are not supported.",
+    );
+  });
+
+  it("names a missing regular-season week count", () => {
+    expect(formatDetectionErrorMessage(makeSeason(10, undefined))).toBe(
+      "Could not detect a valid league format - the most recent season is missing a regular-season week count.",
+    );
+  });
+
+  it("names missing team data", () => {
+    expect(
+      formatDetectionErrorMessage({
+        teamNames: [],
+        userIds: [],
+        doubles: [],
+        regWeeks: 13,
+      }),
+    ).toBe(
+      "Could not detect a valid league format - the most recent season has no team data.",
+    );
+  });
+});
+
 describe("deriveLookback", () => {
   const formatLookback: LookbackWindow = { hard: 4, soft: 3 };
 
@@ -280,6 +328,114 @@ describe("priorSeasons", () => {
   });
 });
 
+describe("sharesRoster", () => {
+  const season = (
+    teamNames: string[],
+    seasonUserIds: (string | null)[],
+  ): ImportedSeasonRecord => ({
+    teamNames,
+    userIds: seasonUserIds,
+    doubles: [],
+  });
+
+  it("matches on a shared user ID even when every name differs", () => {
+    expect(
+      sharesRoster(
+        ["Old Name A", "Old Name B"],
+        ["u1", "u2"],
+        season(["New Name A", "New Name B"], ["u2", "u9"]),
+      ),
+    ).toBe(true);
+  });
+
+  it("treats disjoint ID sets as a different league even when names collide", () => {
+    // Two leagues full of default "Team N" names must not merge.
+    expect(
+      sharesRoster(
+        ["Team 1", "Team 2"],
+        ["u1", "u2"],
+        season(["Team 1", "Team 2"], ["u8", "u9"]),
+      ),
+    ).toBe(false);
+  });
+
+  it("falls back to name overlap when either side has no IDs", () => {
+    expect(
+      sharesRoster(
+        ["Alpha", "Bravo"],
+        [null, null],
+        season(["Bravo", "Charlie"], ["u1", "u2"]),
+      ),
+    ).toBe(true);
+  });
+
+  it("returns false when nothing overlaps", () => {
+    expect(
+      sharesRoster(
+        ["Alpha", "Bravo"],
+        [null, null],
+        season(["Charlie", "Delta"], [null, null]),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("remapIndexRowsByName", () => {
+  it("re-keys index pairs onto the re-sorted roster and drops vanished names", () => {
+    // "Alpha" renamed to "Whiskey": old sorted order [Alpha, Bravo, Zed]
+    // becomes [Bravo, Whiskey, Zed], shifting Bravo and stranding Alpha.
+    const rows = remapIndexRowsByName(
+      [{ season: "2023", doubles: ["0-1", "1-2"], format: "index" }],
+      ["Alpha", "Bravo", "Zed"],
+      ["Bravo", "Whiskey", "Zed"],
+    );
+    // (Alpha, Bravo) dropped - Alpha's name is gone; (Bravo, Zed) -> (0, 2).
+    expect(rows).toEqual([
+      { season: "2023", doubles: ["0-2"], format: "index" },
+    ]);
+  });
+
+  it("passes userid rows and legacy colon keys through untouched", () => {
+    const rows = remapIndexRowsByName(
+      [
+        { season: "2022", doubles: ["u1:u2"], format: "userid" },
+        { season: "2023", doubles: ["u1:u2", "0-1"], format: "index" },
+      ],
+      ["Alpha", "Bravo"],
+      ["Alpha", "Bravo"],
+    );
+    expect(rows).toEqual([
+      { season: "2022", doubles: ["u1:u2"], format: "userid" },
+      { season: "2023", doubles: ["u1:u2", "0-1"], format: "index" },
+    ]);
+  });
+});
+
+describe("priorSeasonAges", () => {
+  const row = (season: string): SeasonHistory => ({
+    season,
+    doubles: [],
+    format: "index",
+  });
+
+  it("ages prior seasons positionally and omits the in-progress season", () => {
+    const ages = priorSeasonAges(
+      [row("2023"), row("2024"), row("2025"), row("2026")],
+      2026,
+    );
+    expect(ages.get("2025")).toBe(1);
+    expect(ages.get("2024")).toBe(2);
+    expect(ages.get("2023")).toBe(3);
+    expect(ages.has("2026")).toBe(false);
+  });
+
+  it("matches full-history aging when no in-progress season is recorded", () => {
+    const ages = priorSeasonAges([row("2024"), row("2025")], 2026);
+    expect(ages.get("2025")).toBe(1);
+    expect(ages.get("2024")).toBe(2);
+  });
+});
+
 describe("normalizeHistory", () => {
   it("keeps the last row for a duplicated year and re-sorts", () => {
     const rows: SeasonHistory[] = [
@@ -380,6 +536,80 @@ describe("mergeImportedHistory", () => {
     expect(
       mergeImportedHistory(existing, imported).map((h) => h.season),
     ).toEqual(["2024", "2025", "2026"]);
+  });
+});
+
+describe("buildImportedHistoryRows", () => {
+  // Platform order differs from alphabetical so index remapping is visible:
+  // sorted roster is [Alpha, Mike, Zed] -> indices 0, 1, 2.
+  const sortedTeams = ["Alpha", "Mike", "Zed"];
+  const season = (
+    overrides: Partial<ImportedSeasonRecord>,
+  ): ImportedSeasonRecord => ({
+    seasonYear: "2024",
+    teamNames: ["Zed", "Alpha", "Mike"],
+    userIds: ["u-zed", "u-alpha", "u-mike"],
+    doubles: [],
+    ...overrides,
+  });
+
+  it("uses userid format when every team has a user ID", () => {
+    const rows = buildImportedHistoryRows(
+      [season({ doubles: ["0-1", "1-2"] })],
+      sortedTeams,
+    );
+    expect(rows).toEqual([
+      {
+        season: "2024",
+        doubles: ["u-alpha:u-zed", "u-alpha:u-mike"],
+        format: "userid",
+      },
+    ]);
+  });
+
+  it("keeps userid format when an ID is missing, dropping that team's pairs", () => {
+    // Zed has no owner. The row stays userid format (IDs survive team
+    // renames; demoting the whole season to index format would key every
+    // pair by name) and Zed's pairs are skipped openly - the same pairs
+    // resolveKey already discarded when they arrived as broken "u-alpha:"
+    // half-keys.
+    const rows = buildImportedHistoryRows(
+      [
+        season({
+          userIds: [null, "u-alpha", "u-mike"],
+          doubles: ["0-1", "1-2"],
+        }),
+      ],
+      sortedTeams,
+    );
+    // (Zed, Alpha) dropped - Zed has no ID; (Alpha, Mike) kept as userid key.
+    expect(rows).toEqual([
+      { season: "2024", doubles: ["u-alpha:u-mike"], format: "userid" },
+    ]);
+  });
+
+  it("drops index pairs naming teams no longer in the roster", () => {
+    const rows = buildImportedHistoryRows(
+      [
+        season({
+          userIds: [null, null, null],
+          teamNames: ["Zed", "Departed", "Mike"],
+          doubles: ["0-1", "0-2"],
+        }),
+      ],
+      sortedTeams,
+    );
+    expect(rows).toEqual([
+      { season: "2024", doubles: ["1-2"], format: "index" },
+    ]);
+  });
+
+  it("labels a season missing its year as the previous year", () => {
+    const rows = buildImportedHistoryRows(
+      [season({ seasonYear: "" })],
+      sortedTeams,
+    );
+    expect(rows[0]!.season).toBe(String(CURRENT_YEAR - 1));
   });
 });
 

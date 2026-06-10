@@ -23,6 +23,12 @@ export type State = {
   step: Step;
   furthestStep: Step;
   selectedFormat: SelectedFormat | null;
+  // Baseline for the import flow's formatChanged decision. Back clears
+  // selectedFormat to re-enter the import UI but leaves teams/history loaded;
+  // this keeps the cleared format so a re-import can tell "same league shape,
+  // merge into existing history" from "format change, drop it". Ephemeral —
+  // a reload hydrates selectedFormat directly, so this never needs persisting.
+  priorFormat: SelectedFormat | null;
   teams: string[];
   userIds: (string | null)[];
   leagueName: string;
@@ -86,6 +92,7 @@ export const initialState: State = {
   step: "teams",
   furthestStep: "teams",
   selectedFormat: null,
+  priorFormat: null,
   teams: [],
   userIds: [],
   leagueName: "",
@@ -166,6 +173,7 @@ export type SaveToStorageExtra = Partial<{
   format: SelectedFormat | null;
   lookbackOverride: number | null;
   leagueName: string;
+  platform: ImportPlatform;
 }>;
 
 export type SaveToStorageFn = (extra?: SaveToStorageExtra) => void;
