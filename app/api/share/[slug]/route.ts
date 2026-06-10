@@ -45,8 +45,11 @@ export async function GET(
   try {
     data = await getRedis().get(`share:${slug}`);
   } catch (e) {
+    // Raw client errors can expose backend internals (Upstash auth/URL
+    // messages); log them and answer generically.
+    console.error("[/api/share/[slug]] Redis read failed:", e);
     return NextResponse.json(
-      { error: (e as Error).message || "Could not read share storage." },
+      { error: "Could not read share storage." },
       { status: 502 },
     );
   }

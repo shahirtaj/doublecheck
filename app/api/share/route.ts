@@ -64,12 +64,39 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
+  // Store only the known fields. Persisting the raw body would also host
+  // arbitrary unvalidated extra keys under our domain (a free JSON dead-drop,
+  // re-served verbatim by the GET route) - this is an open endpoint.
+  const b = body as Record<string, unknown>;
+  const schedule = b.schedule as Record<string, unknown>;
+  const stored = {
+    format: b.format,
+    teams: b.teams,
+    userIds: b.userIds,
+    leagueName: b.leagueName,
+    seasonYear: b.seasonYear,
+    platform: b.platform,
+    history: b.history,
+    manualDoubles: b.manualDoubles,
+    rivalryPins: b.rivalryPins,
+    schedule: {
+      weeks: schedule.weeks,
+      displayWeeks: schedule.displayWeeks,
+      doubledPairs: schedule.doubledPairs,
+      softRepeated: schedule.softRepeated,
+      hardRepeated: schedule.hardRepeated,
+      clean: schedule.clean,
+      format: schedule.format,
+      rivalryPlacements: schedule.rivalryPlacements,
+    },
+  };
+
   // Generate a slug; SETNX retries on the (extremely unlikely) collision.
   let slug: string | null = null;
   for (let i = 0; i < MAX_SLUG_ATTEMPTS; i++) {
     const candidate = generateSlug();
     try {
-      const result = await getRedis().set(`share:${candidate}`, body, {
+      const result = await getRedis().set(`share:${candidate}`, stored, {
         nx: true,
         ex: TTL_SECONDS,
       });
@@ -78,8 +105,11 @@ export async function POST(req: Request) {
         break;
       }
     } catch (e) {
+      // Raw client errors can expose backend internals (Upstash auth/URL
+      // messages); log them and answer generically.
+      console.error("[/api/share] Redis write failed:", e);
       return NextResponse.json(
-        { error: (e as Error).message || "Could not write to share storage." },
+        { error: "Could not write to share storage." },
         { status: 502 },
       );
     }

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_DOUBLE_KEY_LENGTH,
   MAX_LEAGUE_NAME_LENGTH,
+  MAX_SEASON_LABEL_LENGTH,
   MAX_TEAM_NAME_LENGTH,
+  MAX_USER_ID_LENGTH,
   validatePayload,
 } from "./validate";
 
@@ -210,12 +213,115 @@ describe("validatePayload", () => {
       );
     });
 
-    it("rejects a pin week that is neither null nor an integer", () => {
+    it("rejects a pin week that is neither null nor an in-range integer", () => {
+      const expected =
+        "rivalryPin.week must be null or an integer between 1 and format.weekCount.";
+      for (const week of ["3", 0, 4, 2.5]) {
+        const payload = validPayload();
+        payload.rivalryPins = [{ teamA: 0, teamB: 1, week }];
+        expect(validatePayload(payload)).toBe(expected);
+      }
+    });
+
+    it("rejects out-of-range or identical pin team indices", () => {
+      const expected =
+        "Rivalry pin team indices must be distinct and in [0, teamCount).";
+      for (const pin of [
+        { teamA: 5000, teamB: 1, week: null },
+        { teamA: 0, teamB: -1, week: null },
+        { teamA: 2, teamB: 2, week: null },
+      ]) {
+        const payload = validPayload();
+        payload.rivalryPins = [pin];
+        expect(validatePayload(payload)).toBe(expected);
+      }
+    });
+  });
+
+  describe("userIds, history, and manualDoubles contents", () => {
+    it("rejects a userIds/teamCount length mismatch", () => {
       const payload = validPayload();
-      payload.rivalryPins = [{ teamA: 0, teamB: 1, week: "3" }];
+      payload.userIds = [null, null, null];
       expect(validatePayload(payload)).toBe(
-        "rivalryPin.week must be null or an integer.",
+        "userIds length must match format.teamCount.",
       );
+    });
+
+    it("rejects userIds entries that are neither null nor short strings", () => {
+      const expected = `userIds must be null or strings of at most ${MAX_USER_ID_LENGTH} characters.`;
+      for (const bad of [7, {}, "x".repeat(MAX_USER_ID_LENGTH + 1)]) {
+        const payload = validPayload();
+        payload.userIds = [bad, null, null, null];
+        expect(validatePayload(payload)).toBe(expected);
+      }
+    });
+
+    it("accepts well-formed history rows of both formats", () => {
+      const payload = validPayload();
+      payload.userIds = ["u1", "u2", "u3", "u4"];
+      payload.history = [
+        { season: "2023", doubles: ["u1:u2"], format: "userid" },
+        { season: "2024", doubles: ["0-1", "2-3"], format: "index" },
+        // format omitted: rows from older payloads being re-shared are
+        // treated as index format by the client.
+        { season: "2025", doubles: ["1-2"] },
+      ];
+      expect(validatePayload(payload)).toBeNull();
+    });
+
+    it("rejects history rows that are not objects or lack a season label", () => {
+      const payload = validPayload();
+      payload.history = [null];
+      expect(validatePayload(payload)).toBe(
+        "Each history row must be an object.",
+      );
+      payload.history = [{ doubles: [], format: "index" }];
+      expect(validatePayload(payload)).toBe(
+        `history.season must be a string of at most ${MAX_SEASON_LABEL_LENGTH} characters.`,
+      );
+    });
+
+    it("rejects unknown history formats and non-array doubles", () => {
+      const payload = validPayload();
+      payload.history = [{ season: "2024", doubles: [], format: "names" }];
+      expect(validatePayload(payload)).toBe(
+        'history.format must be "userid" or "index" when provided.',
+      );
+      payload.history = [{ season: "2024", doubles: "x", format: "index" }];
+      expect(validatePayload(payload)).toBe(
+        "history.doubles must be an array.",
+      );
+    });
+
+    it("rejects out-of-range index-format history doubles", () => {
+      const expected =
+        'Each index-format double must be "i-j" with i < j < teamCount.';
+      for (const key of ["999-999", "0-4", "1-0", "0:1", 7]) {
+        const payload = validPayload();
+        payload.history = [{ season: "2024", doubles: [key], format: "index" }];
+        expect(validatePayload(payload)).toBe(expected);
+      }
+    });
+
+    it("rejects malformed userid-format history doubles", () => {
+      const expected = 'Each userid-format double must be an "idA:idB" string.';
+      for (const key of ["0-1", 7, "x".repeat(MAX_DOUBLE_KEY_LENGTH + 1)]) {
+        const payload = validPayload();
+        payload.history = [
+          { season: "2024", doubles: [key], format: "userid" },
+        ];
+        expect(validatePayload(payload)).toBe(expected);
+      }
+    });
+
+    it("rejects manualDoubles outside the roster", () => {
+      const expected =
+        'Each manual double must be "i-j" with i < j < teamCount.';
+      for (const key of ["999-999", "0-4", null]) {
+        const payload = validPayload();
+        payload.manualDoubles = [key];
+        expect(validatePayload(payload)).toBe(expected);
+      }
     });
   });
 
@@ -309,7 +415,20 @@ describe("validatePayload", () => {
             ],
           }),
         ),
-      ).toBe("rivalryPlacement.pinnedWeek must be null or an integer.");
+      ).toBe(
+        "rivalryPlacement.pinnedWeek must be null or an integer between 1 and format.weekCount.",
+      );
+      expect(
+        validatePayload(
+          withSchedule({
+            rivalryPlacements: [
+              { teamA: 0, teamB: 1, pinnedWeek: null, placedWeek: 9 },
+            ],
+          }),
+        ),
+      ).toBe(
+        "rivalryPlacement.placedWeek must be between 1 and format.weekCount.",
+      );
     });
   });
 });

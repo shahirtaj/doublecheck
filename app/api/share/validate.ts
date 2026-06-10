@@ -4,6 +4,9 @@
 export const MAX_TEAM_COUNT = 32;
 export const MAX_TEAM_NAME_LENGTH = 64;
 export const MAX_LEAGUE_NAME_LENGTH = 128;
+export const MAX_USER_ID_LENGTH = 128;
+export const MAX_SEASON_LABEL_LENGTH = 16;
+export const MAX_DOUBLE_KEY_LENGTH = 256;
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -79,14 +82,84 @@ export function validatePayload(body: unknown): string | null {
     return "platform must be a string when provided.";
   }
 
+  // Index pair key as the client builds them with pairKey(): "i-j" with
+  // i < j, both inside the roster. Restore indexes oldToNew[i]! with these,
+  // so an out-of-range index would smuggle undefined into the importer's
+  // state - range-check them like the weeks arrays.
+  const isIndexPairKey = (v: unknown): boolean => {
+    if (typeof v !== "string" || !/^\d{1,3}-\d{1,3}$/.test(v)) return false;
+    const dash = v.indexOf("-");
+    const i = Number(v.slice(0, dash));
+    const j = Number(v.slice(dash + 1));
+    return i < j && j < teamCount;
+  };
+
   if (!Array.isArray(body.userIds)) return "userIds must be an array.";
+  if (body.userIds.length !== teamCount) {
+    return "userIds length must match format.teamCount.";
+  }
+  if (
+    !body.userIds.every(
+      (u) =>
+        u === null || (typeof u === "string" && u.length <= MAX_USER_ID_LENGTH),
+    )
+  ) {
+    return `userIds must be null or strings of at most ${MAX_USER_ID_LENGTH} characters.`;
+  }
+
+  // History rows feed the importer's avoidance window on restore, so their
+  // shape is validated in full. format may be absent on rows from older
+  // payloads being re-shared; the client treats those as index format, so
+  // they get the index-key check.
   if (!Array.isArray(body.history)) return "history must be an array.";
+  const maxDoublesPerSeason = (teamCount * (teamCount - 1)) / 2;
+  for (const row of body.history) {
+    if (!isPlainObject(row)) return "Each history row must be an object.";
+    if (
+      typeof row.season !== "string" ||
+      row.season.length > MAX_SEASON_LABEL_LENGTH
+    ) {
+      return `history.season must be a string of at most ${MAX_SEASON_LABEL_LENGTH} characters.`;
+    }
+    if (
+      row.format !== undefined &&
+      row.format !== "userid" &&
+      row.format !== "index"
+    ) {
+      return 'history.format must be "userid" or "index" when provided.';
+    }
+    if (!Array.isArray(row.doubles)) {
+      return "history.doubles must be an array.";
+    }
+    if (row.doubles.length > maxDoublesPerSeason) {
+      return "history.doubles has more entries than the roster has pairs.";
+    }
+    if (row.format === "userid") {
+      if (
+        !row.doubles.every(
+          (k) =>
+            typeof k === "string" &&
+            k.length <= MAX_DOUBLE_KEY_LENGTH &&
+            k.includes(":"),
+        )
+      ) {
+        return 'Each userid-format double must be an "idA:idB" string.';
+      }
+    } else if (!row.doubles.every(isIndexPairKey)) {
+      return 'Each index-format double must be "i-j" with i < j < teamCount.';
+    }
+  }
+
   if (!Array.isArray(body.manualDoubles))
     return "manualDoubles must be an array.";
+  if (!body.manualDoubles.every(isIndexPairKey)) {
+    return 'Each manual double must be "i-j" with i < j < teamCount.';
+  }
 
   // rivalryPins is optional (older clients won't send it). Each pin has
-  // integer team indices and a week that's either an integer or null
-  // ("any week"). Loose validation, matching the doubledPairs treatment.
+  // distinct in-range team indices and a week that's either in range or
+  // null ("any week") - restore remaps the indices through oldToNew, so
+  // they get the same bounds treatment as the weeks arrays.
   if (body.rivalryPins !== undefined) {
     if (!Array.isArray(body.rivalryPins)) {
       return "rivalryPins must be an array when provided.";
@@ -102,10 +175,24 @@ export function validatePayload(body: unknown): string | null {
         return "Each rivalry pin must have integer teamA and teamB.";
       }
       if (
-        pin.week !== null &&
-        !(typeof pin.week === "number" && Number.isInteger(pin.week))
+        pin.teamA < 0 ||
+        pin.teamA >= teamCount ||
+        pin.teamB < 0 ||
+        pin.teamB >= teamCount ||
+        pin.teamA === pin.teamB
       ) {
-        return "rivalryPin.week must be null or an integer.";
+        return "Rivalry pin team indices must be distinct and in [0, teamCount).";
+      }
+      if (
+        pin.week !== null &&
+        !(
+          typeof pin.week === "number" &&
+          Number.isInteger(pin.week) &&
+          pin.week >= 1 &&
+          pin.week <= format.weekCount
+        )
+      ) {
+        return "rivalryPin.week must be null or an integer between 1 and format.weekCount.";
       }
     }
   }
@@ -148,6 +235,9 @@ export function validatePayload(body: unknown): string | null {
   if (!Array.isArray(schedule.doubledPairs)) {
     return "schedule.doubledPairs must be an array.";
   }
+  if (!schedule.doubledPairs.every(isIndexPairKey)) {
+    return 'Each doubled pair must be "i-j" with i < j < teamCount.';
+  }
 
   // displayWeeks is optional (older clients won't send it). When present, it
   // mirrors schedule.weeks in shape but with the home/away display order
@@ -183,11 +273,19 @@ export function validatePayload(body: unknown): string | null {
       ) {
         return "Each rivalry placement must have integer teamA, teamB, placedWeek.";
       }
+      if (p.placedWeek < 1 || p.placedWeek > format.weekCount) {
+        return "rivalryPlacement.placedWeek must be between 1 and format.weekCount.";
+      }
       if (
         p.pinnedWeek !== null &&
-        !(typeof p.pinnedWeek === "number" && Number.isInteger(p.pinnedWeek))
+        !(
+          typeof p.pinnedWeek === "number" &&
+          Number.isInteger(p.pinnedWeek) &&
+          p.pinnedWeek >= 1 &&
+          p.pinnedWeek <= format.weekCount
+        )
       ) {
-        return "rivalryPlacement.pinnedWeek must be null or an integer.";
+        return "rivalryPlacement.pinnedWeek must be null or an integer between 1 and format.weekCount.";
       }
     }
   }
