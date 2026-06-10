@@ -45,7 +45,7 @@ export function buildSchedule(config: ScheduleConfig): ScheduleResult {
       reason: "pure-round-robin",
       message:
         `${teamCount}-team / ${weekCount}-week is a pure round-robin: every team plays every opponent exactly once. ` +
-        "No fairness issue — no rotational schedule needed.",
+        "No fairness issue - no rotational schedule needed.",
       format,
     };
   }
@@ -59,7 +59,7 @@ export function buildSchedule(config: ScheduleConfig): ScheduleResult {
       reason: "complete-double-round-robin",
       message:
         `${teamCount}-team / ${weekCount}-week is a complete double round-robin: every team plays every opponent exactly twice. ` +
-        "No fairness issue — no rotational schedule needed.",
+        "No fairness issue - no rotational schedule needed.",
       format,
     };
   }

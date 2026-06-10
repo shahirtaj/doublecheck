@@ -60,6 +60,8 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 
 Because Sleeper includes the in-progress season, a mid-season Sleeper re-import replaces a current-year history row saved via Save & Share with the season as actually scheduled on Sleeper - identical if you applied the generated schedule, and a correction if you didn't. Either way the current year's schedule generation is unaffected: avoidance only looks at earlier seasons.
 
+If some of your seasons fail to fetch, or were played at a different roster size than your league's detected format, DoubleCheck imports only the unbroken run of newest seasons and tells you exactly which seasons were withheld and how to recover them - retry the import, or fill the missing year via Add Past Season and re-import. A hole in your season history would silently skew the recency-based avoidance, so a shorter unbroken history is always safer than a longer one with a gap.
+
 ## Quick start
 
 The tool is a three-step flow at [doublecheckff.com](https://doublecheckff.com):
@@ -76,7 +78,7 @@ No platform exposes a write API for league schedules, so commissioners enter the
 - **React 19**
 - **Tailwind CSS** for styling
 - **ESLint 9** with flat config (`eslint.config.mjs`)
-- **Vitest** for the test suite (204 tests; algorithm coverage across all 7 supported formats, including rivalry pins)
+- **Vitest** for the test suite (225 tests; algorithm coverage across all 7 supported formats, including rivalry pins)
 - **Vercel** for deployment
 
 See [ROADMAP.md](ROADMAP.md) for the full product roadmap and current state.
@@ -93,7 +95,7 @@ npm run dev
 
 The app runs without any environment variables configured - Yahoo Fantasy OAuth and share links won't work, but Sleeper imports, ESPN imports (public leagues), manual entry, and schedule generation are fully functional locally.
 
-Run `npm test` to execute the test suite (204 tests). See [CLAUDE.md](CLAUDE.md) for the full command reference and project structure.
+Run `npm test` to execute the test suite (225 tests). See [CLAUDE.md](CLAUDE.md) for the full command reference and project structure.
 
 ## Support
 

@@ -328,7 +328,7 @@ export function StepSchedule(props: StepScheduleProps) {
             </button>
           </div>
           <p className="text-[11px] text-slate-400 mt-2">
-            Bookmark your share link — you can restore your league from it next
+            Bookmark your share link - you can restore your league from it next
             season on any device.
           </p>
         </div>
