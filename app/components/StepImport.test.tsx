@@ -276,6 +276,79 @@ describe("import request sizing", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(h.getState().importStatus).toBe("ready");
   });
+
+  it("discards the fallback when the request is superseded during a rejected refetch", async () => {
+    // The refetch's catch follows awaits, so it must run the stale check
+    // before falling back - otherwise an abandoned request's first response
+    // lands in shared state, overwriting whatever the superseding request
+    // is doing (last-request-wins would silently break).
+    let rejectRefetch!: (e: Error) => void;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse([
+          importedSeason("2025", 14, 14),
+          importedSeason("2024", 14, 14),
+          importedSeason("2023", 14, 14),
+        ]),
+      )
+      .mockReturnValueOnce(
+        new Promise<Response>((_, reject) => {
+          rejectRefetch = reject;
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      leagueId: "123456789",
+      priorFormat: { teamCount: 10, weekCount: 13 },
+      teams: Array.from({ length: 10 }, (_, i) => `Team ${i + 1}`),
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    // A newer fetch claims the next sequence number while the refetch is
+    // still in flight, then the refetch dies.
+    h.importSeqRef.current++;
+    rejectRefetch(new Error("network down"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(h.getState().importPreview).toBeNull();
+    expect(h.getState().importStatus).toBe("loading");
+  });
+
+  it("falls back to the first response when the refetch returns an unusable body", async () => {
+    // A 200 whose body fails preview (here: empty seasons) must not turn a
+    // working import into an error - the first response is the floor for
+    // every refetch failure shape, not just rejections.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse([
+          importedSeason("2025", 14, 14),
+          importedSeason("2024", 14, 14),
+          importedSeason("2023", 14, 14),
+        ]),
+      )
+      .mockResolvedValueOnce(jsonResponse([]));
+    vi.stubGlobal("fetch", fetchMock);
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      leagueId: "123456789",
+      priorFormat: { teamCount: 10, weekCount: 13 },
+      teams: Array.from({ length: 10 }, (_, i) => `Team ${i + 1}`),
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    await screen.findByText("3 seasons: 2025, 2024, 2023");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(h.getState().importStatus).toBe("ready");
+  });
 });
 
 describe("re-import after Back", () => {

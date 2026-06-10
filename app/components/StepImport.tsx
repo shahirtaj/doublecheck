@@ -277,9 +277,10 @@ export function ImportSections(props: ImportSectionsProps) {
 
   // Fetch a platform's seasons and land them in the preview. When detection
   // reveals a bigger lookback appetite than the request was sized for (see
-  // previewFetchedSeasons), refetch once at the detected size; if that
-  // second fetch fails, fall back to previewing the first response - it was
-  // valid, just possibly short, which is exactly the pre-refetch behavior.
+  // previewFetchedSeasons), refetch once at the detected size; if the second
+  // fetch fails - rejected outright, or a 200 whose body fails preview -
+  // fall back to previewing the first response, which already passed
+  // detection. The pre-refetch behavior is the floor on every branch.
   async function fetchSeasonsIntoPreview(
     plat: ImportPlatform,
     body: Record<string, unknown>,
@@ -306,10 +307,25 @@ export function ImportSections(props: ImportSectionsProps) {
         captureHelpUrl,
       );
     } catch {
+      // This catch follows awaits, so the mandatory stale check applies
+      // before anything below touches shared state - a rejected refetch
+      // must not let an abandoned request's first response land.
+      if (stale()) return;
       second = null;
     }
     if (second === STALE) return;
-    previewFetchedSeasons(plat, second ?? data, null);
+    if (second !== null) {
+      try {
+        previewFetchedSeasons(plat, second, null);
+        return;
+      } catch {
+        // 200 with a body that fails preview (empty, undetectable) - fall
+        // through to the first response. No stale check needed: the call
+        // is synchronous, so staleness can't have changed since the last
+        // post-await check.
+      }
+    }
+    previewFetchedSeasons(plat, data, null);
   }
 
   function resetImportUi() {
