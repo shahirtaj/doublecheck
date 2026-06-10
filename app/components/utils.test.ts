@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 import type { LookbackWindow, Matching, SeasonHistory } from "@/lib/algorithm";
-import type { ImportedSeasonRecord } from "./types";
+import { CURRENT_YEAR } from "./constants";
+import type { ImportedSeasonRecord, SelectedFormat } from "./types";
 import {
   buildScheduleText,
   computeDisplayWeeks,
   deriveLookback,
+  describeWithholdingGap,
   detectFormatFromImport,
   extractSlug,
   mergeImportedHistory,
   normalizeHistory,
   priorSeasons,
+  withholdingErrorMessage,
+  withholdingWarningMessage,
   withholdPreGapSeasons,
+  yahooOAuthReturnPatch,
 } from "./utils";
 
 function makeSeason(
@@ -548,6 +553,187 @@ describe("withholdPreGapSeasons", () => {
     ]);
     expect(result.withheldYears).toEqual([]);
     expect(result.gapYears).toEqual(["2022", "2021"]);
+  });
+});
+
+describe("describeWithholdingGap", () => {
+  // 12-team / 14-week: lookback hard 2 + soft 1, so the Add Past Season
+  // year dropdown reaches back to CURRENT_YEAR - 3. Gap years are relative
+  // to the current year so fillability stays deterministic as years pass.
+  const detected: SelectedFormat = { teamCount: 12, weekCount: 14 };
+  const oldestOfferableYear = CURRENT_YEAR - 3;
+  const y = (yearsAgo: number) => String(CURRENT_YEAR - yearsAgo);
+  const droppedSeason = (year: string, teamCount: number) => ({
+    ...makeSeason(teamCount, 13),
+    seasonYear: year,
+  });
+
+  it("names the failed year and offers retry for a fetch-failure-only gap", () => {
+    const { cause, remedy } = describeWithholdingGap(
+      [y(3)],
+      [{ season: y(3), error: "HTTP 502" }],
+      [],
+      detected,
+    );
+    expect(cause).toBe(`${y(3)} failed to import`);
+    expect(remedy).toBe(
+      `Retry the import, or add ${y(3)} via Add Past Season and re-import.`,
+    );
+  });
+
+  it("names the roster sizes and never suggests retry for a roster-filter gap", () => {
+    const { cause, remedy } = describeWithholdingGap(
+      [y(2)],
+      [],
+      [droppedSeason(y(2), 10)],
+      detected,
+    );
+    expect(cause).toBe(
+      `${y(2)} was a 10-team season (this import is 12 teams)`,
+    );
+    expect(remedy).toBe(
+      `Retrying won't change this - to keep the older seasons, add ${y(2)} via Add Past Season (marking that season's doubled matchups among the current teams), then re-import.`,
+    );
+    expect(remedy).not.toMatch(/Retry the import|may recover/);
+  });
+
+  it("names both causes when fetch and roster gaps mix", () => {
+    const { cause, remedy } = describeWithholdingGap(
+      [y(1), y(2)],
+      [{ season: y(1), error: "HTTP 502" }],
+      [droppedSeason(y(2), 10)],
+      detected,
+    );
+    expect(cause).toBe(
+      `${y(1)} failed to import, and ${y(2)} was a 10-team season (this import is 12 teams)`,
+    );
+    expect(remedy).toBe(
+      `Retrying may recover ${y(1)}; ${y(2)} needs Add Past Season (marking doubles among the current teams) before a re-import can keep the older seasons.`,
+    );
+  });
+
+  it("says the seasons can't be restored when the dropdown can't offer the gap year", () => {
+    const { remedy } = describeWithholdingGap(
+      [y(6)],
+      [],
+      [droppedSeason(y(6), 10)],
+      detected,
+    );
+    expect(remedy).toBe(
+      `Retrying won't change this, and Add Past Season only reaches back to ${oldestOfferableYear}, so the older seasons can't be restored.`,
+    );
+    expect(remedy).not.toContain("via Add Past Season");
+  });
+
+  it("advertises only the fillable roster gaps, not the unreachable ones", () => {
+    const { remedy } = describeWithholdingGap(
+      [y(2), y(6)],
+      [],
+      [droppedSeason(y(2), 10), droppedSeason(y(6), 8)],
+      detected,
+    );
+    expect(remedy).toBe(
+      `Retrying won't change this - to keep the older seasons, add ${y(2)} via Add Past Season (marking that season's doubled matchups among the current teams), then re-import.`,
+    );
+    expect(remedy).not.toContain(y(6));
+  });
+
+  it("offers retry for the fetch gap but marks an unreachable roster gap unrestorable", () => {
+    const { remedy } = describeWithholdingGap(
+      [y(1), y(6)],
+      [{ season: y(1), error: "HTTP 502" }],
+      [droppedSeason(y(6), 10)],
+      detected,
+    );
+    expect(remedy).toBe(
+      `Retrying may recover ${y(1)}, but ${y(6)} can't be restored (Add Past Season only reaches back to ${oldestOfferableYear}).`,
+    );
+  });
+
+  it("returns empty cause and remedy when there are no gaps", () => {
+    expect(describeWithholdingGap([], [], [], detected)).toEqual({
+      cause: "",
+      remedy: "",
+    });
+  });
+});
+
+describe("withholdingErrorMessage", () => {
+  it("carries the cause and the same remedy guidance as the warning", () => {
+    expect(
+      withholdingErrorMessage("2025 failed to import", "Retry the import."),
+    ).toBe(
+      "2025 failed to import, and every season that did load is older - keeping them would leave a gap in season history, which corrupts recency-based avoidance. Retry the import.",
+    );
+  });
+});
+
+describe("withholdingWarningMessage", () => {
+  it("uses singular phrasing for one withheld year", () => {
+    expect(withholdingWarningMessage("C", "R.", ["2022"])).toBe(
+      "C, so 2022 was withheld - a gap in season history corrupts recency-based avoidance. R.",
+    );
+  });
+
+  it("uses plural phrasing for multiple withheld years", () => {
+    expect(withholdingWarningMessage("C", "R.", ["2022", "2021"])).toBe(
+      "C, so 2022, 2021 were withheld - a gap in season history corrupts recency-based avoidance. R.",
+    );
+  });
+});
+
+describe("yahooOAuthReturnPatch", () => {
+  it("patches importSource alongside platform on the connected branch", () => {
+    // The exact 582f234 regression: OAuth is a full-page redirect, so
+    // importSource is back at "sleeper" - patching platform alone makes
+    // the auto-load fetch's stale() guard discard its own response.
+    expect(
+      yahooOAuthReturnPatch(new URLSearchParams("yahoo=connected")),
+    ).toEqual({
+      platform: "yahoo",
+      importSource: "yahoo",
+      pendingYahooConnect: true,
+    });
+  });
+
+  it("patches importSource alongside platform on the error branch", () => {
+    const patch = yahooOAuthReturnPatch(
+      new URLSearchParams("yahoo=error&reason=state_mismatch"),
+    );
+    expect(patch).toEqual({
+      platform: "yahoo",
+      importSource: "yahoo",
+      importStatus: "error",
+      importMsg: "Could not connect to Yahoo Fantasy: state mismatch.",
+    });
+  });
+
+  it("strips a trailing period from an Error-message reason", () => {
+    const patch = yahooOAuthReturnPatch(
+      new URLSearchParams({
+        yahoo: "error",
+        reason: "Token exchange failed (401).",
+      }),
+    );
+    expect(patch?.importMsg).toBe(
+      "Could not connect to Yahoo Fantasy: Token exchange failed (401).",
+    );
+  });
+
+  it("falls back to unknown when the reason is missing", () => {
+    expect(
+      yahooOAuthReturnPatch(new URLSearchParams("yahoo=error"))?.importMsg,
+    ).toBe("Could not connect to Yahoo Fantasy: unknown.");
+  });
+
+  it("returns null without a yahoo param", () => {
+    expect(yahooOAuthReturnPatch(new URLSearchParams(""))).toBeNull();
+  });
+
+  it("returns null for an unrecognized status", () => {
+    expect(
+      yahooOAuthReturnPatch(new URLSearchParams("yahoo=banana")),
+    ).toBeNull();
   });
 });
 
