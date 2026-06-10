@@ -284,7 +284,36 @@ export async function POST(req: Request) {
       years.map((year) => fetchEspnSeason(leagueId, year)),
     );
 
+    // Most per-season failures are transient, so one immediate re-attempt
+    // over just the rejected seasons makes the partial path rare rather than
+    // routine (no backoff — the serverless time budget is finite). Private
+    // and not-found failures come from deterministic HTTP statuses, so
+    // retrying them would only double the request count for the common
+    // private-league and young-league cases.
+    const retryIdx = settled
+      .map((result, i) => {
+        if (result.status !== "rejected") return -1;
+        const msg = result.reason instanceof Error ? result.reason.message : "";
+        return msg.includes("is private.") || msg.includes("not found")
+          ? -1
+          : i;
+      })
+      .filter((i) => i >= 0);
+    if (retryIdx.length > 0) {
+      const retried = await Promise.allSettled(
+        retryIdx.map((i) => fetchEspnSeason(leagueId, years[i]!)),
+      );
+      retried.forEach((result, j) => {
+        settled[retryIdx[j]!] = result;
+      });
+    }
+
     const results: Awaited<ReturnType<typeof fetchEspnSeason>>[] = [];
+    // Seasons that failed both attempts, by year label, so the client can
+    // tell WHICH attempted years are missing and withhold the seasons older
+    // than the gap — client-side year arithmetic would wrongly truncate
+    // leagues that genuinely skipped a year.
+    const failed: { season: string; error: string }[] = [];
     const errors: string[] = [];
     let allPrivate = true;
 
@@ -302,6 +331,7 @@ export async function POST(req: Request) {
               : "unknown error";
         if (!msg.includes("is private.") && !msg.includes("not found"))
           allPrivate = false;
+        failed.push({ season: String(year), error: msg });
         errors.push(`${year}: ${msg}`);
       }
     });
@@ -328,6 +358,12 @@ export async function POST(req: Request) {
       );
     }
 
+    // Full success keeps the bare-array shape (Array.isArray stays the
+    // client's discriminator); partial success tells the client which
+    // attempted seasons are missing.
+    if (failed.length > 0) {
+      return NextResponse.json({ seasons: results, failed });
+    }
     return NextResponse.json(results);
   } catch (e) {
     console.error("[/api/import/espn] Unhandled error:", e);

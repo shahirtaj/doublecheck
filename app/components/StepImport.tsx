@@ -10,6 +10,7 @@ import {
 } from "@/lib/algorithm";
 import { cls, statusToneClass } from "./styles";
 import type {
+  FailedImportSeason,
   ImportPlatform,
   ImportSource,
   ImportedSeasonRecord,
@@ -23,6 +24,7 @@ import {
   mergeImportedHistory,
   normalizeHistory,
   platformLabel,
+  withholdPreGapSeasons,
 } from "./utils";
 import type { Patch, SaveToStorageFn, State } from "./state";
 
@@ -48,6 +50,33 @@ function filterToDetectedFormat(seasons: ImportedSeasonRecord[]): {
     (s) => s.teamNames?.length === detected.teamCount,
   );
   return { detected, seasons: filtered };
+}
+
+// Split an import-route response into seasons + failed attempts. Full success
+// is a bare ImportedSeasonRecord[] (Array.isArray is the discriminator);
+// partial success — some seasons failed both server-side fetch attempts — is
+// { seasons, failed }. Yahoo only ever returns the bare array: its sequential
+// chain walk truncates at a failure instead of reporting gaps.
+function splitImportResponse(data: unknown): {
+  seasons: ImportedSeasonRecord[];
+  failed: FailedImportSeason[];
+} {
+  if (Array.isArray(data)) {
+    return { seasons: data as ImportedSeasonRecord[], failed: [] };
+  }
+  if (data && typeof data === "object") {
+    const partial = data as {
+      seasons?: ImportedSeasonRecord[];
+      failed?: FailedImportSeason[];
+    };
+    if (Array.isArray(partial.seasons)) {
+      return {
+        seasons: partial.seasons,
+        failed: Array.isArray(partial.failed) ? partial.failed : [],
+      };
+    }
+  }
+  return { seasons: [], failed: [] };
 }
 
 export function ImportSections(props: ImportSectionsProps) {
@@ -82,6 +111,54 @@ export function ImportSections(props: ImportSectionsProps) {
   } = state;
 
   const importBusy = importStatus === "loading";
+
+  // Shared landing for every platform season fetch. Splits the response
+  // shape, filters to the detected format, and withholds imported seasons
+  // older than the newest gap left by a failed season fetch before they can
+  // reach the preview/merge — buildAvoidMap ages history by array index, so
+  // a gapped run mis-ages every older season and the missing season's
+  // doubles carry zero avoidance cost. A failed year already covered by an
+  // existing history row isn't a gap (the merge fills the hole), but a
+  // format change drops existing history at merge time (handleApplyImport),
+  // so existing rows can't fill gaps in that case. Throws (for the caller's
+  // catch → importStatus error) when nothing importable survives.
+  function previewFetchedSeasons(plat: ImportPlatform, data: unknown) {
+    const { seasons, failed } = splitImportResponse(data);
+    if (seasons.length === 0) {
+      throw new Error("No seasons returned.");
+    }
+    const detected = filterToDetectedFormat(seasons);
+    if (!detected) {
+      throw new Error(
+        "Could not detect a valid league format from the most recent season (need an even team count and a regular-season week count).",
+      );
+    }
+    const formatChanged =
+      !selectedFormat ||
+      selectedFormat.teamCount !== detected.detected.teamCount ||
+      selectedFormat.weekCount !== detected.detected.weekCount;
+    const { kept, withheldYears, gapYears } = withholdPreGapSeasons(
+      detected.seasons,
+      failed,
+      formatChanged ? [] : history,
+    );
+    const gapList = gapYears.join(", ");
+    if (kept.length === 0) {
+      throw new Error(
+        `${gapList} failed to import, and every season that did load is older - keeping them would leave a gap in season history, which corrupts recency-based avoidance. Retry the import, or add ${gapList} via Add Past Season and re-import.`,
+      );
+    }
+    patch({
+      importPreview: { platform: plat, seasons: kept },
+      importStatus: "ready",
+      importMsg:
+        withheldYears.length > 0
+          ? `${gapList} failed to import, so ${withheldYears.join(", ")} ${
+              withheldYears.length > 1 ? "were" : "was"
+            } withheld - a gap in season history corrupts recency-based avoidance. Retry the import, or add ${gapList} via Add Past Season and re-import.`
+          : "",
+    });
+  }
 
   function resetImportUi() {
     patch({
@@ -179,21 +256,7 @@ export function ImportSections(props: ImportSectionsProps) {
           patch({ importHelpUrl: data.helpUrl });
         throw new Error(data?.error || `HTTP ${res.status}`);
       }
-      const seasons = data as ImportedSeasonRecord[];
-      if (!Array.isArray(seasons) || seasons.length === 0) {
-        throw new Error("No seasons returned.");
-      }
-      const detected = filterToDetectedFormat(seasons);
-      if (!detected) {
-        throw new Error(
-          "Could not detect a valid league format from the most recent season (need an even team count and a regular-season week count).",
-        );
-      }
-      patch({
-        importPreview: { platform, seasons: detected.seasons },
-        importStatus: "ready",
-        importMsg: "",
-      });
+      previewFetchedSeasons(platform, data);
     } catch (e) {
       if (stale()) return;
       patch({
@@ -225,21 +288,7 @@ export function ImportSections(props: ImportSectionsProps) {
       const data = await res.json();
       if (stale()) return;
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      const seasons = data as ImportedSeasonRecord[];
-      if (!Array.isArray(seasons) || seasons.length === 0) {
-        throw new Error("No seasons returned.");
-      }
-      const detected = filterToDetectedFormat(seasons);
-      if (!detected) {
-        throw new Error(
-          "Could not detect a valid league format from the most recent season (need an even team count and a regular-season week count).",
-        );
-      }
-      patch({
-        importPreview: { platform: "sleeper", seasons: detected.seasons },
-        importStatus: "ready",
-        importMsg: "",
-      });
+      previewFetchedSeasons("sleeper", data);
     } catch (e) {
       if (stale()) return;
       patch({
@@ -275,21 +324,7 @@ export function ImportSections(props: ImportSectionsProps) {
       const data = await res.json();
       if (stale()) return;
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      const seasons = data as ImportedSeasonRecord[];
-      if (!Array.isArray(seasons) || seasons.length === 0) {
-        throw new Error("No seasons returned.");
-      }
-      const detected = filterToDetectedFormat(seasons);
-      if (!detected) {
-        throw new Error(
-          "Could not detect a valid league format from the most recent season (need an even team count and a regular-season week count).",
-        );
-      }
-      patch({
-        importPreview: { platform: "yahoo", seasons: detected.seasons },
-        importStatus: "ready",
-        importMsg: "",
-      });
+      previewFetchedSeasons("yahoo", data);
     } catch (e) {
       if (stale()) return;
       patch({
@@ -1016,10 +1051,19 @@ export function ImportSections(props: ImportSectionsProps) {
               <p className="text-[11px] text-slate-500 mb-2">
                 Managers: {sortedManagers.join(", ")}
               </p>
+              {importMsg && (
+                <p className="text-[11px] text-amber-400 mb-2">{importMsg}</p>
+              )}
               <div className="flex gap-2 flex-wrap items-center justify-center">
                 <button
                   className={cls.secondaryBtn}
-                  onClick={() => patch({ importPreview: null })}
+                  onClick={() =>
+                    patch({
+                      importPreview: null,
+                      importStatus: "",
+                      importMsg: "",
+                    })
+                  }
                 >
                   Cancel
                 </button>

@@ -10,6 +10,7 @@ import {
   mergeImportedHistory,
   normalizeHistory,
   priorSeasons,
+  withholdPreGapSeasons,
 } from "./utils";
 
 function makeSeason(
@@ -374,6 +375,117 @@ describe("mergeImportedHistory", () => {
     expect(
       mergeImportedHistory(existing, imported).map((h) => h.season),
     ).toEqual(["2024", "2025", "2026"]);
+  });
+});
+
+describe("withholdPreGapSeasons", () => {
+  function yearSeason(year: string): ImportedSeasonRecord {
+    return { ...makeSeason(10, 13), seasonYear: year };
+  }
+  const failedYear = (season: string) => ({ season, error: "HTTP 502" });
+  const historyRow = (season: string): SeasonHistory => ({
+    season,
+    doubles: [],
+  });
+
+  it("drops seasons older than a middle gap", () => {
+    const result = withholdPreGapSeasons(
+      ["2025", "2024", "2022", "2021"].map(yearSeason),
+      [failedYear("2023")],
+      [],
+    );
+    expect(result.kept.map((s) => s.seasonYear)).toEqual(["2025", "2024"]);
+    expect(result.withheldYears).toEqual(["2022", "2021"]);
+    expect(result.gapYears).toEqual(["2023"]);
+  });
+
+  it("drops nothing when the failed year is already in history", () => {
+    const result = withholdPreGapSeasons(
+      ["2025", "2024", "2022"].map(yearSeason),
+      [failedYear("2023")],
+      [historyRow("2023")],
+    );
+    expect(result.kept.map((s) => s.seasonYear)).toEqual([
+      "2025",
+      "2024",
+      "2022",
+    ]);
+    expect(result.withheldYears).toEqual([]);
+    expect(result.gapYears).toEqual([]);
+  });
+
+  it("keeps nothing when the newest attempted season failed", () => {
+    const result = withholdPreGapSeasons(
+      ["2024", "2023"].map(yearSeason),
+      [failedYear("2025")],
+      [],
+    );
+    expect(result.kept).toEqual([]);
+    expect(result.withheldYears).toEqual(["2024", "2023"]);
+    expect(result.gapYears).toEqual(["2025"]);
+  });
+
+  it("anchors on the newest of multiple gaps", () => {
+    const result = withholdPreGapSeasons(
+      ["2025", "2023", "2022", "2020"].map(yearSeason),
+      [failedYear("2021"), failedYear("2024")],
+      [],
+    );
+    expect(result.kept.map((s) => s.seasonYear)).toEqual(["2025"]);
+    expect(result.withheldYears).toEqual(["2023", "2022", "2020"]);
+    expect(result.gapYears).toEqual(["2024", "2021"]);
+  });
+
+  it("anchors on the next-newest gap when history fills the newest one", () => {
+    const result = withholdPreGapSeasons(
+      ["2025", "2023", "2021"].map(yearSeason),
+      [failedYear("2024"), failedYear("2022")],
+      [historyRow("2024")],
+    );
+    expect(result.kept.map((s) => s.seasonYear)).toEqual(["2025", "2023"]);
+    expect(result.withheldYears).toEqual(["2021"]);
+    expect(result.gapYears).toEqual(["2022"]);
+  });
+
+  it("is a no-op with no failures", () => {
+    const seasons = ["2025", "2024", "2023"].map(yearSeason);
+    const result = withholdPreGapSeasons(seasons, [], []);
+    expect(result.kept).toEqual(seasons);
+    expect(result.withheldYears).toEqual([]);
+    expect(result.gapYears).toEqual([]);
+  });
+
+  it("withholds nothing when only the oldest attempted season failed", () => {
+    const result = withholdPreGapSeasons(
+      ["2025", "2024", "2023"].map(yearSeason),
+      [failedYear("2022")],
+      [],
+    );
+    expect(result.kept.map((s) => s.seasonYear)).toEqual([
+      "2025",
+      "2024",
+      "2023",
+    ]);
+    expect(result.withheldYears).toEqual([]);
+    expect(result.gapYears).toEqual(["2022"]);
+  });
+
+  it("ignores a failed season without a numeric year label", () => {
+    const seasons = ["2025", "2024"].map(yearSeason);
+    const result = withholdPreGapSeasons(seasons, [failedYear("")], []);
+    expect(result.kept).toEqual(seasons);
+    expect(result.withheldYears).toEqual([]);
+    expect(result.gapYears).toEqual([]);
+  });
+
+  it("withholds an imported season without a numeric year once a gap exists", () => {
+    const result = withholdPreGapSeasons(
+      [yearSeason("2025"), yearSeason(""), yearSeason("2022")],
+      [failedYear("2023")],
+      [],
+    );
+    expect(result.kept.map((s) => s.seasonYear)).toEqual(["2025"]);
+    expect(result.withheldYears).toEqual(["?", "2022"]);
   });
 });
 

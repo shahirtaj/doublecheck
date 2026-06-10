@@ -389,6 +389,19 @@ async function fetchSeasonRecord(
   };
 }
 
+// Walks the renew chain newest-first. Unlike the Sleeper/ESPN routes, which
+// fetch seasons in parallel and report persistent per-season failures in a
+// { seasons, failed } response, this walk is sequential and each link's
+// `renew` pointer is the only way to reach the older seasons — so per-season
+// failure tolerance doesn't fall out of the shape: a failed link can't be
+// retried independently of the walk, and the seasons beyond it can't even be
+// enumerated. Instead the route stays strict-but-contiguous: any mid-chain
+// failure (fetch error, unparseable details, or a finished season yielding
+// no record) stops the walk and returns the newer seasons collected so far.
+// Truncated-but-contiguous history keeps the avoidance semantics over a
+// shorter window; skipping the bad season and continuing would leave a gap
+// that mis-ages every older season. A failure on the FIRST link still
+// propagates so the route 502s as before — there's no partial to salvage.
 async function fetchSeasonChain(
   startKey: string,
   accessToken: string,
@@ -406,16 +419,33 @@ async function fetchSeasonChain(
     if (seen.has(currentKey)) break;
     seen.add(currentKey);
 
-    const detailsJson = await fetchYahooJson(
-      `${YAHOO_BASE}/league/${currentKey};out=settings`,
-      accessToken,
-    );
-    const details = parseLeagueDetails(detailsJson);
+    let details: YahooLeagueDetails | null;
+    try {
+      const detailsJson = await fetchYahooJson(
+        `${YAHOO_BASE}/league/${currentKey};out=settings`,
+        accessToken,
+      );
+      details = parseLeagueDetails(detailsJson);
+    } catch (e) {
+      if ((e as Error).message === "UNAUTHORIZED" || records.length === 0) {
+        throw e;
+      }
+      break;
+    }
     if (!details) break;
 
     if (details.isFinished) {
-      const record = await fetchSeasonRecord(details, accessToken);
-      if (record) records.push(record);
+      let record: ImportedSeasonRecord | null;
+      try {
+        record = await fetchSeasonRecord(details, accessToken);
+      } catch (e) {
+        if ((e as Error).message === "UNAUTHORIZED" || records.length === 0) {
+          throw e;
+        }
+        break;
+      }
+      if (!record) break;
+      records.push(record);
     }
 
     currentKey = details.renew;

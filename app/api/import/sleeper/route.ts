@@ -406,6 +406,24 @@ export async function POST(req: Request) {
       toFetch.map((target) => fetchSeason(target.leagueId, target.settings)),
     );
 
+    // Most per-season failures are transient, so one immediate re-attempt
+    // over just the rejected seasons makes the partial path rare rather than
+    // routine. No backoff machinery — the route already runs long and the
+    // serverless time budget is finite.
+    const rejectedIdx = settled
+      .map((result, i) => (result.status === "rejected" ? i : -1))
+      .filter((i) => i >= 0);
+    if (rejectedIdx.length > 0) {
+      const retried = await Promise.allSettled(
+        rejectedIdx.map((i) =>
+          fetchSeason(toFetch[i]!.leagueId, toFetch[i]!.settings),
+        ),
+      );
+      retried.forEach((result, j) => {
+        settled[rejectedIdx[j]!] = result;
+      });
+    }
+
     const results: {
       seasonYear: string;
       seasonName: string;
@@ -415,6 +433,12 @@ export async function POST(req: Request) {
       totalMatchups: number;
       regWeeks: number;
     }[] = [];
+    // Seasons that failed both attempts. `season` stays the year label (not
+    // the leagueId fallback used in the 502 message) so the client can tell
+    // WHICH attempted years are missing and withhold the seasons older than
+    // the gap — client-side year arithmetic would wrongly truncate leagues
+    // that genuinely skipped a year.
+    const failed: { season: string; error: string }[] = [];
     const errors: string[] = [];
 
     settled.forEach((result, i) => {
@@ -437,6 +461,7 @@ export async function POST(req: Request) {
             : typeof result.reason === "string"
               ? result.reason
               : "unknown error";
+        failed.push({ season: target.season, error: msg });
         errors.push(`${target.season || target.leagueId}: ${msg}`);
       }
     });
@@ -450,6 +475,12 @@ export async function POST(req: Request) {
       );
     }
 
+    // Full success keeps the bare-array shape (Array.isArray stays the
+    // client's discriminator); partial success tells the client which
+    // attempted seasons are missing.
+    if (failed.length > 0) {
+      return NextResponse.json({ seasons: results, failed });
+    }
     return NextResponse.json(results);
   } catch (e) {
     console.error("[/api/import/sleeper] Unhandled error:", e);

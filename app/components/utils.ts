@@ -1,5 +1,6 @@
 import type { LookbackWindow, Matching, SeasonHistory } from "@/lib/algorithm";
 import type {
+  FailedImportSeason,
   ImportPlatform,
   ImportedSeasonRecord,
   SelectedFormat,
@@ -147,6 +148,74 @@ export function mergeImportedHistory(
   imported: readonly SeasonHistory[],
 ): SeasonHistory[] {
   return normalizeHistory([...existing, ...imported]);
+}
+
+// "2023" -> 2023, anything blank or non-numeric -> null. Number("") is 0,
+// so the blank check has to come first.
+function parseYear(label: string | undefined): number | null {
+  const trimmed = (label ?? "").trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : null;
+}
+
+// Decide which imported seasons survive a partial import. buildAvoidMap ages
+// history rows by array index anchored at the newest season, so a gap makes
+// every older row read one age younger than reality and the missing season's
+// doubles carry zero avoidance cost. A truncated-but-contiguous run ending at
+// the newest season keeps the same semantics over a shorter window; a gapped
+// run lies — so seasons OLDER than the newest unfilled gap are withheld.
+// A failed year already covered by an existing history row (or by another
+// imported season) isn't a gap: the merge fills the hole. Failed years
+// without a numeric label can't be positioned, so they're ignored; an
+// imported season without a numeric label is withheld once a gap exists
+// (it can't be proven newer than the gap).
+// `seasons` is most-recent-first (the server response order) and `kept`
+// preserves that order. `gapYears` lists the unfilled failed years newest
+// first; `withheldYears` lists the labels of the dropped seasons.
+export function withholdPreGapSeasons(
+  seasons: readonly ImportedSeasonRecord[],
+  failed: readonly FailedImportSeason[],
+  existingHistory: readonly SeasonHistory[],
+): {
+  kept: ImportedSeasonRecord[];
+  withheldYears: string[];
+  gapYears: string[];
+} {
+  const covered = new Set<number>();
+  for (const row of existingHistory) {
+    const y = parseYear(row.season);
+    if (y != null) covered.add(y);
+  }
+  for (const season of seasons) {
+    const y = parseYear(season.seasonYear);
+    if (y != null) covered.add(y);
+  }
+
+  const gapNums = [
+    ...new Set(
+      failed
+        .map((f) => parseYear(f.season))
+        .filter((y): y is number => y != null && !covered.has(y)),
+    ),
+  ].sort((a, b) => b - a);
+
+  if (gapNums.length === 0) {
+    return { kept: [...seasons], withheldYears: [], gapYears: [] };
+  }
+
+  const newestGap = gapNums[0]!;
+  const kept: ImportedSeasonRecord[] = [];
+  const withheldYears: string[] = [];
+  for (const season of seasons) {
+    const y = parseYear(season.seasonYear);
+    if (y != null && y > newestGap) {
+      kept.push(season);
+    } else {
+      withheldYears.push((season.seasonYear ?? "").trim() || "?");
+    }
+  }
+  return { kept, withheldYears, gapYears: gapNums.map(String) };
 }
 
 // Plain-text schedule export shared by Step 3's Copy button and the shared

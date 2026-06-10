@@ -12,6 +12,11 @@ export type ImportedSeasonRecord = {
   regWeeks?: number;
 };
 
+// A season the import route attempted but couldn't fetch (after its one
+// retry). `season` is the year label ("2023") when the platform knows it,
+// "" when it doesn't — gap withholding can only anchor on numeric years.
+export type FailedImportSeason = { season: string; error: string };
+
 export type ImportPlatform = "sleeper" | "espn" | "yahoo" | "manual";
 
 // "link" is the dropdown value for restoring from a share URL. It is not
