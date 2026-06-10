@@ -223,7 +223,7 @@ export function ImportSections(props: ImportSectionsProps) {
     if (platform === "sleeper" && !/^\d+$/.test(input)) {
       patch({
         importStatus: "loading",
-        importMsg: `Looking up Sleeper user "${input}"…`,
+        importMsg: `Fetching Sleeper leagues for "${input}"…`,
       });
       try {
         const res = await fetch("/api/import/sleeper", {

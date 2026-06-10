@@ -37,8 +37,8 @@ export default function SharedScheduleError({
           Something went wrong
         </h2>
         <p className="text-xs text-slate-400 leading-relaxed mb-4">
-          We couldn&apos;t load this shared schedule. Try resetting, or ask
-          whoever sent you the link to regenerate it at{" "}
+          Could not load this shared schedule. Try resetting, or ask whoever
+          sent you the link to regenerate it at{" "}
           <a
             href="https://doublecheckff.com"
             className="text-emerald-400 hover:text-emerald-300"

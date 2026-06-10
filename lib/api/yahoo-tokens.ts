@@ -90,7 +90,7 @@ export async function exchangeAuthCode(
   if (!res.ok) {
     // No "Yahoo" prefix: both surfaces re-add Yahoo context - the import
     // route wraps this as "Yahoo Fantasy token error: <this message>" and
-    // the OAuth callback feeds it into "Could not connect to Yahoo
+    // the OAuth callback feeds it into "Failed to connect to Yahoo
     // Fantasy: <this message>".
     throw new Error(`Token exchange failed (${res.status}).`);
   }

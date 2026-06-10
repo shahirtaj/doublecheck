@@ -704,11 +704,11 @@ describe("yahooOAuthReturnPatch", () => {
       platform: "yahoo",
       importSource: "yahoo",
       importStatus: "error",
-      importMsg: "Could not connect to Yahoo Fantasy: state mismatch.",
+      importMsg: "Failed to connect to Yahoo Fantasy: state mismatch",
     });
   });
 
-  it("strips a trailing period from an Error-message reason", () => {
+  it("keeps an Error-message reason's own punctuation", () => {
     const patch = yahooOAuthReturnPatch(
       new URLSearchParams({
         yahoo: "error",
@@ -716,14 +716,14 @@ describe("yahooOAuthReturnPatch", () => {
       }),
     );
     expect(patch?.importMsg).toBe(
-      "Could not connect to Yahoo Fantasy: Token exchange failed (401).",
+      "Failed to connect to Yahoo Fantasy: Token exchange failed (401).",
     );
   });
 
   it("falls back to unknown when the reason is missing", () => {
     expect(
       yahooOAuthReturnPatch(new URLSearchParams("yahoo=error"))?.importMsg,
-    ).toBe("Could not connect to Yahoo Fantasy: unknown.");
+    ).toBe("Failed to connect to Yahoo Fantasy: unknown");
   });
 
   it("returns null without a yahoo param", () => {

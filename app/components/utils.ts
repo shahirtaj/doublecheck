@@ -341,11 +341,11 @@ export function yahooOAuthReturnPatch(
       importSource: "yahoo",
       importStatus: "error",
       // The reason is either a snake_case OAuth code (state_mismatch) or an
-      // Error message that already ends with a period - strip it so the
-      // appended terminal period never doubles up.
-      importMsg: `Could not connect to Yahoo Fantasy: ${(reason || "unknown")
-        .replace(/_/g, " ")
-        .replace(/\.$/, "")}.`,
+      // Error message. "Failed to <verb>: <detail>" appends no period of its
+      // own - an Error-message reason keeps the one it arrives with.
+      importMsg: `Failed to connect to Yahoo Fantasy: ${(
+        reason || "unknown"
+      ).replace(/_/g, " ")}`,
     };
   }
   return null;
