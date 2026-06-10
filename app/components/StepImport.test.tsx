@@ -361,7 +361,7 @@ describe("link restore format bounds", () => {
   });
 });
 
-describe("manual entry", () => {
+describe("manual import", () => {
   it("disables out-of-range week options with a hint and clamps the selection", async () => {
     const h = renderImportSections({
       platform: "manual",

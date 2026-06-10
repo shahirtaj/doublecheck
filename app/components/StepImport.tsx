@@ -45,7 +45,7 @@ type ImportSectionsProps = {
   importSeqRef: MutableRefObject<number>;
 };
 
-// Manual entry dropdown options. A week count outside the selected team
+// Manual import dropdown options. A week count outside the selected team
 // count's round-robin range (8 teams caps at 2*(8-1) = 14) renders disabled
 // with a "needs N+ teams" hint rather than hidden: such seasons exist on
 // real platforms (someone just plays a third matchup), they're outside
@@ -863,7 +863,7 @@ export function ImportSections(props: ImportSectionsProps) {
                   fantasy.espn.com/football/league?leagueId=
                   <strong>YOUR_ID</strong>
                 </code>{" "}
-                (public leagues only - for private leagues, use Manual entry).
+                (public leagues only - for private leagues, use Manual import).
               </>
             ) : platform === "manual" ? (
               <>
@@ -1121,8 +1121,8 @@ export function ImportSections(props: ImportSectionsProps) {
               >
                 see instructions
               </a>
-              ), then try again. Or, choose Manual entry to import without
-              changing any ESPN settings.
+              ), then try again. Or, use Manual import without changing any ESPN
+              settings.
             </p>
           ) : (
             importMsg &&

@@ -2,7 +2,7 @@
 // env naming family - see lib/api/redis.ts), limits are enforced with a
 // sliding window in Redis so they hold across serverless instances and cold
 // starts. Without credentials - the zero-env local setup the README promises
-// for Sleeper/ESPN imports and manual entry - we fall back to the in-memory
+// for Sleeper/ESPN imports and manual import - we fall back to the in-memory
 // token bucket below, which is best-effort per instance. The Redis client is
 // constructed lazily and only after the env check, so importing this module
 // never throws on an unconfigured machine.

@@ -78,7 +78,7 @@ export default function GeneratePage() {
     (format.variant === "pure-round-robin" ||
       format.variant === "complete-double-round-robin");
   // Edge-case card opener. Imports read "Detected an 8-team / 14-week
-  // format: …" (the shape was inferred from league data); manual entry reads
+  // format: …" (the shape was inferred from league data); manual import reads
   // the declarative "An 8-team / 14-week format is …" - nothing was
   // detected, the user chose it. "format", not "league": the shape is
   // what's being described, the league is the named thing that has it.
