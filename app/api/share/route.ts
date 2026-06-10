@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { getRedis, hasRedisEnv } from "@/lib/api/redis";
 import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
-import { validatePayload } from "./validate";
+import { buildStoredPayload, validatePayload } from "./validate";
 
 const SLUG_LENGTH = 8;
 const SLUG_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -64,32 +64,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
-  // Store only the known fields. Persisting the raw body would also host
-  // arbitrary unvalidated extra keys under our domain (a free JSON dead-drop,
-  // re-served verbatim by the GET route) - this is an open endpoint.
-  const b = body as Record<string, unknown>;
-  const schedule = b.schedule as Record<string, unknown>;
-  const stored = {
-    format: b.format,
-    teams: b.teams,
-    userIds: b.userIds,
-    leagueName: b.leagueName,
-    seasonYear: b.seasonYear,
-    platform: b.platform,
-    history: b.history,
-    manualDoubles: b.manualDoubles,
-    rivalryPins: b.rivalryPins,
-    schedule: {
-      weeks: schedule.weeks,
-      displayWeeks: schedule.displayWeeks,
-      doubledPairs: schedule.doubledPairs,
-      softRepeated: schedule.softRepeated,
-      hardRepeated: schedule.hardRepeated,
-      clean: schedule.clean,
-      format: schedule.format,
-      rivalryPlacements: schedule.rivalryPlacements,
-    },
-  };
+  // Store only the known fields, rebuilt field-by-field down to the nested
+  // objects (see buildStoredPayload). Persisting the raw body - or any
+  // nested object wholesale - would host arbitrary unvalidated extra keys
+  // under our domain (a free JSON dead-drop, re-served verbatim by the GET
+  // route) - this is an open endpoint.
+  const stored = buildStoredPayload(body as Record<string, unknown>);
 
   // Generate a slug; SETNX retries on the (extremely unlikely) collision.
   let slug: string | null = null;

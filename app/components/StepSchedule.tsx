@@ -127,7 +127,8 @@ export function StepSchedule(props: StepScheduleProps) {
           softRepeated: schedule.softRepeated,
           hardRepeated: schedule.hardRepeated,
           clean: schedule.clean,
-          format: schedule.format,
+          // schedule.format is deliberately not sent - it's derivable from
+          // the top-level format, and the share route doesn't store it.
           rivalryPlacements: schedule.rivalryPlacements,
         },
       };

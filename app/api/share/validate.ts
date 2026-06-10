@@ -239,6 +239,25 @@ export function validatePayload(body: unknown): string | null {
     return 'Each doubled pair must be "i-j" with i < j < teamCount.';
   }
 
+  // softRepeated/hardRepeated/clean ride along with every client save (part
+  // of the schedule result's contract; unread by the shared view today).
+  // Optional for older or hand-built payloads, but never persisted
+  // unvalidated - the repeat lists get the same index-key treatment as
+  // doubledPairs.
+  for (const field of ["softRepeated", "hardRepeated"] as const) {
+    const repeats = schedule[field];
+    if (repeats === undefined) continue;
+    if (!Array.isArray(repeats)) {
+      return `schedule.${field} must be an array when provided.`;
+    }
+    if (!repeats.every(isIndexPairKey)) {
+      return `Each schedule.${field} entry must be "i-j" with i < j < teamCount.`;
+    }
+  }
+  if (schedule.clean !== undefined && typeof schedule.clean !== "boolean") {
+    return "schedule.clean must be a boolean when provided.";
+  }
+
   // displayWeeks is optional (older clients won't send it). When present, it
   // mirrors schedule.weeks in shape but with the home/away display order
   // applied — same number of weeks, each week an array of [number, number]
@@ -273,6 +292,15 @@ export function validatePayload(body: unknown): string | null {
       ) {
         return "Each rivalry placement must have integer teamA, teamB, placedWeek.";
       }
+      if (
+        p.teamA < 0 ||
+        p.teamA >= teamCount ||
+        p.teamB < 0 ||
+        p.teamB >= teamCount ||
+        p.teamA === p.teamB
+      ) {
+        return "Rivalry placement team indices must be distinct and in [0, teamCount).";
+      }
       if (p.placedWeek < 1 || p.placedWeek > format.weekCount) {
         return "rivalryPlacement.placedWeek must be between 1 and format.weekCount.";
       }
@@ -291,4 +319,59 @@ export function validatePayload(body: unknown): string | null {
   }
 
   return null;
+}
+
+// Build the object the POST route persists, from a body that has already
+// passed validatePayload. The whitelist is deep: validatePayload checks the
+// known keys of nested objects without rejecting extras, so storing a row or
+// pin wholesale would still host arbitrary rider keys under our domain
+// (re-served verbatim by the GET route - and history-row riders get spread
+// into a restoring user's state and localStorage). Every nested object is
+// rebuilt field-by-field; arrays of validated scalars/tuples pass through
+// as-is, since JSON arrays can't carry extra keys. schedule.format (a
+// FormatProperties mirror older clients still send) is deliberately not
+// stored: nothing reads it, and it's derivable from the top-level format.
+export function buildStoredPayload(body: Record<string, unknown>) {
+  const format = body.format as Record<string, unknown>;
+  const schedule = body.schedule as Record<string, unknown>;
+  const history = body.history as Array<Record<string, unknown>>;
+  const rivalryPins = body.rivalryPins as
+    | Array<Record<string, unknown>>
+    | undefined;
+  const rivalryPlacements = schedule.rivalryPlacements as
+    | Array<Record<string, unknown>>
+    | undefined;
+  return {
+    format: { teamCount: format.teamCount, weekCount: format.weekCount },
+    teams: body.teams,
+    userIds: body.userIds,
+    leagueName: body.leagueName,
+    seasonYear: body.seasonYear,
+    platform: body.platform,
+    history: history.map((row) => ({
+      season: row.season,
+      doubles: row.doubles,
+      format: row.format,
+    })),
+    manualDoubles: body.manualDoubles,
+    rivalryPins: rivalryPins?.map((pin) => ({
+      teamA: pin.teamA,
+      teamB: pin.teamB,
+      week: pin.week,
+    })),
+    schedule: {
+      weeks: schedule.weeks,
+      displayWeeks: schedule.displayWeeks,
+      doubledPairs: schedule.doubledPairs,
+      softRepeated: schedule.softRepeated,
+      hardRepeated: schedule.hardRepeated,
+      clean: schedule.clean,
+      rivalryPlacements: rivalryPlacements?.map((p) => ({
+        teamA: p.teamA,
+        teamB: p.teamB,
+        pinnedWeek: p.pinnedWeek,
+        placedWeek: p.placedWeek,
+      })),
+    },
+  };
 }

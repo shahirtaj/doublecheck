@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildStoredPayload,
   MAX_DOUBLE_KEY_LENGTH,
   MAX_LEAGUE_NAME_LENGTH,
   MAX_SEASON_LABEL_LENGTH,
@@ -430,5 +431,128 @@ describe("validatePayload", () => {
         "rivalryPlacement.placedWeek must be between 1 and format.weekCount.",
       );
     });
+
+    it("rejects out-of-range or identical placement team indices", () => {
+      // Same bounds treatment as rivalryPins - placements come from the
+      // algorithm and are always in range, so nothing legitimate is blocked.
+      expect(
+        validatePayload(
+          withSchedule({
+            rivalryPlacements: [
+              { teamA: 0, teamB: 5, pinnedWeek: null, placedWeek: 2 },
+            ],
+          }),
+        ),
+      ).toBe(
+        "Rivalry placement team indices must be distinct and in [0, teamCount).",
+      );
+      expect(
+        validatePayload(
+          withSchedule({
+            rivalryPlacements: [
+              { teamA: 1, teamB: 1, pinnedWeek: null, placedWeek: 2 },
+            ],
+          }),
+        ),
+      ).toBe(
+        "Rivalry placement team indices must be distinct and in [0, teamCount).",
+      );
+    });
+  });
+
+  describe("schedule repeat lists and clean flag", () => {
+    it("accepts valid softRepeated/hardRepeated/clean and tolerates their absence", () => {
+      expect(
+        validatePayload(
+          withSchedule({
+            softRepeated: ["0-1"],
+            hardRepeated: ["2-3"],
+            clean: false,
+          }),
+        ),
+      ).toBeNull();
+      // The minimal payload omits all three.
+      expect(validatePayload(validPayload())).toBeNull();
+    });
+
+    it("rejects non-array repeat lists and out-of-range repeat keys", () => {
+      expect(validatePayload(withSchedule({ softRepeated: {} }))).toBe(
+        "schedule.softRepeated must be an array when provided.",
+      );
+      expect(validatePayload(withSchedule({ softRepeated: ["0-9"] }))).toBe(
+        'Each schedule.softRepeated entry must be "i-j" with i < j < teamCount.',
+      );
+      expect(validatePayload(withSchedule({ hardRepeated: [{}] }))).toBe(
+        'Each schedule.hardRepeated entry must be "i-j" with i < j < teamCount.',
+      );
+    });
+
+    it("rejects a non-boolean clean flag", () => {
+      expect(validatePayload(withSchedule({ clean: "yes" }))).toBe(
+        "schedule.clean must be a boolean when provided.",
+      );
+    });
+  });
+});
+
+describe("buildStoredPayload", () => {
+  it("strips rider keys from every nested object", () => {
+    // validatePayload checks known keys without rejecting extras, so the
+    // stored object must be rebuilt field-by-field or riders survive into
+    // the GET response (and history-row riders into a restoring user's
+    // localStorage).
+    const payload = validPayload();
+    payload.format = { teamCount: 4, weekCount: 3, rider: "x" };
+    payload.history = [
+      { season: "2025", doubles: ["0-1"], format: "index", rider: "x" },
+    ];
+    payload.rivalryPins = [{ teamA: 0, teamB: 1, week: null, rider: "x" }];
+    payload.schedule = {
+      ...(payload.schedule as Record<string, unknown>),
+      rivalryPlacements: [
+        { teamA: 0, teamB: 1, pinnedWeek: null, placedWeek: 2, rider: "x" },
+      ],
+    };
+    expect(validatePayload(payload)).toBeNull();
+
+    const stored = buildStoredPayload(payload);
+    expect(stored.format).toEqual({ teamCount: 4, weekCount: 3 });
+    expect(stored.history).toEqual([
+      { season: "2025", doubles: ["0-1"], format: "index" },
+    ]);
+    expect(stored.rivalryPins).toEqual([{ teamA: 0, teamB: 1, week: null }]);
+    expect(stored.schedule.rivalryPlacements).toEqual([
+      { teamA: 0, teamB: 1, pinnedWeek: null, placedWeek: 2 },
+    ]);
+  });
+
+  it("does not store schedule.format and keeps absent optionals absent", () => {
+    const payload = validPayload();
+    payload.schedule = {
+      ...(payload.schedule as Record<string, unknown>),
+      format: { teamCount: 4, weekCount: 3, separation: 1 },
+    };
+    const stored = buildStoredPayload(payload);
+    expect("format" in stored.schedule).toBe(false);
+    expect(stored.rivalryPins).toBeUndefined();
+    expect(stored.schedule.rivalryPlacements).toBeUndefined();
+    expect(stored.schedule.displayWeeks).toBeUndefined();
+  });
+
+  it("passes validated fields through unchanged", () => {
+    const payload = validPayload();
+    payload.leagueName = "My League";
+    payload.seasonYear = 2026;
+    payload.platform = "sleeper";
+    const stored = buildStoredPayload(payload);
+    expect(stored.teams).toEqual(payload.teams);
+    expect(stored.userIds).toEqual(payload.userIds);
+    expect(stored.leagueName).toBe("My League");
+    expect(stored.seasonYear).toBe(2026);
+    expect(stored.platform).toBe("sleeper");
+    expect(stored.manualDoubles).toEqual([]);
+    expect(stored.schedule.weeks).toEqual(
+      (payload.schedule as Record<string, unknown>).weeks,
+    );
   });
 });
