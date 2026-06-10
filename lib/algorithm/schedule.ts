@@ -253,8 +253,12 @@ function validate(teamCount: number, weekCount: number): ScheduleResult | null {
 //   * 1 pin + non-hard-avoided pair = "at least one game" at the pinned
 //     week. If the pinned week is one of the format's block-area weeks
 //     (W <= dp or W > wc - dp), the pair naturally doubles into the
-//     corresponding paired week. If that paired week is already claimed, or
-//     the pinned week is in the middle, the pair stays single.
+//     corresponding paired week. If that paired week can't host the double
+//     (claimed, needed by another specific-week pin for the same teams, or
+//     already carrying a single/double slot of its own), or the pinned week
+//     is in the middle, the pair stays single. A pinned week that already
+//     belongs to a double slot can't host a single at all (its matching
+//     repeats at the partner week), so the pair joins that slot instead.
 function resolvePins(
   pins: ReadonlyArray<RivalryPin>,
   format: FormatProperties,
@@ -309,7 +313,33 @@ function resolvePins(
     }
   }
 
+  // Teams with a specific-week pin, by week. The natural-double promotion in
+  // place1PinAtWeek consults this so it never claims a week that a
+  // not-yet-processed pin needs for one of the same teams — feasibility must
+  // not depend on the order pins happen to be processed in.
+  const pinnedTeamsAtWeek = new Map<number, Set<number>>();
+  for (const [, group] of groupsByPair) {
+    for (const p of group.pins) {
+      if (p.week === null) continue;
+      let s = pinnedTeamsAtWeek.get(p.week);
+      if (!s) {
+        s = new Set<number>();
+        pinnedTeamsAtWeek.set(p.week, s);
+      }
+      s.add(group.pair[0]);
+      s.add(group.pair[1]);
+    }
+  }
+  const pinnedTeamsConflict = (W: number, a: number, b: number): boolean => {
+    const s = pinnedTeamsAtWeek.get(W);
+    return !!s && (s.has(a) || s.has(b));
+  };
+
   const teamsInWeek = new Map<number, Set<number>>();
+  const canClaim = (W: number, a: number, b: number): boolean => {
+    const s = teamsInWeek.get(W);
+    return !s || (!s.has(a) && !s.has(b));
+  };
   const claimWeek = (W: number, a: number, b: number): boolean => {
     let s = teamsInWeek.get(W);
     if (!s) {
@@ -328,6 +358,11 @@ function resolvePins(
   const singleSlotWeeks: Array<number> = [];
   const doubleSlotByWeeks = new Map<string, number>();
   const singleSlotByWeek = new Map<number, number>();
+  // Reverse lookup: which double slot (if any) a week belongs to. In any
+  // consistent assignment a week is in at most one slot; overlapping Pass A
+  // 2-pins can still write twice, but those runs always die at the week-count
+  // consistency check below, so the stale entry is never acted on.
+  const doubleWeekToSlot = new Map<number, number>();
 
   const ensureDoubleSlot = (W1: number, W2: number): number => {
     const minW = Math.min(W1, W2);
@@ -339,6 +374,8 @@ function resolvePins(
       doubleSlotByWeeks.set(k, idx);
       doubleSlotMustInclude.push([]);
       doubleSlotWeeks.push([minW, maxW]);
+      doubleWeekToSlot.set(minW, idx);
+      doubleWeekToSlot.set(maxW, idx);
     }
     return idx;
   };
@@ -365,30 +402,62 @@ function resolvePins(
 
   // Place a 1-pin pair at week W. Hard-avoided pairs stay single; non-hard-
   // avoided pairs in the block area attempt the natural double at W±sep and
-  // fall back to single if that paired week is already claimed OR the week
-  // already hosts a forced-single matching (mixing a doubled matching and a
-  // single matching at the same week is structurally impossible).
+  // fall back to single when the paired week can't host it: already claimed
+  // by a processed placement, needed by a not-yet-processed specific-week
+  // pin for one of the same teams, hosting a forced-single matching, or
+  // already paired into a different double slot (mixing matchings at one
+  // week is structurally impossible). If W itself already belongs to a
+  // double slot, every matchup at W repeats at the slot's partner week, so
+  // a single there is impossible — the pair joins that slot or fails. All
+  // checks run before any claim so a false return leaves no stray claims
+  // behind (pass D retries other candidate weeks after a false).
   const place1PinAtWeek = (
     pair: Pair,
     W: number,
     pinnedWeek: number | null,
   ): boolean => {
     const [a, b] = pair;
-    if (!claimWeek(W, a, b)) return false;
+    if (!canClaim(W, a, b)) return false;
     const key = pairKey(a, b);
     const isHardAvoided = hardAvoid.has(key);
+
+    const commitDouble = (slot: number, W2: number): void => {
+      claimWeek(W, a, b);
+      claimWeek(W2, a, b);
+      doubleSlotMustInclude[slot]!.push(pair);
+      forcedDoubledPairs.add(key);
+      placements.push({ teamA: a, teamB: b, pinnedWeek, placedWeek: W });
+    };
+
+    const wSlot = doubleWeekToSlot.get(W);
+    if (wSlot !== undefined) {
+      if (isHardAvoided) return false;
+      const [s1, s2] = doubleSlotWeeks[wSlot]!;
+      const partner = W === s1 ? s2 : s1;
+      if (pinnedTeamsConflict(partner, a, b)) return false;
+      if (!canClaim(partner, a, b)) return false;
+      commitDouble(wSlot, partner);
+      return true;
+    }
+
     const inBlockArea = W <= dp || W > weekCount - dp;
-    const weekHasForcedSingle = singleSlotByWeek.has(W);
-    if (!isHardAvoided && inBlockArea && !weekHasForcedSingle) {
+    if (!isHardAvoided && inBlockArea && !singleSlotByWeek.has(W)) {
       const W2 = W <= dp ? W + separation : W - separation;
-      if (W2 >= 1 && W2 <= weekCount && claimWeek(W2, a, b)) {
-        const slot = ensureDoubleSlot(W, W2);
-        doubleSlotMustInclude[slot]!.push(pair);
-        forcedDoubledPairs.add(key);
-        placements.push({ teamA: a, teamB: b, pinnedWeek, placedWeek: W });
+      if (
+        W2 >= 1 &&
+        W2 <= weekCount &&
+        !singleSlotByWeek.has(W2) &&
+        // W isn't in a slot (handled above), so any slot at W2 is foreign.
+        !doubleWeekToSlot.has(W2) &&
+        !pinnedTeamsConflict(W2, a, b) &&
+        canClaim(W2, a, b)
+      ) {
+        commitDouble(ensureDoubleSlot(W, W2), W2);
         return true;
       }
     }
+
+    claimWeek(W, a, b);
     const slot = ensureSingleSlot(W);
     singleSlotMustInclude[slot]!.push(pair);
     forcedSinglePairs.add(key);
@@ -435,6 +504,19 @@ function resolvePins(
     }
   }
 
+  // Candidate week W can host a doubled appearance paired with `partner`
+  // (null while the partner is still unchosen): no forced-single matching at
+  // W, and any double slot W already belongs to must be exactly the
+  // (W, partner) pairing — anything else would put two matchings on one week.
+  const canHostDoubleAt = (W: number, partner: number | null): boolean => {
+    if (singleSlotByWeek.has(W)) return false;
+    const slot = doubleWeekToSlot.get(W);
+    if (slot === undefined) return true;
+    if (partner === null) return false;
+    const [s1, s2] = doubleSlotWeeks[slot]!;
+    return s1 === Math.min(W, partner) && s2 === Math.max(W, partner);
+  };
+
   // Pass C: 2-pin pairs with at least one any-week. Pick remaining week(s).
   for (const [key, group] of groupsByPair) {
     if (group.pins.length !== 2) continue;
@@ -469,6 +551,9 @@ function resolvePins(
     let placed = false;
     for (const W of candidates) {
       if (W1 !== null && W === W1) continue;
+      if (!canHostDoubleAt(W, W1)) continue;
+      if (W1 !== null && !canHostDoubleAt(W1, W)) continue;
+      if (pinnedTeamsConflict(W, a, b)) continue;
       if (claimWeek(W, a, b)) {
         W2 = W;
         placed = true;
@@ -492,6 +577,8 @@ function resolvePins(
       let firstPlaced = false;
       for (const W of w1Candidates) {
         if (W === W2) continue;
+        if (!canHostDoubleAt(W, W2)) continue;
+        if (pinnedTeamsConflict(W, a, b)) continue;
         if (claimWeek(W, a, b)) {
           W1 = W;
           firstPlaced = true;
