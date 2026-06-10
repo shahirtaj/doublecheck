@@ -392,9 +392,12 @@ export function ImportSections(props: ImportSectionsProps) {
         format: hasUids ? "userid" : "index",
       };
     });
-    // Upsert by year + chronological re-sort. Imports only return completed
-    // seasons, so the current year can't collide: a Save & Share row for the
-    // in-progress season always survives the merge.
+    // Upsert by year + chronological re-sort. A Save & Share row for the
+    // in-progress season may be replaced here: Yahoo (isFinished gate) and
+    // ESPN (default start = currentYear - 1) only return completed seasons,
+    // but Sleeper includes the current year once week 1 has points. That's
+    // fine - the upsert keeps one row, and priorSeasons keeps the current
+    // year out of avoidance.
     const newHistory = mergeImportedHistory(
       formatChanged ? [] : history,
       importedRows,

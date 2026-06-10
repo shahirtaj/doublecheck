@@ -137,9 +137,11 @@ export function normalizeHistory(
 // wins: an existing row for the same year (a manual edit, or a Save & Share
 // row whose generated doubles differ from the actually played ones) is
 // replaced rather than duplicated, and the result is re-sorted
-// chronologically. The in-progress current season can't collide - imports
-// only return completed seasons - so the Save & Share row for the current
-// year survives the merge.
+// chronologically. A Save & Share row for the in-progress season may be
+// replaced too: most platforms only return completed seasons, but a
+// mid-season Sleeper import includes the current year. That's fine - the
+// upsert keeps one row, and priorSeasons keeps the current year out of
+// avoidance.
 export function mergeImportedHistory(
   existing: readonly SeasonHistory[],
   imported: readonly SeasonHistory[],
