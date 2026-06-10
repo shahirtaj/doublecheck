@@ -21,6 +21,7 @@ import {
   detectFormatFromImport,
   extractSlug,
   mergeImportedHistory,
+  normalizeHistory,
   platformLabel,
 } from "./utils";
 import type { Patch, SaveToStorageFn, State } from "./state";
@@ -391,6 +392,9 @@ export function ImportSections(props: ImportSectionsProps) {
         format: hasUids ? "userid" : "index",
       };
     });
+    // Upsert by year + chronological re-sort. Imports only return completed
+    // seasons, so the current year can't collide: a Save & Share row for the
+    // in-progress season always survives the merge.
     const newHistory = mergeImportedHistory(
       formatChanged ? [] : history,
       importedRows,
@@ -523,13 +527,16 @@ export function ImportSections(props: ImportSectionsProps) {
       return pairKey(oldToNew[a]!, oldToNew[b]!);
     };
 
-    const remappedHistory: SeasonHistory[] = (linkPreview.history ?? []).map(
-      (entry) => ({
+    // normalizeHistory self-heals share payloads written before the import
+    // merge deduped by year: duplicate-year rows collapse (last one wins)
+    // and the rows come back in chronological order.
+    const remappedHistory: SeasonHistory[] = normalizeHistory(
+      (linkPreview.history ?? []).map((entry) => ({
         ...entry,
         doubles: (entry.doubles ?? []).map((k) =>
           entry.format === "userid" ? k : remapKey(k),
         ),
-      }),
+      })),
     );
     // manualDoubles intentionally dropped on restore: they're one-time
     // overrides for the season they were set in, and silently carrying

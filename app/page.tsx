@@ -13,6 +13,7 @@ import type { ImportPlatform, SelectedFormat, Step } from "./components/types";
 import {
   computeDisplayWeeks,
   deriveLookback,
+  normalizeHistory,
   priorSeasons,
 } from "./components/utils";
 import { cls } from "./components/styles";
@@ -166,7 +167,11 @@ export default function GeneratePage() {
             hydration.teams = d.teams;
           if (Array.isArray(d.userIds) && d.userIds.length === storedTeamCount)
             hydration.userIds = d.userIds;
-          if (Array.isArray(d.history)) hydration.history = d.history;
+          // normalizeHistory self-heals payloads saved before the import
+          // merge deduped by year: duplicate-year rows collapse (last one
+          // wins) and the rows come back in chronological order.
+          if (Array.isArray(d.history))
+            hydration.history = normalizeHistory(d.history);
           if (Array.isArray(d.manualDoubles))
             hydration.manualDoubles = new Set(d.manualDoubles);
           if (typeof d.lookbackOverride === "number")

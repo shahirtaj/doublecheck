@@ -7,6 +7,8 @@ import {
   deriveLookback,
   detectFormatFromImport,
   extractSlug,
+  mergeImportedHistory,
+  normalizeHistory,
   priorSeasons,
 } from "./utils";
 
@@ -269,6 +271,109 @@ describe("priorSeasons", () => {
 
   it("returns [] for empty history", () => {
     expect(priorSeasons([], 2025)).toEqual([]);
+  });
+});
+
+describe("normalizeHistory", () => {
+  it("keeps the last row for a duplicated year and re-sorts", () => {
+    const rows: SeasonHistory[] = [
+      { season: "2024", doubles: ["0-1"], format: "index" },
+      { season: "2023", doubles: ["2-3"], format: "index" },
+      { season: "2024", doubles: ["4-5"], format: "index" },
+    ];
+    expect(normalizeHistory(rows)).toEqual([
+      { season: "2023", doubles: ["2-3"], format: "index" },
+      { season: "2024", doubles: ["4-5"], format: "index" },
+    ]);
+  });
+
+  it("sorts out-of-order rows ascending by numeric year", () => {
+    const rows: SeasonHistory[] = [
+      { season: "2024", doubles: [] },
+      { season: "2021", doubles: [] },
+      { season: "2023", doubles: [] },
+    ];
+    expect(normalizeHistory(rows).map((h) => h.season)).toEqual([
+      "2021",
+      "2023",
+      "2024",
+    ]);
+  });
+
+  it("keeps a row with a non-numeric season label", () => {
+    const rows: SeasonHistory[] = [
+      { season: "Last year", doubles: ["0-1"] },
+      { season: "2024", doubles: [] },
+    ];
+    expect(normalizeHistory(rows)).toHaveLength(2);
+  });
+
+  it("returns [] for empty input", () => {
+    expect(normalizeHistory([])).toEqual([]);
+  });
+});
+
+describe("mergeImportedHistory", () => {
+  it("replaces a same-year row with different doubles (imported wins)", () => {
+    const existing: SeasonHistory[] = [
+      { season: "2024", doubles: ["0-1", "2-3"], format: "index" },
+    ];
+    const imported: SeasonHistory[] = [
+      { season: "2024", doubles: ["u1:u2"], format: "userid" },
+    ];
+    expect(mergeImportedHistory(existing, imported)).toEqual([
+      { season: "2024", doubles: ["u1:u2"], format: "userid" },
+    ]);
+  });
+
+  it("re-sorts chronologically with a manual row in the middle", () => {
+    const existing: SeasonHistory[] = [
+      { season: "2024", doubles: ["0-1"], format: "index" },
+    ];
+    const imported: SeasonHistory[] = [
+      { season: "2021", doubles: [], format: "userid" },
+      { season: "2022", doubles: [], format: "userid" },
+      { season: "2023", doubles: [], format: "userid" },
+      { season: "2025", doubles: [], format: "userid" },
+    ];
+    const result = mergeImportedHistory(existing, imported);
+    expect(result.map((h) => h.season)).toEqual([
+      "2021",
+      "2022",
+      "2023",
+      "2024",
+      "2025",
+    ]);
+    expect(result[3]).toEqual({
+      season: "2024",
+      doubles: ["0-1"],
+      format: "index",
+    });
+  });
+
+  it("is a no-op for an exact duplicate reimport", () => {
+    const existing: SeasonHistory[] = [
+      { season: "2023", doubles: ["0-1"], format: "index" },
+      { season: "2024", doubles: ["2-3"], format: "index" },
+    ];
+    const imported: SeasonHistory[] = [
+      { season: "2023", doubles: ["0-1"], format: "index" },
+      { season: "2024", doubles: ["2-3"], format: "index" },
+    ];
+    expect(mergeImportedHistory(existing, imported)).toEqual(existing);
+  });
+
+  it("keeps a current-year Save & Share row not present in the import", () => {
+    const existing: SeasonHistory[] = [
+      { season: "2026", doubles: ["0-1"], format: "index" },
+    ];
+    const imported: SeasonHistory[] = [
+      { season: "2024", doubles: [], format: "userid" },
+      { season: "2025", doubles: [], format: "userid" },
+    ];
+    expect(
+      mergeImportedHistory(existing, imported).map((h) => h.season),
+    ).toEqual(["2024", "2025", "2026"]);
   });
 });
 

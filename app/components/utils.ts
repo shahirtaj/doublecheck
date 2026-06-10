@@ -112,24 +112,39 @@ export function priorSeasons(
   });
 }
 
-// Merge freshly imported seasons into existing history. Skips an imported
-// row only when an exact duplicate (same season year and same doubles set)
-// is already present.
+// One row per season, oldest first. Keeps the LAST row for each season label
+// so fresher data wins over whatever came before it, then sorts ascending by
+// numeric year (stable sort, so rows with unparseable years keep their
+// relative order - same comparator as Add Past Season). buildAvoidMap ages
+// entries by array index, so a duplicated year double-counts that season and
+// an out-of-order row corrupts the whole avoidance window.
+export function normalizeHistory(
+  rows: readonly SeasonHistory[],
+): SeasonHistory[] {
+  const lastIndexBySeason = new Map<string, number>();
+  rows.forEach((row, i) => lastIndexBySeason.set(row.season, i));
+  return rows
+    .filter((row, i) => lastIndexBySeason.get(row.season) === i)
+    .sort((a, b) => {
+      const aN = Number(a.season);
+      const bN = Number(b.season);
+      if (Number.isNaN(aN) || Number.isNaN(bN)) return 0;
+      return aN - bN;
+    });
+}
+
+// Merge freshly imported seasons into existing history. Imported data always
+// wins: an existing row for the same year (a manual edit, or a Save & Share
+// row whose generated doubles differ from the actually played ones) is
+// replaced rather than duplicated, and the result is re-sorted
+// chronologically. The in-progress current season can't collide - imports
+// only return completed seasons - so the Save & Share row for the current
+// year survives the merge.
 export function mergeImportedHistory(
   existing: readonly SeasonHistory[],
   imported: readonly SeasonHistory[],
 ): SeasonHistory[] {
-  const merged = [...existing];
-  for (const row of imported) {
-    const doublesStr = [...row.doubles].sort().join(",");
-    const isDuplicate = merged.some(
-      (entry) =>
-        entry.season === row.season &&
-        [...entry.doubles].sort().join(",") === doublesStr,
-    );
-    if (!isDuplicate) merged.push(row);
-  }
-  return merged;
+  return normalizeHistory([...existing, ...imported]);
 }
 
 // Plain-text schedule export shared by Step 3's Copy button and the shared
