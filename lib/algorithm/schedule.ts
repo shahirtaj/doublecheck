@@ -1060,14 +1060,17 @@ function classifyPinsForWeekly(
 }
 
 // Choose a `target`-sized set of pairs forming a `dp`-regular subgraph of
-// K_n, including all forced doubles and excluding forced singles + hardAvoid.
-// Greedy with retry — usually finds a valid set quickly for typical inputs.
+// K_n, including all forced doubles and excluding forced singles + `avoid`
+// (the hard set, plus the soft set in the caller's strict pass). `softAvoid`
+// pairs stay eligible but are deprioritized - shuffled in only after the
+// non-soft candidates. Greedy with retry — usually finds a valid set quickly
+// for typical inputs.
 function pickDoubledSet(
   n: number,
   dp: number,
   forcedDoubled: ReadonlySet<PairKey>,
   forcedSingle: ReadonlySet<PairKey>,
-  hardAvoid: ReadonlySet<PairKey>,
+  avoid: ReadonlySet<PairKey>,
   softAvoid: ReadonlySet<PairKey>,
   shuffle: Shuffler,
   target: number,
@@ -1077,8 +1080,7 @@ function pickDoubledSet(
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       const k = pairKey(i, j);
-      if (forcedDoubled.has(k) || hardAvoid.has(k) || forcedSingle.has(k))
-        continue;
+      if (forcedDoubled.has(k) || avoid.has(k) || forcedSingle.has(k)) continue;
       if (softAvoid.has(k)) tier2.push(k);
       else tier1.push(k);
     }
@@ -1140,12 +1142,15 @@ function pickDoubledSet(
 // Returns the doubled set AND an augmented mustInclude with the slot pairs
 // already placed; the partner-slot phase only needs to handle leftover
 // pairs added by the dp-regular top-up.
+// `avoid` is every pair that must not enter the doubled set (the hard set,
+// plus the soft set in the caller's strict pass); it never blocks
+// forcedDoubled pairs, which are pre-seeded before the exclusion checks.
 function pickDoubledSetSlotAware(
   teamCount: number,
   dp: number,
   forcedDoubled: ReadonlySet<PairKey>,
   forcedSingle: ReadonlySet<PairKey>,
-  hardAvoid: ReadonlySet<PairKey>,
+  avoid: ReadonlySet<PairKey>,
   baseWeekMustInclude: ReadonlyMap<number, Pair[]>,
   separation: number,
   weekCount: number,
@@ -1177,7 +1182,7 @@ function pickDoubledSetSlotAware(
   }
 
   const isExcludedForNew = (k: PairKey): boolean =>
-    doubled.has(k) || hardAvoid.has(k) || forcedSingle.has(k);
+    doubled.has(k) || avoid.has(k) || forcedSingle.has(k);
 
   const slots: Array<[number, number]> = [];
   for (let W1 = 1; W1 + separation <= weekCount; W1++) {
@@ -1197,7 +1202,7 @@ function pickDoubledSetSlotAware(
     let hardAsymCount = 0;
     const classifyAsym = (k: PairKey): void => {
       const tc = totalPinCount.get(k) ?? 0;
-      if (tc === 1 && !hardAvoid.has(k) && !forcedSingle.has(k)) {
+      if (tc === 1 && !avoid.has(k) && !forcedSingle.has(k)) {
         softAsymKeys.push(k);
       } else {
         hardAsymCount++;
@@ -1717,130 +1722,131 @@ function buildScheduleWeekByWeek(
     }
   }
 
-  for (let outerAttempt = 0; outerAttempt < 30; outerAttempt++) {
-    let usingSoft = false;
-    let doubled: Set<PairKey> | null = null;
-    let preplacedMustInclude: Map<number, Pair[]> | null = null;
+  // Mirror the main path's avoidance tiers: the strict pass excludes hard
+  // AND soft pairs from the doubled set; only when every strict attempt
+  // fails does the relaxed pass release the soft set (still deprioritized
+  // in the random fallback) and report clean: false. Pins override
+  // avoidance either way - forcedDoubled pairs are pre-seeded into the
+  // doubled set before any exclusion check applies. An empty soft set
+  // makes the passes identical, so it gets the strict pass only.
+  const strictAvoid = new Set<PairKey>([...hardAvoid, ...softAvoid]);
+  const passes = softAvoid.size > 0 ? [true, false] : [true];
 
-    // Prefer slot-aware selection: pick doubled pairs by iterating partner
-    // slots, so the doubled set is feasible at max separation by construction.
-    const slotAware = pickDoubledSetSlotAware(
-      teamCount,
-      dp,
-      forcedDoubled,
-      forcedSingle,
-      hardAvoid,
-      weekMustInclude,
-      format.separation,
-      weekCount,
-      shuffle,
-    );
-    if (slotAware) {
-      doubled = slotAware.doubled;
-      preplacedMustInclude = slotAware.augmented;
-    } else {
-      // Fallback: random pickDoubledSet (no slot bias).
-      doubled = pickDoubledSet(
+  for (const strict of passes) {
+    const avoid = strict ? strictAvoid : hardAvoid;
+    for (let outerAttempt = 0; outerAttempt < 30; outerAttempt++) {
+      let doubled: Set<PairKey> | null = null;
+      let preplacedMustInclude: Map<number, Pair[]> | null = null;
+
+      // Prefer slot-aware selection: pick doubled pairs by iterating partner
+      // slots, so the doubled set is feasible at max separation by
+      // construction.
+      const slotAware = pickDoubledSetSlotAware(
         teamCount,
         dp,
         forcedDoubled,
         forcedSingle,
-        hardAvoid,
-        softAvoid,
+        avoid,
+        weekMustInclude,
+        format.separation,
+        weekCount,
         shuffle,
-        totalDoubled,
       );
-      if (!doubled) {
+      if (slotAware) {
+        doubled = slotAware.doubled;
+        preplacedMustInclude = slotAware.augmented;
+      } else {
+        // Fallback: random pickDoubledSet (no slot bias).
         doubled = pickDoubledSet(
           teamCount,
           dp,
           forcedDoubled,
           forcedSingle,
-          hardAvoid,
-          new Set(),
+          avoid,
+          strict ? new Set() : softAvoid,
           shuffle,
           totalDoubled,
         );
-        usingSoft = true;
         if (!doubled) continue;
       }
-    }
 
-    const target = new Map<PairKey, number>();
-    for (let i = 0; i < teamCount; i++) {
-      for (let j = i + 1; j < teamCount; j++) {
-        const k = pairKey(i, j);
-        target.set(k, doubled.has(k) ? 2 : 1);
+      const target = new Map<PairKey, number>();
+      for (let i = 0; i < teamCount; i++) {
+        for (let j = i + 1; j < teamCount; j++) {
+          const k = pairKey(i, j);
+          target.set(k, doubled.has(k) ? 2 : 1);
+        }
       }
-    }
 
-    // If slot-aware pre-placed pairs, most doubled pairs already have a
-    // natural-partner-slot assignment in `preplacedMustInclude`; the
-    // assignment loop below only needs to place top-up leftovers. The
-    // widening tiers tighten the floor on allowed separation: try max sep
-    // first, then drop one week at a time, with several shuffle attempts
-    // per tier to escape local dead-ends without giving up the quality goal.
-    const baseForAssignment = preplacedMustInclude ?? weekMustInclude;
-    let matchings: Matching[] | null = null;
-    for (let widening = 0; widening < weekCount && !matchings; widening++) {
-      const minSep = Math.max(1, format.separation - widening);
-      const tierAttempts = widening <= 2 ? 15 : 4;
-      for (let attempt = 0; attempt < tierAttempts; attempt++) {
-        const augmented = assignPartnerWeeksForUnpinnedDoubled(
-          doubled,
-          baseForAssignment,
-          teamCount,
-          weekCount,
-          format.separation,
-          minSep,
-          shuffle,
-        );
-        if (!augmented) continue;
-        matchings = buildMatchingsByWeek(
-          teamCount,
-          weekCount,
-          target,
-          augmented,
-          nonPartnerPartners,
-          shuffle,
-        );
-        if (matchings) break;
+      // If slot-aware pre-placed pairs, most doubled pairs already have a
+      // natural-partner-slot assignment in `preplacedMustInclude`; the
+      // assignment loop below only needs to place top-up leftovers. The
+      // widening tiers tighten the floor on allowed separation: try max sep
+      // first, then drop one week at a time, with several shuffle attempts
+      // per tier to escape local dead-ends without giving up the quality
+      // goal.
+      const baseForAssignment = preplacedMustInclude ?? weekMustInclude;
+      let matchings: Matching[] | null = null;
+      for (let widening = 0; widening < weekCount && !matchings; widening++) {
+        const minSep = Math.max(1, format.separation - widening);
+        const tierAttempts = widening <= 2 ? 15 : 4;
+        for (let attempt = 0; attempt < tierAttempts; attempt++) {
+          const augmented = assignPartnerWeeksForUnpinnedDoubled(
+            doubled,
+            baseForAssignment,
+            teamCount,
+            weekCount,
+            format.separation,
+            minSep,
+            shuffle,
+          );
+          if (!augmented) continue;
+          matchings = buildMatchingsByWeek(
+            teamCount,
+            weekCount,
+            target,
+            augmented,
+            nonPartnerPartners,
+            shuffle,
+          );
+          if (matchings) break;
+        }
       }
-    }
-    if (!matchings) continue;
+      if (!matchings) continue;
 
-    const doubledPairs = new Set<PairKey>();
-    const counts = new Map<PairKey, number>();
-    for (const week of matchings) {
-      for (const [a, b] of week) {
-        const k = pairKey(a, b);
-        counts.set(k, (counts.get(k) ?? 0) + 1);
+      const doubledPairs = new Set<PairKey>();
+      const counts = new Map<PairKey, number>();
+      for (const week of matchings) {
+        for (const [a, b] of week) {
+          const k = pairKey(a, b);
+          counts.set(k, (counts.get(k) ?? 0) + 1);
+        }
       }
-    }
-    for (const [k, c] of counts) {
-      if (c >= 2) doubledPairs.add(k);
-    }
-    const rivalryPinnedPairs = new Set<PairKey>();
-    for (const p of placements)
-      rivalryPinnedPairs.add(pairKey(p.teamA, p.teamB));
-    const softRepeated: PairKey[] = [];
-    const hardRepeated: PairKey[] = [];
-    for (const k of doubledPairs) {
-      if (rivalryPinnedPairs.has(k)) continue;
-      if (softAvoid.has(k)) softRepeated.push(k);
-      if (hardAvoid.has(k)) hardRepeated.push(k);
-    }
+      for (const [k, c] of counts) {
+        if (c >= 2) doubledPairs.add(k);
+      }
+      const rivalryPinnedPairs = new Set<PairKey>();
+      for (const p of placements)
+        rivalryPinnedPairs.add(pairKey(p.teamA, p.teamB));
+      const softRepeated: PairKey[] = [];
+      const hardRepeated: PairKey[] = [];
+      for (const k of doubledPairs) {
+        if (rivalryPinnedPairs.has(k)) continue;
+        if (softAvoid.has(k)) softRepeated.push(k);
+        if (hardAvoid.has(k)) hardRepeated.push(k);
+      }
 
-    return {
-      ok: true,
-      weeks: matchings,
-      doubledPairs,
-      softRepeated,
-      hardRepeated,
-      clean: !usingSoft,
-      format,
-      rivalryPlacements: placements,
-    };
+      return {
+        ok: true,
+        weeks: matchings,
+        doubledPairs,
+        softRepeated,
+        hardRepeated,
+        clean: strict,
+        format,
+        rivalryPlacements: placements,
+      };
+    }
   }
   return { ok: false, reason: "generation-failed", message: PIN_FAIL_MESSAGE };
 }

@@ -205,6 +205,25 @@ describe.each(FORMATS)(
       }
       expect(r.hardRepeated).toEqual([]);
     });
+
+    it("avoids an avoidable soft set and reports clean", () => {
+      // Feasibility matches the hard-avoid case above (tier 1 excludes both
+      // sets the same way), so a doubled set without this pair exists; the
+      // schedule must find it rather than spend the soft repeat.
+      const softAvoid = new Set([pairKey(0, 1)]);
+      const r = buildSchedule({
+        teamCount: teams,
+        weekCount: weeks,
+        softAvoid,
+        random: mulberry32(0x50f7 + teams * 100 + weeks),
+      });
+      assertSuccess(r);
+      for (const key of softAvoid) {
+        expect(r.doubledPairs.has(key)).toBe(false);
+      }
+      expect(r.softRepeated).toEqual([]);
+      expect(r.clean).toBe(true);
+    });
   },
 );
 
@@ -1344,6 +1363,57 @@ describe("buildSchedule rivalry pins", () => {
       const overlap: PairKey[] = [];
       for (const k of w3) if (w6.has(k)) overlap.push(k);
       expect(overlap).toEqual([k01]);
+    });
+  });
+
+  describe("soft avoidance through the non-partner-pin path", () => {
+    it("avoids an avoidable soft set and reports clean across seeds", () => {
+      // Non-partner (0,1) pins route to buildScheduleWeekByWeek. Before the
+      // strict/relaxed passes, its doubled-set pickers ignored softAvoid
+      // entirely, so a trivially avoidable soft pair could be doubled - and
+      // the result still claimed clean. Several seeds because the original
+      // miss was seed-dependent (the pickers only sometimes landed on a
+      // soft pair).
+      const softAvoid = new Set([pairKey(2, 3), pairKey(4, 5), pairKey(6, 7)]);
+      for (let s = 0; s < 20; s++) {
+        const r = buildSchedule({
+          teamCount: 12,
+          weekCount: 14,
+          softAvoid,
+          rivalryPins: [pinTo(3, 0, 1), pinTo(6, 0, 1)],
+          random: mulberry32(0x50f70 + s),
+        });
+        assertSuccess(r);
+        for (const key of softAvoid) {
+          expect(r.doubledPairs.has(key)).toBe(false);
+        }
+        expect(r.softRepeated).toEqual([]);
+        expect(r.clean).toBe(true);
+      }
+    });
+
+    it("releases an unavoidable soft set, reporting the repeats and clean: false", () => {
+      // Soft-avoiding every pair leaves no strict doubled set, so the
+      // relaxed pass must produce the schedule, list every unpinned doubled
+      // pair in softRepeated, and drop the clean flag. The pinned pair is a
+      // user override, so it stays out of softRepeated.
+      const softAvoid = new Set<PairKey>();
+      for (let i = 0; i < 12; i++) {
+        for (let j = i + 1; j < 12; j++) softAvoid.add(pairKey(i, j));
+      }
+      const r = buildSchedule({
+        teamCount: 12,
+        weekCount: 14,
+        softAvoid,
+        rivalryPins: [pinTo(3, 0, 1), pinTo(6, 0, 1)],
+        random: mulberry32(0x50f8),
+      });
+      assertSuccess(r);
+      expect(r.clean).toBe(false);
+      // 12/14 doubles 18 pairs; the pinned (0,1) is excluded from reporting.
+      expect(r.softRepeated.length).toBe(17);
+      expect(r.softRepeated).not.toContain(pairKey(0, 1));
+      expect(r.hardRepeated).toEqual([]);
     });
   });
 });
