@@ -39,7 +39,7 @@ The tool generates each year's doubles to satisfy that rotation, with the lookba
 | 14 / 14 | 1            | 12           | ~13 years      | Minimal impact                           |
 | 14 / 15 | 2            | 11           | ~7 years       |                                          |
 
-Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g. 8-team / 14-week) have no fairness problem - the tool detects these and tells you no schedule is needed. Odd-sized and 16+ team leagues are out of scope.
+Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g. 8-team / 14-week) have no fairness problem - the tool detects these and tells you no schedule is needed. Odd-sized leagues, 16+ team leagues, and regular seasons longer than two full round-robins (e.g. 8 teams / 15 weeks, where some opponents play a third matchup) are out of scope.
 
 ## The algorithm
 
