@@ -1191,7 +1191,9 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
     <div className={`${cls.subSection} mt-4`}>
       <h3 className={cls.sectionTitle}>Rivalry Weeks</h3>
       <p className={cls.hint}>
-        Pick two teams and a week to lock in a matchup. Pins show in blue.
+        Pick two teams and a week to lock in a matchup. Pins show in blue, and
+        pinned matchups display in the order you pick the teams - to alternate
+        the legs of a doubled rivalry, enter its two pins in opposite orders.
       </p>
       <div className="flex flex-wrap gap-2 items-stretch">
         <select
