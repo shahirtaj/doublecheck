@@ -12,6 +12,18 @@ export const runtime = "nodejs";
 const YAHOO_AUTH_URL = "https://api.login.yahoo.com/oauth2/request_auth";
 const STATE_COOKIE = "yahoo_oauth_state";
 const STATE_MAX_AGE = 600;
+// Sized for carrier CGNAT, not individual users: traffic is ~80% mobile, so
+// a launch spike can put several legitimate sign-ins behind one carrier IP
+// in the same minute. The long window tolerates that burst (~30 full flows
+// per IP per peak minute) while the sustained per-IP rate stays below the
+// 10/min default (360/hr vs 600/hr) - the amplification concern is
+// sustained volume, not one burst. Keep in sync with the callback route;
+// both share the namespace.
+const OAUTH_RATE_LIMIT = {
+  namespace: "yahoo-oauth",
+  windowMs: 10 * 60_000,
+  max: 60,
+};
 
 function getRedirectUri(): string {
   const base = process.env.NEXT_PUBLIC_BASE_URL || "https://doublecheckff.com";
@@ -20,9 +32,7 @@ function getRedirectUri(): string {
 
 export async function GET(req: Request) {
   // Own namespace so OAuth attempts and league imports don't share a quota.
-  const rl = await checkRateLimit(getClientIp(req), {
-    namespace: "yahoo-oauth",
-  });
+  const rl = await checkRateLimit(getClientIp(req), OAUTH_RATE_LIMIT);
   if (!rl.ok) {
     return NextResponse.json(
       { error: `Rate limit exceeded. Retry in ${rl.retryAfter}s.` },

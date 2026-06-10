@@ -17,6 +17,18 @@ export const runtime = "nodejs";
 const STATE_COOKIE = "yahoo_oauth_state";
 const TOKEN_COOKIE = "yahoo_tokens";
 const TOKEN_MAX_AGE = 60 * 60 * 24 * 30;
+// Sized for carrier CGNAT, not individual users: traffic is ~80% mobile, so
+// a launch spike can put several legitimate sign-ins behind one carrier IP
+// in the same minute. The long window tolerates that burst (~30 full flows
+// per IP per peak minute) while the sustained per-IP rate stays below the
+// 10/min default (360/hr vs 600/hr) - the amplification concern is
+// sustained volume, not one burst. Keep in sync with the start route; both
+// share the namespace.
+const OAUTH_RATE_LIMIT = {
+  namespace: "yahoo-oauth",
+  windowMs: 10 * 60_000,
+  max: 60,
+};
 
 function getRedirectUri(): string {
   const base = process.env.NEXT_PUBLIC_BASE_URL || "https://doublecheckff.com";
@@ -57,9 +69,7 @@ export async function GET(req: Request) {
   // amplification that risks Yahoo throttling the app's client ID. This
   // route only ever answers with redirects, so the rate-limit response is
   // the same in-app error surface as the other failure paths.
-  const rl = await checkRateLimit(getClientIp(req), {
-    namespace: "yahoo-oauth",
-  });
+  const rl = await checkRateLimit(getClientIp(req), OAUTH_RATE_LIMIT);
   if (!rl.ok) {
     const res = NextResponse.redirect(
       getHomeUrl(req, { yahoo: "error", reason: "rate_limited" }),
