@@ -252,6 +252,22 @@ describe("describeFormat", () => {
     expect(f.variant).toBe("complete-double-round-robin");
     expect(f.singlesPerTeam).toBe(0);
   });
+
+  it("does not flag an over-range shape as complete double round-robin", () => {
+    // 8/15 means someone plays a third matchup - out of scope, but it must
+    // never read as the fully-determined edge case or the UI shows a
+    // factually wrong "No schedule needed" card for it. buildSchedule's
+    // validate() is the authority that rejects the shape.
+    expect(describeFormat(8, 15).variant).not.toBe(
+      "complete-double-round-robin",
+    );
+  });
+
+  it("does not flag an under-range shape as pure round-robin", () => {
+    // 12/9 is an incomplete round-robin (also rejected by validate()), not
+    // a season where everyone plays everyone exactly once.
+    expect(describeFormat(12, 9).variant).not.toBe("pure-round-robin");
+  });
 });
 
 describe("buildSchedule rivalry pins", () => {
@@ -338,6 +354,60 @@ describe("buildSchedule rivalry pins", () => {
     expect(
       week2.some(([a, b]) => (a === 4 && b === 5) || (a === 5 && b === 4)),
     ).toBe(true);
+  });
+
+  it("places two 1-pins sharing a team at natural-partner weeks as singles", () => {
+    // 12/14, sep=11: weeks 3 and 14 are natural double partners. Pin (0,1)@3
+    // and (0,2)@14 - if (0,1)'s tentative double greedily claimed week 14 it
+    // would lock team 0 out of its own second pin. Both pins must land (the
+    // resolver demotes the doubles), regardless of processing order.
+    for (const pins of [
+      [pinTo(3, 0, 1), pinTo(14, 0, 2)],
+      [pinTo(14, 0, 2), pinTo(3, 0, 1)],
+    ]) {
+      const r = buildSchedule({
+        teamCount: 12,
+        weekCount: 14,
+        rivalryPins: pins,
+        random: mulberry32(0xaaaa),
+      });
+      assertSuccess(r);
+      expect(pairAppearances(r, 0, 1)).toContain(3);
+      expect(pairAppearances(r, 0, 2)).toContain(14);
+    }
+  });
+
+  it("demotes a natural double whose partner week hosts a forced single", () => {
+    // (2,3) is hard-avoided and pinned to week 3 -> forced single slot at 3.
+    // (0,1)@14's natural double partner is week 3; doubling into it would put
+    // a double and a single matching on the same week, so (0,1) stays single.
+    const hardAvoid = new Set([pairKey(2, 3)]);
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      hardAvoid,
+      rivalryPins: [pinTo(3, 2, 3), pinTo(14, 0, 1)],
+      random: mulberry32(0xbbbb),
+    });
+    assertSuccess(r);
+    expect(pairAppearances(r, 2, 3)).toEqual([3]);
+    expect(pairAppearances(r, 0, 1)).toContain(14);
+  });
+
+  it("joins a 1-pin into an existing double slot at its pinned week", () => {
+    // (4,5) is 2-pinned to (3,14), making both weeks doubled. (0,1)@3 can't
+    // be a single there (week 3's matching repeats at week 14), so it joins
+    // the slot and doubles across the same weeks.
+    const r = buildSchedule({
+      teamCount: 12,
+      weekCount: 14,
+      rivalryPins: [pinTo(3, 4, 5), pinTo(14, 4, 5), pinTo(3, 0, 1)],
+      random: mulberry32(0xcccc),
+    });
+    assertSuccess(r);
+    expect(pairAppearances(r, 4, 5)).toEqual([3, 14]);
+    expect(pairAppearances(r, 0, 1)).toEqual([3, 14]);
+    expect(r.doubledPairs.has(pairKey(0, 1))).toBe(true);
   });
 
   it("rejects two pins that put the same team in the same week", () => {
