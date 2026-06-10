@@ -165,6 +165,10 @@ function parseYear(label: string | undefined): number | null {
 // doubles carry zero avoidance cost. A truncated-but-contiguous run ending at
 // the newest season keeps the same semantics over a shorter window; a gapped
 // run lies — so seasons OLDER than the newest unfilled gap are withheld.
+// `failed` is every attempted year missing from `seasons`, whatever the
+// cause: a season the route couldn't fetch, or one the client's format
+// filter dropped for having a different roster size. The decision is
+// cause-blind; callers own cause-specific messaging.
 // A failed year already covered by an existing history row (or by another
 // imported season) isn't a gap: the merge fills the hole. Failed years
 // without a numeric label can't be positioned, so they're ignored; an

@@ -487,6 +487,68 @@ describe("withholdPreGapSeasons", () => {
     expect(result.kept.map((s) => s.seasonYear)).toEqual(["2025"]);
     expect(result.withheldYears).toEqual(["?", "2022"]);
   });
+
+  // Roster-filtered years flow in through the same `failed` parameter as
+  // fetch failures (previewFetchedSeasons unions them) — the decision is
+  // cause-blind, so these mirror the fetch-failure cases above.
+  const rosterFiltered = (season: string) => ({
+    season,
+    error: "different roster size",
+  });
+
+  it("withholds seasons older than a roster-filtered middle year", () => {
+    // 12 -> 10 -> 12 league: the 10-team 2023 was dropped by the format
+    // filter, leaving 2022/2021 behind a hole.
+    const result = withholdPreGapSeasons(
+      ["2025", "2024", "2022", "2021"].map(yearSeason),
+      [rosterFiltered("2023")],
+      [],
+    );
+    expect(result.kept.map((s) => s.seasonYear)).toEqual(["2025", "2024"]);
+    expect(result.withheldYears).toEqual(["2022", "2021"]);
+    expect(result.gapYears).toEqual(["2023"]);
+  });
+
+  it("withholds nothing when history fills the roster-filtered year", () => {
+    const result = withholdPreGapSeasons(
+      ["2025", "2024", "2022"].map(yearSeason),
+      [rosterFiltered("2023")],
+      [historyRow("2023")],
+    );
+    expect(result.kept.map((s) => s.seasonYear)).toEqual([
+      "2025",
+      "2024",
+      "2022",
+    ]);
+    expect(result.withheldYears).toEqual([]);
+    expect(result.gapYears).toEqual([]);
+  });
+
+  it("anchors on the newest of a fetch failure and a roster drop", () => {
+    const result = withholdPreGapSeasons(
+      ["2025", "2023", "2021"].map(yearSeason),
+      [failedYear("2024"), rosterFiltered("2022")],
+      [],
+    );
+    expect(result.kept.map((s) => s.seasonYear)).toEqual(["2025"]);
+    expect(result.withheldYears).toEqual(["2023", "2021"]);
+    expect(result.gapYears).toEqual(["2024", "2022"]);
+  });
+
+  it("is a no-op when the roster-filtered run is the oldest", () => {
+    const result = withholdPreGapSeasons(
+      ["2025", "2024", "2023"].map(yearSeason),
+      [rosterFiltered("2022"), rosterFiltered("2021")],
+      [],
+    );
+    expect(result.kept.map((s) => s.seasonYear)).toEqual([
+      "2025",
+      "2024",
+      "2023",
+    ]);
+    expect(result.withheldYears).toEqual([]);
+    expect(result.gapYears).toEqual(["2022", "2021"]);
+  });
 });
 
 describe("buildScheduleText", () => {

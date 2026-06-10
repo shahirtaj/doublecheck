@@ -2,12 +2,14 @@
 
 import { useEffect, type ChangeEvent, type MutableRefObject } from "react";
 import {
+  describeFormat,
   pairKey,
   unpackPairKey,
   type PairKey,
   type RivalryPin,
   type SeasonHistory,
 } from "@/lib/algorithm";
+import { CURRENT_YEAR } from "./constants";
 import { cls, statusToneClass } from "./styles";
 import type {
   FailedImportSeason,
@@ -39,17 +41,24 @@ type ImportSectionsProps = {
 
 // Filter imported seasons down to the format detected from the most recent
 // season. Older seasons with a different roster size are dropped because
-// their team-index space wouldn't line up with the detected format.
+// their team-index space wouldn't line up with the detected format. The
+// dropped seasons are returned too: a roster-filtered year leaves the same
+// hole in the surviving run as a failed fetch, so it must feed the same
+// gap-withholding decision. Detection anchors on seasons[0] (the newest -
+// responses are most-recent-first), so the newest season always survives.
 function filterToDetectedFormat(seasons: ImportedSeasonRecord[]): {
   detected: SelectedFormat;
   seasons: ImportedSeasonRecord[];
+  dropped: ImportedSeasonRecord[];
 } | null {
   const detected = detectFormatFromImport(seasons[0]!);
   if (!detected) return null;
-  const filtered = seasons.filter(
-    (s) => s.teamNames?.length === detected.teamCount,
-  );
-  return { detected, seasons: filtered };
+  const kept: ImportedSeasonRecord[] = [];
+  const dropped: ImportedSeasonRecord[] = [];
+  for (const s of seasons) {
+    (s.teamNames?.length === detected.teamCount ? kept : dropped).push(s);
+  }
+  return { detected, seasons: kept, dropped };
 }
 
 // Split an import-route response into seasons + failed attempts. Full success
@@ -114,14 +123,17 @@ export function ImportSections(props: ImportSectionsProps) {
 
   // Shared landing for every platform season fetch. Splits the response
   // shape, filters to the detected format, and withholds imported seasons
-  // older than the newest gap left by a failed season fetch before they can
-  // reach the preview/merge — buildAvoidMap ages history by array index, so
-  // a gapped run mis-ages every older season and the missing season's
-  // doubles carry zero avoidance cost. A failed year already covered by an
-  // existing history row isn't a gap (the merge fills the hole), but a
-  // format change drops existing history at merge time (handleApplyImport),
-  // so existing rows can't fill gaps in that case. Throws (for the caller's
-  // catch → importStatus error) when nothing importable survives.
+  // older than the newest gap before they can reach the preview/merge —
+  // buildAvoidMap ages history by array index, so a gapped run mis-ages
+  // every older season and the missing season's doubles carry zero
+  // avoidance cost. A gap is any attempted year that's missing from the
+  // surviving run, whether it failed to fetch or was roster-filtered by
+  // filterToDetectedFormat — both feed the same withholding decision. A
+  // gap year already covered by an existing history row isn't a gap (the
+  // merge fills the hole), but a format change drops existing history at
+  // merge time (handleApplyImport), so existing rows can't fill gaps in
+  // that case. Throws (for the caller's catch → importStatus error) when
+  // nothing importable survives.
   function previewFetchedSeasons(plat: ImportPlatform, data: unknown) {
     const { seasons, failed } = splitImportResponse(data);
     if (seasons.length === 0) {
@@ -137,15 +149,84 @@ export function ImportSections(props: ImportSectionsProps) {
       !selectedFormat ||
       selectedFormat.teamCount !== detected.detected.teamCount ||
       selectedFormat.weekCount !== detected.detected.weekCount;
+    // Roster-filtered years are gaps too: a 12 -> 10 -> 12 league loses the
+    // 10-team middle year(s) to the format filter, and the surviving run has
+    // the same hole a failed fetch would leave. The messaging distinguishes
+    // the causes because the remedies differ — retry can recover a failed
+    // fetch, never a different-sized season.
+    const rosterGapCandidates: FailedImportSeason[] = detected.dropped.map(
+      (s) => ({
+        season: (s.seasonYear ?? "").trim(),
+        error: "different roster size",
+      }),
+    );
     const { kept, withheldYears, gapYears } = withholdPreGapSeasons(
       detected.seasons,
-      failed,
+      [...failed, ...rosterGapCandidates],
       formatChanged ? [] : history,
     );
-    const gapList = gapYears.join(", ");
+
+    let cause = "";
+    let remedy = "";
+    if (gapYears.length > 0) {
+      const failedYearSet = new Set(failed.map((f) => f.season.trim()));
+      const rosterSizeByYear = new Map<string, number>();
+      for (const s of detected.dropped) {
+        const y = (s.seasonYear ?? "").trim();
+        if (y) rosterSizeByYear.set(y, s.teamNames?.length ?? 0);
+      }
+      // Every gap year came from one of the two source lists, and a
+      // fetch-failed year can't also be a roster drop (it was never fetched).
+      const fetchGaps = gapYears.filter((y) => failedYearSet.has(y));
+      const rosterGaps = gapYears.filter((y) => !failedYearSet.has(y));
+
+      const causeParts: string[] = [];
+      if (fetchGaps.length > 0) {
+        causeParts.push(`${fetchGaps.join(", ")} failed to import`);
+      }
+      if (rosterGaps.length > 0) {
+        causeParts.push(
+          `${rosterGaps
+            .map((y) => `${y} was a ${rosterSizeByYear.get(y)}-team season`)
+            .join(
+              " and ",
+            )} (this import is ${detected.detected.teamCount} teams)`,
+        );
+      }
+      cause = causeParts.join(", and ");
+
+      // Only advertise a remedy Add Past Season can deliver: its year
+      // dropdown reaches back the detected format's recommended lookback
+      // from the current year. gapYears are numeric by construction
+      // (withholdPreGapSeasons ignores non-numeric failed years).
+      const lookback = describeFormat(
+        detected.detected.teamCount,
+        detected.detected.weekCount,
+      ).lookback;
+      const oldestOfferableYear =
+        CURRENT_YEAR - (lookback.hard + lookback.soft);
+      const fillableRosterGaps = rosterGaps.filter((y) => {
+        const n = Number(y);
+        return n >= oldestOfferableYear && n <= CURRENT_YEAR - 1;
+      });
+      if (rosterGaps.length === 0) {
+        remedy = `Retry the import, or add ${fetchGaps.join(", ")} via Add Past Season and re-import.`;
+      } else if (fetchGaps.length === 0) {
+        remedy =
+          fillableRosterGaps.length > 0
+            ? `Retrying won't change this - to keep the older seasons, add ${fillableRosterGaps.join(", ")} via Add Past Season (marking ${fillableRosterGaps.length > 1 ? "each season's" : "that season's"} doubled matchups among the current teams), then re-import.`
+            : `Retrying won't change this, and Add Past Season only reaches back to ${oldestOfferableYear}, so the older seasons can't be restored.`;
+      } else {
+        remedy =
+          fillableRosterGaps.length > 0
+            ? `Retrying may recover ${fetchGaps.join(", ")}; ${fillableRosterGaps.join(", ")} ${fillableRosterGaps.length > 1 ? "need" : "needs"} Add Past Season (marking doubles among the current teams) before a re-import can keep the older seasons.`
+            : `Retrying may recover ${fetchGaps.join(", ")}, but ${rosterGaps.join(", ")} can't be restored (Add Past Season only reaches back to ${oldestOfferableYear}).`;
+      }
+    }
+
     if (kept.length === 0) {
       throw new Error(
-        `${gapList} failed to import, and every season that did load is older - keeping them would leave a gap in season history, which corrupts recency-based avoidance. Retry the import, or add ${gapList} via Add Past Season and re-import.`,
+        `${cause}, and every season that did load is older - keeping them would leave a gap in season history, which corrupts recency-based avoidance. ${remedy}`,
       );
     }
     patch({
@@ -153,9 +234,9 @@ export function ImportSections(props: ImportSectionsProps) {
       importStatus: "ready",
       importMsg:
         withheldYears.length > 0
-          ? `${gapList} failed to import, so ${withheldYears.join(", ")} ${
+          ? `${cause}, so ${withheldYears.join(", ")} ${
               withheldYears.length > 1 ? "were" : "was"
-            } withheld - a gap in season history corrupts recency-based avoidance. Retry the import, or add ${gapList} via Add Past Season and re-import.`
+            } withheld - a gap in season history corrupts recency-based avoidance. ${remedy}`
           : "",
     });
   }
