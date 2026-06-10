@@ -69,7 +69,9 @@ export async function settleEspnSeasons<T>(
       if (!msg.includes("is private.") && !msg.includes("not found"))
         allPrivate = false;
       failed.push({ season: String(year), error: msg });
-      errors.push(`${year}: ${msg}`);
+      // Trailing period stripped: the route joins these with " | " and adds
+      // its own terminal period, so a kept period would double up.
+      errors.push(`${year}: ${msg.replace(/\.$/, "")}`);
     }
   });
 

@@ -90,7 +90,11 @@ export async function settleSeasonFetches(
             ? result.reason
             : "unknown error";
       failed.push({ season: target.season, error: msg });
-      errors.push(`${target.season || target.leagueId}: ${msg}`);
+      // Trailing period stripped: the route joins these with " | " and adds
+      // its own terminal period, so a kept period would double up.
+      errors.push(
+        `${target.season || target.leagueId}: ${msg.replace(/\.$/, "")}`,
+      );
     }
   });
 

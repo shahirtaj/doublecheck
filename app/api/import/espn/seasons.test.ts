@@ -103,8 +103,10 @@ describe("settleEspnSeasons", () => {
         error: "Network error fetching season 2023: socket reset.",
       },
     ]);
+    // The entry's trailing period is stripped - the route appends its own
+    // terminal period after joining.
     expect(errors).toEqual([
-      "2023: Network error fetching season 2023: socket reset.",
+      "2023: Network error fetching season 2023: socket reset",
     ]);
     expect(allPrivate).toBe(false);
     expect(calls).toEqual({ 2024: 1, 2023: 2 });
