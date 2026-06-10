@@ -11,10 +11,17 @@ export function describeFormat(
   const doublesPerTeam = weekCount - opponents;
   const singlesPerTeam = opponents - doublesPerTeam;
 
+  // Edge variants require exact equality: a NEGATIVE doubles count (week
+  // count below a single round-robin) is not a pure round-robin, and a
+  // negative singles count (week count beyond two round-robins, 8/15) is not
+  // a complete double round-robin - it means someone plays a third matchup.
+  // Out-of-range shapes fall through to standard/inverted so the UI never
+  // shows a "No schedule needed" card for them; buildSchedule's validate()
+  // remains the authority that rejects them with the honest message.
   const variant: FormatVariant =
-    doublesPerTeam <= 0
+    doublesPerTeam === 0
       ? "pure-round-robin"
-      : singlesPerTeam <= 0
+      : singlesPerTeam === 0
         ? "complete-double-round-robin"
         : doublesPerTeam > singlesPerTeam
           ? "inverted"
