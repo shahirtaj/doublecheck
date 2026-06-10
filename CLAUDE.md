@@ -9,7 +9,7 @@ Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3, Inter 
 - `npm run build` - production build
 - `npm run typecheck` - TypeScript check
 - `npm run lint` - ESLint (flat config in `eslint.config.mjs`)
-- `npm test` - Vitest (368 tests)
+- `npm test` - Vitest (369 tests)
 - `npm run test:watch` - Vitest in watch mode
 
 ## Project structure
@@ -20,7 +20,9 @@ Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3, Inter 
 - `app/api/import/` - Sleeper, ESPN, Yahoo import routes
 - `app/api/auth/yahoo/` - Yahoo OAuth 2.0 flow
 - `app/api/share/` - share link creation and retrieval
-- `lib/algorithm/` - scheduling algorithm (format, schedule, matching, avoid, pair, types)
+- `lib/algorithm/` - scheduling algorithm (format, schedule, matching, avoid, pair, types; `index.ts` is the public surface the `@/lib/algorithm` imports resolve to)
+- `app/components/YahooAttribution.tsx` - Yahoo Fantasy logo + credit block required by Yahoo's API terms (logo unmodified, links back to Yahoo). Rendered by StepSchedule and SharedScheduleView, gated on `platform === "yahoo"` - keep it on any new surface that shows Yahoo data.
+- `app/sitemap.ts` - sitemap for the static pages; `/s/[slug]` is intentionally excluded (private, ephemeral share links)
 - `lib/api/` - rate limiting, shared lazy Redis client, Yahoo token encryption
 - `app/components/MatchupSummary.tsx`, `app/components/ScheduleHeading.tsx`, and `buildScheduleText` in `app/components/utils.ts` are shared between StepSchedule and SharedScheduleView; update once for both views. ScheduleHeading renders the schedule `<h2>` (each view passes its own size/color/margin class); buildScheduleText builds the copied plain-text export (each view passes its own heading prefix).
 - `app/components/Footer.tsx` is the shared site footer used by every page-level view (`app/page.tsx`, `app/s/[slug]/page.tsx`, both `error.tsx`, `not-found.tsx`). Each view wraps its content in `min-h-dvh flex flex-col` so the footer's `mt-auto` pins it to the viewport bottom on short content (`dvh`, not `screen`/`vh`, so the pin tracks the visible viewport on mobile Safari instead of landing behind the browser chrome) - keep that wrapper class if you touch a page's layout. `app/page.tsx` additionally needs a `flex-1` content wrapper (see the inline note there before removing it).
