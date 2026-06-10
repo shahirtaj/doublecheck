@@ -34,10 +34,15 @@ export async function GET(req: Request) {
   // Own namespace so OAuth attempts and league imports don't share a quota.
   const rl = await checkRateLimit(getClientIp(req), OAUTH_RATE_LIMIT);
   if (!rl.ok) {
-    return NextResponse.json(
-      { error: `Rate limit exceeded. Retry in ${rl.retryAfter}s.` },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
-    );
+    // This route is reached by full-page navigation (window.location in
+    // StepImport), so a JSON 429 would render as bare JSON with no way back
+    // into the app - redirect to the same in-app error surface the callback
+    // uses for its limit hits.
+    const base = process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
+    const url = new URL("/", base);
+    url.searchParams.set("yahoo", "error");
+    url.searchParams.set("reason", "rate_limited");
+    return NextResponse.redirect(url.toString());
   }
 
   const clientId = process.env.YAHOO_CLIENT_ID;
