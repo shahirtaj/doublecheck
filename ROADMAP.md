@@ -109,7 +109,7 @@ Next.js (App Router) with Tailwind CSS. Tool is the homepage (`app/page.tsx`). R
 
 **Tool:** Claude Code
 
-Server-side API routes at `/api/import/sleeper` and `/api/import/espn`. Walk the season-history chain and fetch up to the format's recommended lookback (clamped to `MAX_SEASONS_CAP = 13` to bound the chain walk on long-running leagues), normalize doubled pairs into `ImportedSeasonRecord` shape. IP-based rate limiting via `lib/api/rate-limit.ts`.
+Server-side API routes at `/api/import/sleeper` and `/api/import/espn`. Walk the season-history chain and fetch up to the format's recommended lookback (clamped to `MAX_SEASONS_CAP = 14` to bound the chain walk on long-running leagues), normalize doubled pairs into `ImportedSeasonRecord` shape. IP-based rate limiting via `lib/api/rate-limit.ts`.
 
 **Sleeper username lookup** lets users enter their Sleeper username instead of a league ID; the route lists all NFL leagues for the user so they can pick from a dropdown - no league-ID hunting.
 
