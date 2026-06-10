@@ -8,15 +8,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SharedScheduleView } from "./SharedScheduleView";
 import { Footer } from "@/app/components/Footer";
+import type { RivalryPlacement } from "@/lib/algorithm";
 
 const redis = Redis.fromEnv();
-
-type RivalryPlacement = {
-  teamA: number;
-  teamB: number;
-  pinnedWeek: number | null;
-  placedWeek: number;
-};
 
 type SharedPayload = {
   format: { teamCount: number; weekCount: number };
