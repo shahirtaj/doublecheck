@@ -37,6 +37,19 @@ Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3, Inter 
 - Named exports for all non-page files. Default exports only where Next.js requires them (page.tsx, layout.tsx, error.tsx, not-found.tsx).
 - Weeks are 1-indexed in the algorithm, UI labels, and `RivalryPlacement.placedWeek`. The `schedule.weeks` array is 0-indexed. Convert with `weeks[W - 1]` when going from algorithm week to array access.
 
+## Message style (user-facing copy)
+
+- Sentence case with a terminal period for all status/error messages; `…` (single ellipsis character, never `...`) on in-progress messages and button spinners; `-` (hyphen), never an em dash.
+- In-progress verb is **"Fetching"** for anything that hits the network ("Fetching season data from Sleeper…", spinner label "Fetching…"). "Loading…" is reserved for local work (the localStorage hydration placeholder in page.tsx).
+- Error constructions, by what happened:
+  - **"Could not \<verb\> …"** - the operation failed and there's no detail to append ("Could not fetch season data from Sleeper.").
+  - **"Failed to \<verb\>: \<detail\>"** - the operation failed and a caught message is appended. No trailing period (the detail may carry its own); short known fragments go in parens instead ("Request failed (HTTP 502).", "Token exchange failed (401).").
+  - **"\<thing\> not found"** - the lookup _succeeded_ and answered definitively that the thing doesn't exist ("Sleeper user "aa" not found."). Don't reword these to "Could not find" - that signals operation failure, and retrying won't help here.
+- Remedies are a bare-imperative second sentence with **"Check"** as the re-examine-your-input verb ("Check the league ID.") - no "Please", no "Verify".
+- Messages thrown inside platform-specific modules omit the platform name when every surface re-wraps them with it (see `fetchYahooJson`, `lib/api/yahoo-tokens.ts`) - otherwise the user reads "Yahoo … Yahoo".
+- Aggregate error entries (`errors[]` in the import `seasons.ts` files) strip their trailing period at push time; the route appends the single terminal period after `join(" | ")`.
+- Casing tiers: **Title Case** for buttons that name a feature referenced elsewhere as a noun ("Save & Share", "Add Past Season", "Clear Rivalry Pins") and for section headings; **sentence case** for plain-action controls ("Use this league", "Copy link", "Clear selections") and error-page headings ("Something went wrong", "Link expired or not found"); the marketing CTA ("Generate Your Own →") is its own Title Case register. Mid-sentence, feature objects are lowercase common nouns ("Clear all rivalry pins?", "Try clearing some manual avoids") - Title Case in prose only for navigational pointers to a named control ("via Add Past Season", "shrinking the Lookback Window").
+
 ## Testing
 
 - Algorithm tests are in `lib/algorithm/schedule.test.ts`
