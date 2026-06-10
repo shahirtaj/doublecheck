@@ -6,7 +6,7 @@ import type {
   RivalryPin,
   SeasonHistory,
 } from "@/lib/algorithm";
-import { CURRENT_YEAR } from "./constants";
+import { CURRENT_YEAR, MAX_IMPORT_SEASONS } from "./constants";
 import type {
   FailedImportSeason,
   ImportPlatform,
@@ -367,6 +367,21 @@ function parseYear(label: string | undefined): number | null {
   if (!trimmed) return null;
   const n = Number(trimmed);
   return Number.isFinite(n) ? n : null;
+}
+
+// Size the ?seasons=N request for an import route. With a known format (a
+// re-import - Back stashes it in priorFormat), right-size to the recommended
+// lookback plus one for the newest season that anchors detection - for a
+// mid-season Sleeper import that's the in-progress year, which doesn't count
+// toward prior-season avoidance. Without one (a fresh import - the format is
+// detected from the response), request enough for any supported format.
+// Over-asking is safe: chain walks end at the league's real history, and
+// extra ESPN years from before the league existed fail "not found" at the
+// oldest edge, which withholdPreGapSeasons treats as no gap.
+export function importSeasonsParam(format: SelectedFormat | null): number {
+  if (!format) return MAX_IMPORT_SEASONS;
+  const { lookback } = describeFormat(format.teamCount, format.weekCount);
+  return Math.min(lookback.hard + lookback.soft + 1, MAX_IMPORT_SEASONS);
 }
 
 // Decide which imported seasons survive a partial import. buildAvoidMap ages

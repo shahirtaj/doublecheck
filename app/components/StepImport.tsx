@@ -21,6 +21,7 @@ import type {
 import {
   buildImportedHistoryRows,
   describeWithholdingGap,
+  importSeasonsParam,
   detectFormatFromImport,
   extractSlug,
   formatDetectionErrorMessage,
@@ -42,7 +43,6 @@ type ImportSectionsProps = {
   platformRef: MutableRefObject<ImportPlatform>;
   importSourceRef: MutableRefObject<ImportSource>;
   importSeqRef: MutableRefObject<number>;
-  recommendedLookbackTotal: number;
 };
 
 // Manual entry dropdown options. A week count outside the selected team
@@ -112,7 +112,6 @@ export function ImportSections(props: ImportSectionsProps) {
     platformRef,
     importSourceRef,
     importSeqRef,
-    recommendedLookbackTotal,
   } = props;
   const {
     platform,
@@ -146,6 +145,11 @@ export function ImportSections(props: ImportSectionsProps) {
   // priorFormat so re-imports can still compare against the league whose
   // teams/history are loaded. Null only on a truly fresh start.
   const baselineFormat = selectedFormat ?? priorFormat;
+
+  // ?seasons=N for the platform fetches below: right-sized to the known
+  // format on a re-import, the works-for-any-format maximum on a fresh one
+  // (see importSeasonsParam).
+  const requestSeasons = importSeasonsParam(baselineFormat);
 
   // Shared landing for every platform season fetch. Splits the response
   // shape, filters to the detected format, and withholds imported seasons
@@ -304,7 +308,7 @@ export function ImportSections(props: ImportSectionsProps) {
     });
     try {
       const res = await fetch(
-        `/api/import/${platform}?seasons=${recommendedLookbackTotal}`,
+        `/api/import/${platform}?seasons=${requestSeasons}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -343,14 +347,11 @@ export function ImportSections(props: ImportSectionsProps) {
       importPreview: null,
     });
     try {
-      const res = await fetch(
-        `/api/import/sleeper?seasons=${recommendedLookbackTotal}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ leagueId: specificLeagueId }),
-        },
-      );
+      const res = await fetch(`/api/import/sleeper?seasons=${requestSeasons}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leagueId: specificLeagueId }),
+      });
       if (stale()) return;
       const data = await res.json();
       if (stale()) return;
@@ -384,14 +385,11 @@ export function ImportSections(props: ImportSectionsProps) {
       importPreview: null,
     });
     try {
-      const res = await fetch(
-        `/api/import/yahoo?seasons=${recommendedLookbackTotal}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ leagueKey }),
-        },
-      );
+      const res = await fetch(`/api/import/yahoo?seasons=${requestSeasons}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leagueKey }),
+      });
       if (stale()) return;
       const data = await res.json();
       if (stale()) return;

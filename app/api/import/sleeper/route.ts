@@ -18,10 +18,12 @@ const BASE = "https://api.sleeper.app/v1";
 // hardcoded cap so existing callers see no change.
 const DEFAULT_SEASONS = 5;
 // Hard cap on how many seasons one request can pull, regardless of input.
-// Bounds chain depth + per-season API calls + response size. Set to 13 to
-// cover the largest recommended lookback across supported formats
-// (14-team / 14-week needs 13).
-const MAX_SEASONS_CAP = 13;
+// Bounds chain depth + per-season API calls + response size. Set to 14: the
+// largest recommended lookback across supported formats (14-team / 14-week
+// needs 13 prior seasons) plus the newest season that anchors format
+// detection - mid-season that's the in-progress year, which doesn't count
+// as a prior. Matches MAX_IMPORT_SEASONS on the client; keep them in sync.
+const MAX_SEASONS_CAP = 14;
 const MAX_USERNAME_LENGTH = 50;
 
 type SleeperLeague = {

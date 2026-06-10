@@ -42,7 +42,6 @@ function renderImportSections(seed: Partial<State>) {
         platformRef={platformRef}
         importSourceRef={importSourceRef}
         importSeqRef={importSeqRef}
-        recommendedLookbackTotal={3}
       />
     );
   }
@@ -132,6 +131,53 @@ describe("withholding warning render", () => {
     expect(h.getState().importMsg).toBe("");
     // The warning must not leak into the next view's message area.
     expect(screen.queryByText(warningText)).not.toBeInTheDocument();
+  });
+});
+
+describe("import request sizing", () => {
+  // The wiring is what regresses here, not the math (importSeasonsParam owns
+  // the math and is tested in utils.test.ts): the old prop-threaded value was
+  // 0 by construction at the production call site, so every import silently
+  // fell back to the server default of 5 seasons.
+  it("requests the works-for-any-format maximum on a fresh import", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse([importedSeason("2025")]));
+    vi.stubGlobal("fetch", fetchMock);
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      leagueId: "123456789",
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    await waitFor(() => expect(h.getState().importStatus).toBe("ready"));
+
+    expect(fetchMock.mock.calls[0]![0]).toBe("/api/import/sleeper?seasons=14");
+  });
+
+  it("right-sizes to the stashed format's lookback on a re-import after Back", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse([importedSeason("2025"), importedSeason("2024")]),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      leagueId: "123456789",
+      priorFormat: { teamCount: 10, weekCount: 13 },
+      teams: Array.from({ length: 10 }, (_, i) => `Team ${i + 1}`),
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    await waitFor(() => expect(h.getState().importStatus).toBe("ready"));
+
+    // 10/13: hard 1 + soft 1 prior seasons, + 1 for the anchor season.
+    expect(fetchMock.mock.calls[0]![0]).toBe("/api/import/sleeper?seasons=3");
   });
 });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LookbackWindow, Matching, SeasonHistory } from "@/lib/algorithm";
-import { CURRENT_YEAR } from "./constants";
+import { CURRENT_YEAR, MAX_IMPORT_SEASONS } from "./constants";
 import type { ImportedSeasonRecord, SelectedFormat } from "./types";
 import {
   buildImportedHistoryRows,
@@ -11,6 +11,7 @@ import {
   detectFormatFromImport,
   extractSlug,
   formatDetectionErrorMessage,
+  importSeasonsParam,
   mergeImportedHistory,
   normalizeHistory,
   priorSeasonAges,
@@ -227,6 +228,34 @@ describe("deriveLookback", () => {
     const result = deriveLookback(10, formatLookback);
     expect(result.hard).toBeLessThanOrEqual(formatLookback.hard);
     expect(result.soft).toBe(10 - result.hard);
+  });
+});
+
+describe("importSeasonsParam", () => {
+  it("requests the works-for-any-format maximum when the format is unknown", () => {
+    expect(importSeasonsParam(null)).toBe(MAX_IMPORT_SEASONS);
+  });
+
+  it("requests the recommended lookback plus the anchor season for a known format", () => {
+    // 12/14: hard 2 + soft 1 prior seasons, + 1 for the newest season.
+    expect(importSeasonsParam({ teamCount: 12, weekCount: 14 })).toBe(4);
+    // 10/13: hard 1 + soft 1, + 1.
+    expect(importSeasonsParam({ teamCount: 10, weekCount: 13 })).toBe(3);
+  });
+
+  it("reaches exactly the cap for the largest-lookback format (14/14)", () => {
+    // hard 12 + soft 1 priors + 1 anchor = 14; anything past this would be
+    // clamped server-side, silently shrinking the avoidance window.
+    expect(importSeasonsParam({ teamCount: 14, weekCount: 14 })).toBe(
+      MAX_IMPORT_SEASONS,
+    );
+  });
+
+  it("requests only the anchor season for formats with no lookback", () => {
+    // Pure round-robin and complete double round-robin use no history; the
+    // newest season still supplies the roster and format detection.
+    expect(importSeasonsParam({ teamCount: 14, weekCount: 13 })).toBe(1);
+    expect(importSeasonsParam({ teamCount: 8, weekCount: 14 })).toBe(1);
   });
 });
 

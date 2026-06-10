@@ -419,7 +419,6 @@ export default function GeneratePage() {
               platformRef={platformRef}
               importSourceRef={importSourceRef}
               importSeqRef={importSeqRef}
-              recommendedLookbackTotal={recommendedLookbackTotal}
             />
           </div>
         ) : isEdgeCaseFormat ? (
