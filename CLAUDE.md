@@ -9,7 +9,7 @@ Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3, Inter 
 - `npm run build` - production build
 - `npm run typecheck` - TypeScript check
 - `npm run lint` - ESLint (flat config in `eslint.config.mjs`)
-- `npm test` - Vitest (341 tests)
+- `npm test` - Vitest (344 tests)
 - `npm run test:watch` - Vitest in watch mode
 
 ## Project structure

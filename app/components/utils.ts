@@ -3,6 +3,7 @@ import type {
   LookbackWindow,
   Matching,
   PairKey,
+  RivalryPin,
   SeasonHistory,
 } from "@/lib/algorithm";
 import { CURRENT_YEAR } from "./constants";
@@ -104,16 +105,57 @@ export function extractSlug(input: string): string | null {
 // prior weeks goes on the left, with (a + b + weekIndex) % 2 as the
 // tiebreaker. Produces a balanced 7/7 split in 14-week formats and 7/8
 // in 15-week formats.
+// Pinned matchups are the exception: they render in the order the pin was
+// entered (teamA vs teamB) — each pin covers one appearance, matched by
+// week when specific and claimed in week order when any-week, and the
+// unpinned second leg of a naturally doubled 1-pin flips the entered order
+// (the home-and-home convention). Forced orientations still feed the
+// balance counters so the greedy compensates in the surrounding weeks,
+// though a pinned team's split can land one off the exact 7/7.
 export function computeDisplayWeeks(
   weeks: ReadonlyArray<Matching>,
   teams: ReadonlyArray<string>,
+  rivalryPins: ReadonlyArray<RivalryPin> = [],
 ): [number, number][][] {
+  type PinOrder = {
+    teamA: number;
+    teamB: number;
+    week: number | null;
+    used: boolean;
+  };
+  const pinsByPair = new Map<PairKey, PinOrder[]>();
+  for (const p of rivalryPins) {
+    const k = pairKey(p.teamA, p.teamB);
+    const list = pinsByPair.get(k) ?? [];
+    list.push({ teamA: p.teamA, teamB: p.teamB, week: p.week, used: false });
+    pinsByPair.set(k, list);
+  }
+
   const leftCount = new Array<number>(teams.length).fill(0);
   // NOTE: Order-dependent — leftCount is mutated during iteration so each
   // matchup's home/away assignment depends on assignments made in earlier
   // weeks. Do not parallelize or reorder.
   return weeks.map((week, weekIndex) => {
     const assigned: [number, number][] = week.map(([a, b]) => {
+      const pinList = pinsByPair.get(pairKey(a, b));
+      if (pinList) {
+        const W = weekIndex + 1;
+        let order: [number, number];
+        const exact = pinList.find((p) => !p.used && p.week === W);
+        const anyWeek =
+          exact ?? pinList.find((p) => !p.used && p.week === null);
+        if (anyWeek) {
+          anyWeek.used = true;
+          order = [anyWeek.teamA, anyWeek.teamB];
+        } else {
+          // The leg no pin covers (a 1-pin that naturally doubled):
+          // home-and-home, whichever leg comes first.
+          const ref = pinList[0]!;
+          order = [ref.teamB, ref.teamA];
+        }
+        leftCount[order[0]]!++;
+        return order;
+      }
       let left: number;
       let right: number;
       const la = leftCount[a]!;

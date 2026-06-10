@@ -46,7 +46,7 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 - **Fair rotation.** Every opponent gets doubled exactly once over a full rotation cycle (~4 years for 12-team / 14-week). No pair keeps drawing the short straw season after season.
 - **Per-format lookback window.** The lookback is computed per format to maximize rotation coverage. Recent seasons are hard-avoided (cannot repeat), with the next oldest soft-avoided (preferred to skip but allowed when the constraint set is too tight).
 - **Maximum-separation placement.** Doubled pairs are placed at the largest possible week distance within the season (`weekCount - doublesPerTeam`), so a doubled rivalry's first and rematch games are as far apart as the format allows.
-- **Rivalry weeks.** Commissioners can pin specific matchups to specific weeks (or let the algorithm pick the week). Pin an entire week's worth of matchups to create a full rivalry week. One pin forces a single appearance at that week; two pins for the same pair force a double. Pins override the avoidance system - a hard-avoided pair pinned to a week still plays that week - while the algorithm continues rotating the remaining doubles fairly across the rest of the league. Works across all 7 supported formats, including the most constrained (14/13 pure round-robin and 14/14 with only 1 double per team).
+- **Rivalry weeks.** Commissioners can pin specific matchups to specific weeks (or let the algorithm pick the week). Pin an entire week's worth of matchups to create a full rivalry week. One pin forces a single appearance at that week; two pins for the same pair force a double. Pins override the avoidance system - a hard-avoided pair pinned to a week still plays that week - while the algorithm continues rotating the remaining doubles fairly across the rest of the league. Pinned matchups also display in the order you entered them, and a doubled rivalry's two legs alternate (home-and-home). Works across all 7 supported formats, including the most constrained (14/13 pure round-robin and 14/14 with only 1 double per team).
 - **Identity tracking via user IDs.** Doubled pairs are stored by Sleeper user ID, ESPN user ID, or Yahoo manager GUID - not team name. The schedule survives team renames, manager changes, and roster reshuffles between seasons.
 - **Auto-detected league format on imports.** Team count and week count come from the imported league data for Sleeper, ESPN, and Yahoo Fantasy. Manual-entry users (NFL.com, CBS, etc.) pick team count and week count from two dropdowns instead.
 
@@ -78,7 +78,7 @@ No platform exposes a write API for league schedules, so commissioners enter the
 - **React 19**
 - **Tailwind CSS** for styling
 - **ESLint 9** with flat config (`eslint.config.mjs`)
-- **Vitest** for the test suite (341 tests; algorithm coverage across all 7 supported formats, including rivalry pins, plus import/share route logic and import-flow component coverage via React Testing Library)
+- **Vitest** for the test suite (344 tests; algorithm coverage across all 7 supported formats, including rivalry pins, plus import/share route logic and import-flow component coverage via React Testing Library)
 - **Vercel** for deployment
 
 See [ROADMAP.md](ROADMAP.md) for the full product roadmap and current state.
@@ -95,7 +95,7 @@ npm run dev
 
 The app runs without any environment variables configured - Yahoo Fantasy OAuth and share links won't work, but Sleeper imports, ESPN imports (public leagues), manual entry, and schedule generation are fully functional locally.
 
-Run `npm test` to execute the test suite (341 tests). See [CLAUDE.md](CLAUDE.md) for the full command reference and project structure.
+Run `npm test` to execute the test suite (344 tests). See [CLAUDE.md](CLAUDE.md) for the full command reference and project structure.
 
 ## Support
 

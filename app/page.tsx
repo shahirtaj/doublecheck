@@ -369,7 +369,7 @@ export default function GeneratePage() {
       shareError: "",
       shareCopied: false,
       schedule: result,
-      displayWeeks: computeDisplayWeeks(result.weeks, teams),
+      displayWeeks: computeDisplayWeeks(result.weeks, teams, rivalryPins),
       selectedWeek: 0,
       step: "schedule",
       furthestStep: "schedule",

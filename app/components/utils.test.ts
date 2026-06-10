@@ -288,6 +288,68 @@ describe("computeDisplayWeeks", () => {
       expect(outputPairs).toEqual(inputPairs);
     });
   });
+
+  // Pair (0, 1) at week 1: every count is zero, so the parity tiebreaker
+  // ((0 + 1 + 0) % 2 = 1) flips it - the unpinned baseline the pin tests
+  // override.
+  it("renders a pinned matchup in its entered order", () => {
+    const unpinned = computeDisplayWeeks(weeks, teams);
+    expect(unpinned[0]).toContainEqual([1, 0]);
+
+    const pinned = computeDisplayWeeks(weeks, teams, [
+      { teamA: 0, teamB: 1, week: 1 },
+    ]);
+    expect(pinned[0]).toContainEqual([0, 1]);
+  });
+
+  it("renders each leg of a two-pin rivalry in its own entered order", () => {
+    // Pair (0, 1) doubled at weeks 1 and 3; the user entered the legs in
+    // opposite orders, so each week shows its own pin's order.
+    const doubled: Matching[] = [
+      [
+        [0, 1],
+        [2, 3],
+      ],
+      [
+        [0, 2],
+        [1, 3],
+      ],
+      [
+        [0, 1],
+        [2, 3],
+      ],
+    ];
+    const result = computeDisplayWeeks(doubled, teams, [
+      { teamA: 1, teamB: 0, week: 1 },
+      { teamA: 0, teamB: 1, week: 3 },
+    ]);
+    expect(result[0]).toContainEqual([1, 0]);
+    expect(result[2]).toContainEqual([0, 1]);
+  });
+
+  it("flips the unpinned leg of a doubled one-pin rivalry (home-and-home)", () => {
+    const doubled: Matching[] = [
+      [
+        [0, 1],
+        [2, 3],
+      ],
+      [
+        [0, 2],
+        [1, 3],
+      ],
+      [
+        [0, 1],
+        [2, 3],
+      ],
+    ];
+    const result = computeDisplayWeeks(doubled, teams, [
+      { teamA: 0, teamB: 1, week: 3 },
+    ]);
+    // Week 3 is the pinned leg (entered order); week 1 is the natural
+    // double's other leg, so it flips.
+    expect(result[2]).toContainEqual([0, 1]);
+    expect(result[0]).toContainEqual([1, 0]);
+  });
 });
 
 describe("priorSeasons", () => {
