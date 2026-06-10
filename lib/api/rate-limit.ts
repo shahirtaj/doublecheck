@@ -1,6 +1,14 @@
-// Per-IP token bucket. Lives in module scope so it persists across requests
-// inside a warm serverless container; cold starts reset it, which is fine
-// for a 60s window. Fits Phase 3's "no external dependencies" constraint.
+// Per-IP rate limiting. When Upstash Redis credentials are present (the same
+// KV_REST_API_* vars the share routes use), limits are enforced with a
+// sliding window in Redis so they hold across serverless instances and cold
+// starts. Without credentials - the zero-env local setup the README promises
+// for Sleeper/ESPN imports and manual entry - we fall back to the in-memory
+// token bucket below, which is best-effort per instance. The Redis client is
+// constructed lazily and only after the env check, so importing this module
+// never throws on an unconfigured machine.
+
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 
 type Bucket = { count: number; resetAt: number };
 
@@ -20,13 +28,13 @@ export type RateLimitOptions = {
   namespace?: string;
 };
 
-export function checkRateLimit(
+function checkRateLimitMemory(
   ip: string,
-  opts: RateLimitOptions = {},
+  windowMs: number,
+  max: number,
+  namespace: string | undefined,
 ): RateLimitResult {
-  const windowMs = opts.windowMs ?? DEFAULT_WINDOW_MS;
-  const max = opts.max ?? DEFAULT_MAX_PER_WINDOW;
-  const key = opts.namespace ? `${opts.namespace}:${ip}` : ip;
+  const key = namespace ? `${namespace}:${ip}` : ip;
   const now = Date.now();
 
   if (buckets.size > CLEANUP_THRESHOLD) {
@@ -45,6 +53,59 @@ export function checkRateLimit(
   }
   bucket.count++;
   return { ok: true };
+}
+
+function hasUpstashEnv(): boolean {
+  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+}
+
+// One Ratelimit per (namespace, window, max) combination, cached for the
+// lifetime of the instance. Keyed by config so two routes sharing a
+// namespace but differing in limits would still get separate limiters.
+let redis: Redis | null = null;
+const limiters = new Map<string, Ratelimit>();
+
+function getLimiter(
+  windowMs: number,
+  max: number,
+  namespace: string | undefined,
+): Ratelimit {
+  const key = `${namespace ?? "default"}:${windowMs}:${max}`;
+  let limiter = limiters.get(key);
+  if (!limiter) {
+    redis ??= Redis.fromEnv();
+    limiter = new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(max, `${windowMs} ms`),
+      prefix: `ratelimit:${namespace ?? "default"}`,
+    });
+    limiters.set(key, limiter);
+  }
+  return limiter;
+}
+
+export async function checkRateLimit(
+  ip: string,
+  opts: RateLimitOptions = {},
+): Promise<RateLimitResult> {
+  const windowMs = opts.windowMs ?? DEFAULT_WINDOW_MS;
+  const max = opts.max ?? DEFAULT_MAX_PER_WINDOW;
+
+  if (hasUpstashEnv()) {
+    try {
+      const result = await getLimiter(windowMs, max, opts.namespace).limit(ip);
+      if (result.success) return { ok: true };
+      return {
+        ok: false,
+        retryAfter: Math.max(1, Math.ceil((result.reset - Date.now()) / 1000)),
+      };
+    } catch {
+      // Redis outage shouldn't take imports or shares down with it - degrade
+      // to the per-instance limiter instead of failing the request.
+    }
+  }
+
+  return checkRateLimitMemory(ip, windowMs, max, opts.namespace);
 }
 
 export function getClientIp(req: Request): string {

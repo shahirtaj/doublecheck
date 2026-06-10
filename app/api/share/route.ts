@@ -220,7 +220,7 @@ function validatePayload(body: unknown): string | null {
 }
 
 export async function POST(req: Request) {
-  const rl = checkRateLimit(getClientIp(req), {
+  const rl = await checkRateLimit(getClientIp(req), {
     windowMs: SHARE_WINDOW_MS,
     max: SHARE_MAX_PER_WINDOW,
     namespace: "share",

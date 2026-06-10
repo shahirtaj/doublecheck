@@ -289,7 +289,7 @@ async function fetchSeason(
 
 export async function POST(req: Request) {
   try {
-    const rl = checkRateLimit(getClientIp(req));
+    const rl = await checkRateLimit(getClientIp(req));
     if (!rl.ok) {
       return NextResponse.json(
         { error: `Rate limit exceeded. Retry in ${rl.retryAfter}s.` },

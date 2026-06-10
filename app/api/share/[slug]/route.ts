@@ -17,7 +17,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
-  const rl = checkRateLimit(getClientIp(req), {
+  const rl = await checkRateLimit(getClientIp(req), {
     windowMs: RESTORE_WINDOW_MS,
     max: RESTORE_MAX_PER_WINDOW,
     namespace: "share-restore",
