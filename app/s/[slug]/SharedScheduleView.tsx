@@ -112,6 +112,8 @@ export function SharedScheduleView({
             <button
               key={i}
               onClick={() => setSelectedWeek(i)}
+              aria-label={`Week ${i + 1}`}
+              aria-pressed={selectedWeek === i}
               className={`w-8 h-7 sm:w-[34px] sm:h-[30px] flex items-center justify-center rounded text-xs font-mono cursor-pointer border ${
                 selectedWeek === i
                   ? "bg-emerald-800 border-emerald-600 text-emerald-50"

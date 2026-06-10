@@ -532,6 +532,7 @@ export function StepReview(props: StepReviewProps) {
                             : undefined
                         }
                         onClick={() => togglePastSeasonDouble(i, j)}
+                        aria-label={`${teams[i]} vs ${teams[j]}: ${selected ? "doubled" : "not doubled"}`}
                         className={`w-12 sm:w-[48px] min-w-[3rem] sm:min-w-[48px] h-7 flex items-center justify-center text-[10px] font-mono border border-slate-700 box-border select-none cursor-pointer ${bg} ${selected ? "text-emerald-400 font-bold" : "text-slate-500"}`}
                       >
                         {selected ? "✕" : ""}
@@ -686,18 +687,22 @@ export function StepReview(props: StepReviewProps) {
                 let bg: string;
                 let textCls = "text-slate-500";
                 let glyph = "";
+                let cellState = "not avoided";
                 if (isManual) {
                   bg = inHoverPath ? "bg-purple-800" : "bg-purple-900";
                   textCls = "text-purple-400 font-bold";
                   glyph = "✕";
+                  cellState = "manual avoid, selected";
                 } else if (at === "hard") {
                   bg = inHoverPath ? "bg-red-900" : "bg-red-950";
                   textCls = "text-red-400 font-bold";
                   glyph = "H";
+                  cellState = "hard avoid (locked)";
                 } else if (at === "soft") {
                   bg = inHoverPath ? "bg-amber-800" : "bg-amber-900";
                   textCls = "text-amber-400 font-semibold";
                   glyph = "S";
+                  cellState = "soft avoid (locked)";
                 } else {
                   bg = inHoverPath ? "bg-slate-600" : "bg-slate-800";
                 }
@@ -728,6 +733,7 @@ export function StepReview(props: StepReviewProps) {
                     onClick={() => {
                       if (!cellDisabled) toggleDouble(i, j);
                     }}
+                    aria-label={`${teams[i]} vs ${teams[j]}: ${cellState}`}
                     aria-disabled={cellDisabled || undefined}
                     className={`w-12 sm:w-[50px] min-w-[3rem] sm:min-w-[50px] h-7 flex items-center justify-center text-[10px] font-mono border border-slate-700 box-border select-none ${cellDisabled ? "cursor-default" : "cursor-pointer"} ${bg} ${textCls}`}
                   >
