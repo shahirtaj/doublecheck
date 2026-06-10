@@ -1,5 +1,5 @@
-// Per-IP rate limiting. When Upstash Redis credentials are present (the same
-// KV_REST_API_* vars the share routes use), limits are enforced with a
+// Per-IP rate limiting. When Upstash Redis credentials are present (either
+// env naming family - see lib/api/redis.ts), limits are enforced with a
 // sliding window in Redis so they hold across serverless instances and cold
 // starts. Without credentials - the zero-env local setup the README promises
 // for Sleeper/ESPN imports and manual entry - we fall back to the in-memory
@@ -9,6 +9,7 @@
 
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { hasRedisEnv } from "@/lib/api/redis";
 
 type Bucket = { count: number; resetAt: number };
 
@@ -55,10 +56,6 @@ function checkRateLimitMemory(
   return { ok: true };
 }
 
-function hasUpstashEnv(): boolean {
-  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
-}
-
 // One Ratelimit per (namespace, window, max) combination, cached for the
 // lifetime of the instance. Keyed by config so two routes sharing a
 // namespace but differing in limits would still get separate limiters.
@@ -91,7 +88,7 @@ export async function checkRateLimit(
   const windowMs = opts.windowMs ?? DEFAULT_WINDOW_MS;
   const max = opts.max ?? DEFAULT_MAX_PER_WINDOW;
 
-  if (hasUpstashEnv()) {
+  if (hasRedisEnv()) {
     try {
       const result = await getLimiter(windowMs, max, opts.namespace).limit(ip);
       if (result.success) return { ok: true };
