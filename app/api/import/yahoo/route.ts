@@ -27,6 +27,12 @@ import {
   readTokenCookie,
   type YahooTokens,
 } from "@/lib/api/yahoo-tokens";
+import { walkSeasonChain } from "./chain";
+import type {
+  ImportedSeasonRecord,
+  YahooLeagueDetails,
+  YahooLeagueMeta,
+} from "./chain";
 
 export const runtime = "nodejs";
 
@@ -47,22 +53,6 @@ const NFL_SEASONS = Array.from(
   (_, i) => new Date().getFullYear() - 6 + i,
 ).join(",");
 
-type YahooLeagueMeta = {
-  leagueKey: string;
-  name: string;
-  season: string;
-  numTeams: number;
-};
-
-type YahooLeagueDetails = YahooLeagueMeta & {
-  startWeek: number;
-  endWeek: number;
-  playoffStartWeek: number;
-  currentWeek: number;
-  isFinished: boolean;
-  renew: string | null;
-};
-
 type YahooTeam = {
   teamId: number;
   teamKey: string;
@@ -74,16 +64,6 @@ type YahooMatchup = {
   week: number;
   isPlayoffs: boolean;
   teamIds: [number, number];
-};
-
-type ImportedSeasonRecord = {
-  seasonYear: string;
-  seasonName: string;
-  teamNames: string[];
-  userIds: (string | null)[];
-  doubles: PairKey[];
-  totalMatchups: number;
-  regWeeks: number;
 };
 
 function flattenYahooMeta(input: unknown): Record<string, unknown> {
@@ -389,71 +369,6 @@ async function fetchSeasonRecord(
   };
 }
 
-// Walks the renew chain newest-first. Unlike the Sleeper/ESPN routes, which
-// fetch seasons in parallel and report persistent per-season failures in a
-// { seasons, failed } response, this walk is sequential and each link's
-// `renew` pointer is the only way to reach the older seasons — so per-season
-// failure tolerance doesn't fall out of the shape: a failed link can't be
-// retried independently of the walk, and the seasons beyond it can't even be
-// enumerated. Instead the route stays strict-but-contiguous: any mid-chain
-// failure (fetch error, unparseable details, or a finished season yielding
-// no record) stops the walk and returns the newer seasons collected so far.
-// Truncated-but-contiguous history keeps the avoidance semantics over a
-// shorter window; skipping the bad season and continuing would leave a gap
-// that mis-ages every older season. A failure on the FIRST link still
-// propagates so the route 502s as before — there's no partial to salvage.
-async function fetchSeasonChain(
-  startKey: string,
-  accessToken: string,
-  seasonsCount: number,
-): Promise<ImportedSeasonRecord[]> {
-  const records: ImportedSeasonRecord[] = [];
-  let currentKey: string | null = startKey;
-  const seen = new Set<string>();
-
-  for (
-    let depth = 0;
-    depth < seasonsCount && currentKey && records.length < seasonsCount;
-    depth++
-  ) {
-    if (seen.has(currentKey)) break;
-    seen.add(currentKey);
-
-    let details: YahooLeagueDetails | null;
-    try {
-      const detailsJson = await fetchYahooJson(
-        `${YAHOO_BASE}/league/${currentKey};out=settings`,
-        accessToken,
-      );
-      details = parseLeagueDetails(detailsJson);
-    } catch (e) {
-      if ((e as Error).message === "UNAUTHORIZED" || records.length === 0) {
-        throw e;
-      }
-      break;
-    }
-    if (!details) break;
-
-    if (details.isFinished) {
-      let record: ImportedSeasonRecord | null;
-      try {
-        record = await fetchSeasonRecord(details, accessToken);
-      } catch (e) {
-        if ((e as Error).message === "UNAUTHORIZED" || records.length === 0) {
-          throw e;
-        }
-        break;
-      }
-      if (!record) break;
-      records.push(record);
-    }
-
-    currentKey = details.renew;
-  }
-
-  return records;
-}
-
 async function readBody(req: Request): Promise<{ leagueKey?: string }> {
   try {
     const raw = await req.text();
@@ -532,11 +447,20 @@ export async function POST(req: Request) {
         );
       }
 
-      const records = await fetchSeasonChain(
-        leagueKey,
-        tokens.accessToken,
-        seasonsCount,
-      );
+      // The chain walk's stop-condition logic lives in ./chain (walkSeasonChain)
+      // with the two fetches injected: details fetch + parse (throws on fetch
+      // errors, null on unparseable responses) and the full season fetch.
+      const records = await walkSeasonChain(leagueKey, seasonsCount, {
+        fetchDetails: async (key) =>
+          parseLeagueDetails(
+            await fetchYahooJson(
+              `${YAHOO_BASE}/league/${key};out=settings`,
+              tokens.accessToken,
+            ),
+          ),
+        fetchRecord: (details) =>
+          fetchSeasonRecord(details, tokens.accessToken),
+      });
       if (records.length === 0) {
         return NextResponse.json(
           {

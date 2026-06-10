@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { pairKey } from "@/lib/algorithm";
 import type { PairKey } from "@/lib/algorithm";
 import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
+import { settleEspnSeasons } from "./seasons";
 
 const BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons";
 // Fallback when the client doesn't specify ?seasons=N.
@@ -280,61 +281,10 @@ export async function POST(req: Request) {
       { length: seasonsCount },
       (_, i) => startSeason - i,
     );
-    const settled = await Promise.allSettled(
-      years.map((year) => fetchEspnSeason(leagueId, year)),
+    const { results, failed, errors, allPrivate } = await settleEspnSeasons(
+      years,
+      (year) => fetchEspnSeason(leagueId, year),
     );
-
-    // Most per-season failures are transient, so one immediate re-attempt
-    // over just the rejected seasons makes the partial path rare rather than
-    // routine (no backoff — the serverless time budget is finite). Private
-    // and not-found failures come from deterministic HTTP statuses, so
-    // retrying them would only double the request count for the common
-    // private-league and young-league cases.
-    const retryIdx = settled
-      .map((result, i) => {
-        if (result.status !== "rejected") return -1;
-        const msg = result.reason instanceof Error ? result.reason.message : "";
-        return msg.includes("is private.") || msg.includes("not found")
-          ? -1
-          : i;
-      })
-      .filter((i) => i >= 0);
-    if (retryIdx.length > 0) {
-      const retried = await Promise.allSettled(
-        retryIdx.map((i) => fetchEspnSeason(leagueId, years[i]!)),
-      );
-      retried.forEach((result, j) => {
-        settled[retryIdx[j]!] = result;
-      });
-    }
-
-    const results: Awaited<ReturnType<typeof fetchEspnSeason>>[] = [];
-    // Seasons that failed both attempts, by year label, so the client can
-    // tell WHICH attempted years are missing and withhold the seasons older
-    // than the gap — client-side year arithmetic would wrongly truncate
-    // leagues that genuinely skipped a year.
-    const failed: { season: string; error: string }[] = [];
-    const errors: string[] = [];
-    let allPrivate = true;
-
-    settled.forEach((result, i) => {
-      const year = years[i]!;
-      if (result.status === "fulfilled") {
-        results.push(result.value);
-        allPrivate = false;
-      } else {
-        const msg =
-          result.reason instanceof Error
-            ? result.reason.message
-            : typeof result.reason === "string"
-              ? result.reason
-              : "unknown error";
-        if (!msg.includes("is private.") && !msg.includes("not found"))
-          allPrivate = false;
-        failed.push({ season: String(year), error: msg });
-        errors.push(`${year}: ${msg}`);
-      }
-    });
 
     if (results.length === 0) {
       // If every season failed because the league is private, surface that as

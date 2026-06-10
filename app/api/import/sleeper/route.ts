@@ -10,6 +10,8 @@ import { NextResponse } from "next/server";
 import { pairKey } from "@/lib/algorithm";
 import type { PairKey } from "@/lib/algorithm";
 import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
+import { settleSeasonFetches } from "./seasons";
+import type { SeasonTarget } from "./seasons";
 
 const BASE = "https://api.sleeper.app/v1";
 // Fallback when the client doesn't specify ?seasons=N. Matches the previous
@@ -53,13 +55,7 @@ type SleeperMatchup = {
   points?: number;
 };
 
-type DiscoveredSeason = {
-  leagueId: string;
-  name: string;
-  season: string;
-  hasData: boolean;
-  settings?: { playoff_week_start?: number };
-};
+type DiscoveredSeason = SeasonTarget & { hasData: boolean };
 
 // Sleeper uses the literal string "0" to mean "no previous league" on the
 // first season of a chain. "0" is truthy in JS, so a naive `id || null` walks
@@ -397,74 +393,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Fetch seasons concurrently and tolerate per-season failures: one dead
-    // season (e.g. a deleted league mid-chain) shouldn't 502 the seasons that
-    // did load. allSettled preserves input order, so the response stays
-    // most-recent-first regardless of which fetch finishes when.
     const toFetch = completed.slice(0, seasonsCount);
-    const settled = await Promise.allSettled(
-      toFetch.map((target) => fetchSeason(target.leagueId, target.settings)),
+    const { results, failed, errors } = await settleSeasonFetches(
+      toFetch,
+      (target) => fetchSeason(target.leagueId, target.settings),
     );
-
-    // Most per-season failures are transient, so one immediate re-attempt
-    // over just the rejected seasons makes the partial path rare rather than
-    // routine. No backoff machinery — the route already runs long and the
-    // serverless time budget is finite.
-    const rejectedIdx = settled
-      .map((result, i) => (result.status === "rejected" ? i : -1))
-      .filter((i) => i >= 0);
-    if (rejectedIdx.length > 0) {
-      const retried = await Promise.allSettled(
-        rejectedIdx.map((i) =>
-          fetchSeason(toFetch[i]!.leagueId, toFetch[i]!.settings),
-        ),
-      );
-      retried.forEach((result, j) => {
-        settled[rejectedIdx[j]!] = result;
-      });
-    }
-
-    const results: {
-      seasonYear: string;
-      seasonName: string;
-      teamNames: string[];
-      userIds: (string | null)[];
-      doubles: string[];
-      totalMatchups: number;
-      regWeeks: number;
-    }[] = [];
-    // Seasons that failed both attempts. `season` stays the year label (not
-    // the leagueId fallback used in the 502 message) so the client can tell
-    // WHICH attempted years are missing and withhold the seasons older than
-    // the gap — client-side year arithmetic would wrongly truncate leagues
-    // that genuinely skipped a year.
-    const failed: { season: string; error: string }[] = [];
-    const errors: string[] = [];
-
-    settled.forEach((result, i) => {
-      const target = toFetch[i]!;
-      if (result.status === "fulfilled") {
-        const data = result.value;
-        results.push({
-          seasonYear: target.season,
-          seasonName: target.name,
-          teamNames: data.teamNames,
-          userIds: data.userIds,
-          doubles: data.doubles,
-          totalMatchups: data.totalMatchups,
-          regWeeks: data.regWeeks,
-        });
-      } else {
-        const msg =
-          result.reason instanceof Error
-            ? result.reason.message
-            : typeof result.reason === "string"
-              ? result.reason
-              : "unknown error";
-        failed.push({ season: target.season, error: msg });
-        errors.push(`${target.season || target.leagueId}: ${msg}`);
-      }
-    });
 
     if (results.length === 0) {
       return NextResponse.json(
