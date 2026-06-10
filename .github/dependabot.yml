@@ -12,6 +12,19 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # Tailwind 4 is a deliberate migration project for later: the PostCSS
+      # plugin moved to @tailwindcss/postcss and config moves into CSS, and
+      # the styles.ts cls atoms mean it touches every visual surface. An
+      # official upgrade tool exists - revisit as its own project.
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+      # ESLint 10 removed context.getFilename, which eslint-config-next's
+      # bundled eslint-plugin-react still calls - lint crashes outright.
+      # Waits for eslint-config-next support, which arrives with a Next
+      # upgrade - revisit then.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
