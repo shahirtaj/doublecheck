@@ -7,6 +7,7 @@ import type {
   ImportedSeasonRecord,
   SelectedFormat,
 } from "./types";
+import type { State } from "./state";
 
 // Map a single-number lookback override (the total of hard + soft) back into
 // the LookbackWindow shape buildAvoidMap expects. We preserve the format's
@@ -311,6 +312,43 @@ export function withholdingWarningMessage(
   return `${cause}, so ${withheldYears.join(", ")} ${
     withheldYears.length > 1 ? "were" : "was"
   } withheld - a gap in season history corrupts recency-based avoidance. ${remedy}`;
+}
+
+// Map the Yahoo OAuth callback's return params (?yahoo=connected, or
+// ?yahoo=error&reason=...) to the state patch the landing effect applies;
+// null for an unrecognized status. Both branches patch importSource
+// alongside platform: OAuth is a full-page redirect, so importSource is
+// back at its "sleeper" default, and the auto-load fetch's stale() guard
+// checks importSourceRef at response time - without this the response is
+// discarded and the UI hangs on the loading status.
+export function yahooOAuthReturnPatch(
+  params: URLSearchParams,
+): Partial<State> | null {
+  const status = params.get("yahoo");
+  const reason = params.get("reason");
+  if (status === "connected") {
+    // pendingYahooConnect bridges to fetchYahooLeagues, which lives inside
+    // ImportSections — that component picks up the flag and runs the fetch.
+    return {
+      platform: "yahoo",
+      importSource: "yahoo",
+      pendingYahooConnect: true,
+    };
+  }
+  if (status === "error") {
+    return {
+      platform: "yahoo",
+      importSource: "yahoo",
+      importStatus: "error",
+      // The reason is either a snake_case OAuth code (state_mismatch) or an
+      // Error message that already ends with a period - strip it so the
+      // appended terminal period never doubles up.
+      importMsg: `Could not connect to Yahoo Fantasy: ${(reason || "unknown")
+        .replace(/_/g, " ")
+        .replace(/\.$/, "")}.`,
+    };
+  }
+  return null;
 }
 
 // Plain-text schedule export shared by Step 3's Copy button and the shared

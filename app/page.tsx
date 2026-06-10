@@ -20,6 +20,7 @@ import {
   deriveLookback,
   normalizeHistory,
   priorSeasons,
+  yahooOAuthReturnPatch,
 } from "./components/utils";
 import { cls } from "./components/styles";
 import {
@@ -203,45 +204,19 @@ export default function GeneratePage() {
 
   // Yahoo OAuth callback hand-off. The callback route redirects to
   // /?yahoo=connected on success or /?yahoo=error&reason=... on failure. We
-  // strip the params, switch to the Yahoo platform, and either auto-load
-  // leagues or surface the error message.
+  // strip the params, then yahooOAuthReturnPatch switches to the Yahoo
+  // platform and either flags the auto-load or surfaces the error message.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    const status = params.get("yahoo");
-    if (!status) return;
-    const reason = params.get("reason");
+    if (!params.get("yahoo")) return;
     const url = new URL(window.location.href);
     url.searchParams.delete("yahoo");
     url.searchParams.delete("reason");
     window.history.replaceState({}, "", url.toString());
 
-    if (status === "connected") {
-      // pendingYahooConnect bridges to fetchYahooLeagues, which lives inside
-      // ImportSections — that component picks up the flag and runs the fetch.
-      // importSource must be patched alongside platform: OAuth is a full-page
-      // redirect, so importSource is back at its "sleeper" default, and the
-      // auto-load fetch's stale() guard checks importSourceRef at response
-      // time - without this the response is discarded and the UI hangs on
-      // the loading status.
-      patch({
-        platform: "yahoo",
-        importSource: "yahoo",
-        pendingYahooConnect: true,
-      });
-    } else if (status === "error") {
-      patch({
-        platform: "yahoo",
-        importSource: "yahoo",
-        importStatus: "error",
-        // The reason is either a snake_case OAuth code (state_mismatch) or an
-        // Error message that already ends with a period - strip it so the
-        // appended terminal period never doubles up.
-        importMsg: `Could not connect to Yahoo Fantasy: ${(reason || "unknown")
-          .replace(/_/g, " ")
-          .replace(/\.$/, "")}.`,
-      });
-    }
+    const oauthPatch = yahooOAuthReturnPatch(params);
+    if (oauthPatch) patch(oauthPatch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
