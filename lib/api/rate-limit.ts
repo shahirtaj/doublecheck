@@ -35,7 +35,10 @@ function checkRateLimitMemory(
   max: number,
   namespace: string | undefined,
 ): RateLimitResult {
-  const key = namespace ? `${namespace}:${ip}` : ip;
+  // Window and max join the key so two routes sharing a namespace but
+  // differing in limits count against separate buckets, matching the Redis
+  // limiter's keyspace scoping below.
+  const key = `${namespace ?? "default"}:${windowMs}:${max}:${ip}`;
   const now = Date.now();
 
   if (buckets.size > CLEANUP_THRESHOLD) {
@@ -57,8 +60,10 @@ function checkRateLimitMemory(
 }
 
 // One Ratelimit per (namespace, window, max) combination, cached for the
-// lifetime of the instance. Keyed by config so two routes sharing a
-// namespace but differing in limits would still get separate limiters.
+// lifetime of the instance. The Redis prefix carries the same full key as
+// the cache: separate limiter objects sharing a namespace-only prefix would
+// still interfere through shared Redis keys, so a namespace shared by two
+// configs with different limits gets two keyspaces, not two views of one.
 let redis: Redis | null = null;
 const limiters = new Map<string, Ratelimit>();
 
@@ -74,7 +79,7 @@ function getLimiter(
     limiter = new Ratelimit({
       redis,
       limiter: Ratelimit.slidingWindow(max, `${windowMs} ms`),
-      prefix: `ratelimit:${namespace ?? "default"}`,
+      prefix: `ratelimit:${key}`,
     });
     limiters.set(key, limiter);
   }
