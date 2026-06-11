@@ -44,6 +44,10 @@ export type State = {
   lookbackOverride: number | null;
   loading: boolean;
   genError: string;
+  // Ephemeral: true while Generate's auto-retry loop runs (it yields to the
+  // event loop between attempts, so the Generate/Regenerate/Save & Share
+  // buttons disable on it). Not persisted - no hydration needed.
+  generating: boolean;
   selectedWeek: number;
   saved: boolean;
   confirmReset: boolean;
@@ -108,6 +112,7 @@ export const initialState: State = {
   lookbackOverride: null,
   loading: true,
   genError: "",
+  generating: false,
   selectedWeek: 0,
   saved: false,
   confirmReset: false,

@@ -69,6 +69,7 @@ export function StepReview(props: StepReviewProps) {
     history,
     selectedFormat,
     genError,
+    generating,
     addingPastSeason,
     pastSeasonYear,
     pastSeasonDoubles,
@@ -932,9 +933,9 @@ export function StepReview(props: StepReviewProps) {
         <button
           className={cls.primaryBtn}
           onClick={onGenerate}
-          disabled={addingPastSeason}
+          disabled={addingPastSeason || generating}
         >
-          Generate Schedule →
+          {generating ? "Generating…" : "Generate Schedule →"}
         </button>
       </div>
       {genError && <p className={cls.error}>{genError}</p>}

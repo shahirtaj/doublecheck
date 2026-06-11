@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { LookbackWindow, Matching, SeasonHistory } from "@/lib/algorithm";
+import type {
+  LookbackWindow,
+  Matching,
+  ScheduleResult,
+  SeasonHistory,
+} from "@/lib/algorithm";
 import { CURRENT_YEAR, MAX_IMPORT_SEASONS } from "./constants";
 import type { ImportedSeasonRecord, SelectedFormat } from "./types";
 import {
@@ -11,6 +16,8 @@ import {
   detectFormatFromImport,
   extractSlug,
   formatDetectionErrorMessage,
+  generateWithRetry,
+  generationFailureMessage,
   importSeasonsParam,
   mergeImportedHistory,
   normalizeHistory,
@@ -1132,6 +1139,149 @@ describe("buildScheduleText", () => {
   it("returns just the heading prefix for empty weeks", () => {
     expect(buildScheduleText([], teams, "sleeper", "Heading\n\n")).toBe(
       "Heading\n\n",
+    );
+  });
+});
+
+describe("generateWithRetry", () => {
+  const genFail: ScheduleResult = {
+    ok: false,
+    reason: "generation-failed",
+    message: "Could not generate a schedule with these constraints.",
+  };
+  const success = { ok: true } as ScheduleResult;
+  // Scripted attempt sequence; repeats the last entry if called again.
+  function scripted(results: ScheduleResult[]) {
+    let calls = 0;
+    const attempt = () => {
+      const r = results[Math.min(calls, results.length - 1)]!;
+      calls++;
+      return r;
+    };
+    return { attempt, callCount: () => calls };
+  }
+  const instantClock = () => 0;
+  const noYield = () => Promise.resolve();
+
+  it("returns a first-attempt success without retrying or yielding", async () => {
+    const { attempt, callCount } = scripted([success]);
+    let yields = 0;
+    const out = await generateWithRetry(attempt, 1000, 10, instantClock, () => {
+      yields++;
+      return Promise.resolve();
+    });
+    expect(out).toEqual({ result: success, attempts: 1 });
+    expect(callCount()).toBe(1);
+    expect(yields).toBe(0);
+  });
+
+  it("retries generation-failed until success, yielding between attempts", async () => {
+    const { attempt } = scripted([genFail, genFail, success]);
+    let yields = 0;
+    const out = await generateWithRetry(attempt, 1000, 10, instantClock, () => {
+      yields++;
+      return Promise.resolve();
+    });
+    expect(out).toEqual({ result: success, attempts: 3 });
+    expect(yields).toBe(2);
+  });
+
+  it("stops at the attempt cap and returns the last failure", async () => {
+    const { attempt, callCount } = scripted([genFail]);
+    const out = await generateWithRetry(
+      attempt,
+      1000,
+      5,
+      instantClock,
+      noYield,
+    );
+    expect(out).toEqual({ result: genFail, attempts: 5 });
+    expect(callCount()).toBe(5);
+  });
+
+  it("stops when the wall-clock budget is spent", async () => {
+    // Each attempt advances the fake clock 600ms; the budget admits exactly
+    // one retry (check at 600 < 1000 passes, at 1200 fails).
+    let t = 0;
+    const clock = () => t;
+    const attempt = () => {
+      t += 600;
+      return genFail;
+    };
+    const out = await generateWithRetry(attempt, 1000, 99, clock, noYield);
+    expect(out.attempts).toBe(2);
+    expect(out.result).toEqual(genFail);
+  });
+
+  it("does not retry deterministic non-generation-failed results", async () => {
+    const skip: ScheduleResult = {
+      ok: false,
+      reason: "pure-round-robin",
+      message: "No fairness issue.",
+      format: {} as never,
+    };
+    const invalid: ScheduleResult = {
+      ok: false,
+      reason: "invalid-format",
+      message: "Bad shape.",
+    };
+    for (const result of [skip, invalid]) {
+      const { attempt, callCount } = scripted([result]);
+      const out = await generateWithRetry(
+        attempt,
+        1000,
+        10,
+        instantClock,
+        noYield,
+      );
+      expect(out).toEqual({ result, attempts: 1 });
+      expect(callCount()).toBe(1);
+    }
+  });
+});
+
+describe("generationFailureMessage", () => {
+  it("passes through skip and invalid-format messages verbatim", () => {
+    expect(
+      generationFailureMessage(
+        {
+          ok: false,
+          reason: "pure-round-robin",
+          message: "No fairness issue.",
+          format: {} as never,
+        },
+        false,
+      ),
+    ).toBe("No fairness issue.");
+    expect(
+      generationFailureMessage(
+        { ok: false, reason: "invalid-format", message: "Bad shape." },
+        true,
+      ),
+    ).toBe("Bad shape.");
+  });
+
+  it("passes through the algorithm's specific pin-validation messages", () => {
+    const msg = "Invalid rivalry pin week: must be between 1 and 14.";
+    expect(
+      generationFailureMessage(
+        { ok: false, reason: "generation-failed", message: msg },
+        true,
+      ),
+    ).toBe(msg);
+  });
+
+  it("writes the post-retry copy for stochastic failures, by pin presence", () => {
+    const failed: ScheduleResult = {
+      ok: false,
+      reason: "generation-failed",
+      message: "Could not generate a schedule with these constraints.",
+    };
+    expect(generationFailureMessage(failed, true)).toBe(
+      "Could not generate a valid schedule after several attempts. Try generating again or removing some rivalry pins.",
+    );
+    expect(generationFailureMessage(failed, false)).toBe(
+      "Could not generate a valid schedule after several attempts. Try generating again, clearing some manual avoids, or shrinking the Lookback Window.",
     );
   });
 });

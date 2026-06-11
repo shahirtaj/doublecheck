@@ -9,11 +9,18 @@ import {
   type LookbackWindow,
   type RivalryPin,
 } from "@/lib/algorithm";
-import { STEP_ORDER, STORAGE_KEY } from "./components/constants";
+import {
+  GENERATE_RETRY_BUDGET_MS,
+  GENERATE_RETRY_MAX_ATTEMPTS,
+  STEP_ORDER,
+  STORAGE_KEY,
+} from "./components/constants";
 import type { ImportPlatform, ImportSource, Step } from "./components/types";
 import {
   computeDisplayWeeks,
   deriveLookback,
+  generateWithRetry,
+  generationFailureMessage,
   normalizeHistory,
   priorSeasons,
   yahooOAuthReturnPatch,
@@ -46,6 +53,7 @@ export default function GeneratePage() {
     history,
     lookbackOverride,
     loading,
+    generating,
     confirmReset,
     platform,
     importSource,
@@ -126,6 +134,16 @@ export default function GeneratePage() {
   // link - or its error - to the new schedule. Same supersession pattern as
   // importSeqRef above.
   const generateSeqRef = useRef(0);
+
+  // Monotonic counter for generation runs themselves. handleGenerate's
+  // retry loop yields to the event loop, so Reset and Back-to-import can
+  // fire mid-run - they bump this so the pending run's final patch is
+  // discarded instead of resurrecting a schedule (and a step landing) the
+  // user just left. Deliberately separate from generateSeqRef: navigation
+  // must NOT discard an in-flight Save & Share (its spinner would stick on
+  // "Saving…" forever), so the two supersession scopes can't share a
+  // counter.
+  const generationRunRef = useRef(0);
 
   // Header tooltip: rendered as a fixed-position div at the root of the
   // return so it escapes the matrix's overflow containers. The hovered
@@ -404,28 +422,49 @@ export default function GeneratePage() {
     return { hard, soft };
   }, [avoidSets, manualDoubles]);
 
-  function handleGenerate() {
+  async function handleGenerate() {
+    // The retry loop yields to the event loop, so the Generate/Regenerate
+    // buttons disable on `generating`; this guard catches any other entry.
+    if (generating) return;
     // Supersede any in-flight Save & Share - its response must not patch
-    // share state for the schedule this call is about to replace.
+    // share state for the schedule this call is about to replace. (Save &
+    // Share is disabled while generating, so the reverse interleaving -
+    // a save STARTED mid-run attaching the old schedule's link to the new
+    // one - can't happen.)
     generateSeqRef.current++;
+    const run = ++generationRunRef.current;
+    const stale = () => generationRunRef.current !== run;
     const { hard, soft } = mergedAvoidSets;
-    const result = buildSchedule({
-      teamCount,
-      weekCount,
-      hardAvoid: hard,
-      softAvoid: soft,
-      rivalryPins,
-    });
+    patch({ generating: true });
+
+    // Generation is stochastic - a failed attempt usually means the random
+    // search missed, not that no schedule exists - so retry within a budget
+    // instead of bouncing each miss to the user (see generateWithRetry).
+    const { result } = await generateWithRetry(
+      () =>
+        buildSchedule({
+          teamCount,
+          weekCount,
+          hardAvoid: hard,
+          softAvoid: soft,
+          rivalryPins,
+        }),
+      GENERATE_RETRY_BUDGET_MS,
+      GENERATE_RETRY_MAX_ATTEMPTS,
+    );
+
+    // Reset or Back-to-import superseded this run; don't resurrect its
+    // result. Clearing `generating` is still ours to do - Back doesn't
+    // touch it, and a stuck true would disable Generate forever.
+    if (stale()) {
+      patch({ generating: false });
+      return;
+    }
+
     if (!result.ok) {
       patch({
-        genError:
-          result.reason === "generation-failed"
-            ? rivalryPins.length > 0
-              ? result.message
-              : // Hard avoids come from manual avoids AND doubled history, so
-                // the remedy names both controls that shrink the constraint set.
-                "Could not generate a valid schedule. Try clearing some manual avoids or shrinking the Lookback Window."
-            : result.message,
+        generating: false,
+        genError: generationFailureMessage(result, rivalryPins.length > 0),
         saved: false,
         shareStatus: "idle",
         shareUrl: "",
@@ -435,6 +474,7 @@ export default function GeneratePage() {
       return;
     }
     patch({
+      generating: false,
       genError: "",
       saved: false,
       shareStatus: "idle",
@@ -450,6 +490,9 @@ export default function GeneratePage() {
   }
 
   function handleResetEverything() {
+    // Discard any in-flight generation run - its final patch would
+    // resurrect a schedule (and the Step 3 landing) into the fresh state.
+    generationRunRef.current++;
     resetState();
     try {
       window.localStorage.removeItem(STORAGE_KEY);
@@ -598,6 +641,10 @@ export default function GeneratePage() {
                   className={`${cls.navBtn} bg-transparent border border-slate-700 text-slate-400 hover:border-slate-500`}
                   onClick={() => {
                     if (step === "teams") {
+                      // Discard any in-flight generation run - the import UI
+                      // is about to mount, and the run's final patch would
+                      // land a schedule and a Step 3 step on top of it.
+                      generationRunRef.current++;
                       // Stash the format as the re-import baseline: the
                       // import flow's formatChanged check needs to know the
                       // shape of the league whose teams/history stay loaded.
@@ -606,6 +653,7 @@ export default function GeneratePage() {
                         priorFormat: selectedFormat,
                         step: "teams",
                         furthestStep: "teams",
+                        generating: false,
                       });
                     } else {
                       setStep(step === "schedule" ? "doubles" : "teams");

@@ -42,6 +42,7 @@ export function StepSchedule(props: StepScheduleProps) {
     leagueName,
     selectedWeek,
     saved,
+    generating,
     shareStatus,
     shareUrl,
     shareError,
@@ -320,13 +321,20 @@ export function StepSchedule(props: StepScheduleProps) {
       })()}
 
       <div className="flex gap-3 mt-6 flex-wrap items-center justify-center">
-        <button className={cls.secondaryBtn} onClick={onGenerate}>
-          Regenerate
+        <button
+          className={cls.secondaryBtn}
+          onClick={onGenerate}
+          disabled={generating}
+        >
+          {generating ? "Generating…" : "Regenerate"}
         </button>
         <button
           className={cls.primaryBtn}
           onClick={handleSaveAndShare}
-          disabled={shareStatus === "loading"}
+          // Also disabled while generating: a save started mid-run would
+          // capture the post-bump seq and attach the OLD schedule's link to
+          // the new schedule when the run lands.
+          disabled={shareStatus === "loading" || generating}
         >
           {shareStatus === "loading" ? "Saving…" : "Save & Share"}
         </button>

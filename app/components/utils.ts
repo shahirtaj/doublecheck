@@ -4,6 +4,7 @@ import type {
   Matching,
   PairKey,
   RivalryPin,
+  ScheduleResult,
   SeasonHistory,
 } from "@/lib/algorithm";
 import { CURRENT_YEAR, MAX_IMPORT_SEASONS } from "./constants";
@@ -596,4 +597,63 @@ export function buildScheduleText(
       ? "\n\nFantasy data provided by Yahoo Fantasy\nhttps://sports.yahoo.com/fantasy/"
       : "";
   return headingPrefix + body + attribution;
+}
+
+// Runs `attempt` until it succeeds, fails for a non-retryable reason, or the
+// attempt/wall-clock budget is spent. Generation is stochastic: a
+// "generation-failed" result usually means the random search missed, not
+// that no schedule exists - probes put tight-but-satisfiable pin
+// configurations at ~20-25% success per attempt with 65-250ms failures, so a
+// couple of seconds of retries turns "usually fails" into "essentially
+// always works". The other failure reasons (format skips, invalid-format)
+// are deterministic and return after one attempt; deterministic
+// generation-failed cases (structurally impossible pin sets) burn the
+// budget, but they fail fast and the attempt cap bounds them. The yield
+// between attempts keeps the UI painting (generation is synchronous
+// main-thread work); `now` and `yieldToUi` are injectable for node tests.
+export async function generateWithRetry(
+  attempt: () => ScheduleResult,
+  budgetMs: number,
+  maxAttempts: number,
+  now: () => number = () => performance.now(),
+  yieldToUi: () => Promise<void> = () =>
+    new Promise((resolve) => setTimeout(resolve, 0)),
+): Promise<{ result: ScheduleResult; attempts: number }> {
+  const start = now();
+  let attempts = 1;
+  let result = attempt();
+  while (
+    !result.ok &&
+    result.reason === "generation-failed" &&
+    attempts < maxAttempts &&
+    now() - start < budgetMs
+  ) {
+    await yieldToUi();
+    result = attempt();
+    attempts++;
+  }
+  return { result, attempts };
+}
+
+// User-facing message for a failed generation, written for the post-retry
+// world: by the time this renders, generateWithRetry has already burned its
+// budget, so "try generating again" is honest advice (a fresh click buys a
+// whole new batch of attempts) and the constraint remedies cover the truly
+// infeasible case - we can't cheaply tell the two apart.
+export function generationFailureMessage(
+  result: Extract<ScheduleResult, { ok: false }>,
+  hasPins: boolean,
+): string {
+  // Format skips and invalid-format carry their own definitive messages.
+  if (result.reason !== "generation-failed") return result.message;
+  // Pin validation failures (out-of-range indices/weeks from a corrupted
+  // restore - the pin form can't produce them) are deterministic and
+  // specific; keep them verbatim. Prefix-coupled to the algorithm's two
+  // "Invalid rivalry pin…" messages in schedule.ts.
+  if (result.message.startsWith("Invalid rivalry pin")) return result.message;
+  return hasPins
+    ? "Could not generate a valid schedule after several attempts. Try generating again or removing some rivalry pins."
+    : // Hard avoids come from manual avoids AND doubled history, so the
+      // remedy names both controls that shrink the constraint set.
+      "Could not generate a valid schedule after several attempts. Try generating again, clearing some manual avoids, or shrinking the Lookback Window.";
 }

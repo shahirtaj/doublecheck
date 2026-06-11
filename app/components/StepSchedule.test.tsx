@@ -149,6 +149,15 @@ describe("Save & Share supersession", () => {
     expect(h.getState().shareUrl).toBe("");
   });
 
+  it("disables Regenerate and Save & Share while a generation run is live", () => {
+    // Save & Share started mid-run would capture the post-bump seq and
+    // attach the old schedule's link to the new schedule when the run
+    // lands; Regenerate would start an overlapping run.
+    renderStepSchedule({ ...scheduleSeed(), generating: true });
+    expect(screen.getByRole("button", { name: "Generating…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save & Share" })).toBeDisabled();
+  });
+
   it("discards a share failure that lands after a regenerate", async () => {
     let rejectFetch!: (e: Error) => void;
     vi.stubGlobal(
