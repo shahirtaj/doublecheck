@@ -1163,38 +1163,44 @@ describe("generateWithRetry", () => {
   const instantClock = () => 0;
   const noYield = () => Promise.resolve();
 
-  it("returns a first-attempt success without retrying or yielding", async () => {
+  it("yields once before a first-attempt success (the paint anchor)", async () => {
+    // The yield precedes every attempt - including the first, so the
+    // caller's "Generating…" patch can paint before generation blocks the
+    // main thread.
     const { attempt, callCount } = scripted([success]);
     let yields = 0;
-    const out = await generateWithRetry(attempt, 1000, 10, instantClock, () => {
-      yields++;
-      return Promise.resolve();
+    const out = await generateWithRetry(attempt, 1000, 10, {
+      now: instantClock,
+      yieldToUi: () => {
+        yields++;
+        return Promise.resolve();
+      },
     });
     expect(out).toEqual({ result: success, attempts: 1 });
     expect(callCount()).toBe(1);
-    expect(yields).toBe(0);
+    expect(yields).toBe(1);
   });
 
-  it("retries generation-failed until success, yielding between attempts", async () => {
+  it("retries generation-failed until success, yielding before each attempt", async () => {
     const { attempt } = scripted([genFail, genFail, success]);
     let yields = 0;
-    const out = await generateWithRetry(attempt, 1000, 10, instantClock, () => {
-      yields++;
-      return Promise.resolve();
+    const out = await generateWithRetry(attempt, 1000, 10, {
+      now: instantClock,
+      yieldToUi: () => {
+        yields++;
+        return Promise.resolve();
+      },
     });
     expect(out).toEqual({ result: success, attempts: 3 });
-    expect(yields).toBe(2);
+    expect(yields).toBe(3);
   });
 
   it("stops at the attempt cap and returns the last failure", async () => {
     const { attempt, callCount } = scripted([genFail]);
-    const out = await generateWithRetry(
-      attempt,
-      1000,
-      5,
-      instantClock,
-      noYield,
-    );
+    const out = await generateWithRetry(attempt, 1000, 5, {
+      now: instantClock,
+      yieldToUi: noYield,
+    });
     expect(out).toEqual({ result: genFail, attempts: 5 });
     expect(callCount()).toBe(5);
   });
@@ -1208,9 +1214,29 @@ describe("generateWithRetry", () => {
       t += 600;
       return genFail;
     };
-    const out = await generateWithRetry(attempt, 1000, 99, clock, noYield);
+    const out = await generateWithRetry(attempt, 1000, 99, {
+      now: clock,
+      yieldToUi: noYield,
+    });
     expect(out.attempts).toBe(2);
     expect(out.result).toEqual(genFail);
+  });
+
+  it("stops at the shouldStop signal instead of burning the budget", async () => {
+    // A superseded run (Reset, Back-to-import, step navigation bumped the
+    // run ref) must end at its next loop check, not 2.5s later.
+    const { attempt, callCount } = scripted([genFail]);
+    let stop = false;
+    const out = await generateWithRetry(attempt, 1000, 10, {
+      shouldStop: () => stop,
+      now: instantClock,
+      yieldToUi: () => {
+        stop = true;
+        return Promise.resolve();
+      },
+    });
+    expect(out).toEqual({ result: genFail, attempts: 1 });
+    expect(callCount()).toBe(1);
   });
 
   it("does not retry deterministic non-generation-failed results", async () => {
@@ -1227,13 +1253,10 @@ describe("generateWithRetry", () => {
     };
     for (const result of [skip, invalid]) {
       const { attempt, callCount } = scripted([result]);
-      const out = await generateWithRetry(
-        attempt,
-        1000,
-        10,
-        instantClock,
-        noYield,
-      );
+      const out = await generateWithRetry(attempt, 1000, 10, {
+        now: instantClock,
+        yieldToUi: noYield,
+      });
       expect(out).toEqual({ result, attempts: 1 });
       expect(callCount()).toBe(1);
     }

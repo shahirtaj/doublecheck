@@ -599,39 +599,67 @@ export function buildScheduleText(
   return headingPrefix + body + attribution;
 }
 
-// Runs `attempt` until it succeeds, fails for a non-retryable reason, or the
-// attempt/wall-clock budget is spent. Generation is stochastic: a
-// "generation-failed" result usually means the random search missed, not
-// that no schedule exists - probes put tight-but-satisfiable pin
-// configurations at ~20-25% success per attempt with 65-250ms failures, so a
-// couple of seconds of retries turns "usually fails" into "essentially
-// always works". The other failure reasons (format skips, invalid-format)
-// are deterministic and return after one attempt; deterministic
-// generation-failed cases (structurally impossible pin sets) burn the
-// budget, but they fail fast and the attempt cap bounds them. The yield
-// between attempts keeps the UI painting (generation is synchronous
-// main-thread work); `now` and `yieldToUi` are injectable for node tests.
+// Paint-anchored yield. A bare setTimeout(0) usually fires before the next
+// rendering opportunity, so it would NOT reliably let the caller's
+// "Generating…" state paint before the next synchronous attempt blocks the
+// main thread; requestAnimationFrame runs in the rendering steps, and the
+// nested timeout resumes after the paint. The backstop covers hidden tabs,
+// where rAF doesn't fire and the run would otherwise stall until the tab is
+// foregrounded (a resolved promise ignores the late second resolve).
+const paintYield = (): Promise<void> =>
+  new Promise((resolve) => {
+    if (typeof requestAnimationFrame !== "function") {
+      setTimeout(resolve, 0);
+      return;
+    }
+    const backstop = setTimeout(resolve, 100);
+    requestAnimationFrame(() => {
+      clearTimeout(backstop);
+      setTimeout(resolve, 0);
+    });
+  });
+
+// Runs `attempt` until it succeeds, fails for a non-retryable reason, the
+// attempt/wall-clock budget is spent, or `shouldStop` reports the run was
+// superseded. Generation is stochastic: a "generation-failed" result
+// usually means the random search missed, not that no schedule exists -
+// probes put tight-but-satisfiable pin configurations at ~20-25% success
+// per attempt with 65-250ms failures, so a couple of seconds of retries
+// turns "usually fails" into "essentially always works". The other failure
+// reasons (format skips, invalid-format) are deterministic and return after
+// one attempt; deterministic generation-failed cases (structurally
+// impossible pin sets) burn the budget, but they fail fast and the attempt
+// cap bounds them. The yield runs BEFORE every attempt - including the
+// first, so the caller's just-patched in-progress state can paint before
+// the synchronous main-thread work starts. `now` and `yieldToUi` are
+// injectable for node tests.
 export async function generateWithRetry(
   attempt: () => ScheduleResult,
   budgetMs: number,
   maxAttempts: number,
-  now: () => number = () => performance.now(),
-  yieldToUi: () => Promise<void> = () =>
-    new Promise((resolve) => setTimeout(resolve, 0)),
+  opts: {
+    shouldStop?: () => boolean;
+    now?: () => number;
+    yieldToUi?: () => Promise<void>;
+  } = {},
 ): Promise<{ result: ScheduleResult; attempts: number }> {
+  const now = opts.now ?? (() => performance.now());
+  const yieldToUi = opts.yieldToUi ?? paintYield;
+  const shouldStop = opts.shouldStop ?? (() => false);
   const start = now();
-  let attempts = 1;
-  let result = attempt();
-  while (
-    !result.ok &&
-    result.reason === "generation-failed" &&
-    attempts < maxAttempts &&
-    now() - start < budgetMs
-  ) {
+  let attempts = 0;
+  let result: ScheduleResult;
+  do {
     await yieldToUi();
     result = attempt();
     attempts++;
-  }
+  } while (
+    !result.ok &&
+    result.reason === "generation-failed" &&
+    attempts < maxAttempts &&
+    now() - start < budgetMs &&
+    !shouldStop()
+  );
   return { result, attempts };
 }
 

@@ -136,14 +136,26 @@ export default function GeneratePage() {
   const generateSeqRef = useRef(0);
 
   // Monotonic counter for generation runs themselves. handleGenerate's
-  // retry loop yields to the event loop, so Reset and Back-to-import can
-  // fire mid-run - they bump this so the pending run's final patch is
-  // discarded instead of resurrecting a schedule (and a step landing) the
-  // user just left. Deliberately separate from generateSeqRef: navigation
-  // must NOT discard an in-flight Save & Share (its spinner would stick on
+  // retry loop yields to the event loop, so Reset, Back-to-import, and
+  // step navigation can fire mid-run - they bump this so the pending run
+  // stops at its next yield (shouldStop) and its final patch is discarded
+  // instead of resurrecting a schedule (and a step landing) the user just
+  // left. Deliberately separate from generateSeqRef: navigation must NOT
+  // discard an in-flight Save & Share (its spinner would stick on
   // "Saving…" forever), so the two supersession scopes can't share a
   // counter.
   const generationRunRef = useRef(0);
+
+  // Step-navigation wrapper for the Back button and stepper chips: any
+  // navigation supersedes a pending generation run - without the bump, the
+  // run's landing patch would teleport the user back to Step 3 from
+  // wherever they navigated. A plain function, not part of the setStep
+  // useCallback: the react-hooks linter treats values captured by hooks as
+  // immutable, and the bump is a mutation.
+  function navigateToStep(v: Step) {
+    generationRunRef.current++;
+    setStep(v);
+  }
 
   // Header tooltip: rendered as a fixed-position div at the root of the
   // return so it escapes the matrix's overflow containers. The hovered
@@ -435,27 +447,47 @@ export default function GeneratePage() {
     const run = ++generationRunRef.current;
     const stale = () => generationRunRef.current !== run;
     const { hard, soft } = mergedAvoidSets;
-    patch({ generating: true });
+    // genError clears here, not at completion: a previous failure's message
+    // sitting under the "Generating…" label reads as this run's verdict.
+    patch({ generating: true, genError: "" });
 
     // Generation is stochastic - a failed attempt usually means the random
     // search missed, not that no schedule exists - so retry within a budget
     // instead of bouncing each miss to the user (see generateWithRetry).
-    const { result } = await generateWithRetry(
-      () =>
-        buildSchedule({
-          teamCount,
-          weekCount,
-          hardAvoid: hard,
-          softAvoid: soft,
-          rivalryPins,
-        }),
-      GENERATE_RETRY_BUDGET_MS,
-      GENERATE_RETRY_MAX_ATTEMPTS,
-    );
+    // shouldStop ends a superseded run at its next yield instead of letting
+    // it burn the rest of the budget.
+    let outcome: Awaited<ReturnType<typeof generateWithRetry>>;
+    try {
+      outcome = await generateWithRetry(
+        () =>
+          buildSchedule({
+            teamCount,
+            weekCount,
+            hardAvoid: hard,
+            softAvoid: soft,
+            rivalryPins,
+          }),
+        GENERATE_RETRY_BUDGET_MS,
+        GENERATE_RETRY_MAX_ATTEMPTS,
+        { shouldStop: stale },
+      );
+    } catch {
+      // buildSchedule isn't expected to throw (failures are ok:false
+      // results), but a latched `generating` would disable Generate,
+      // Regenerate, and Save & Share until Reset - don't risk it.
+      patch({
+        generating: false,
+        genError: "Could not generate a valid schedule.",
+      });
+      return;
+    }
+    const { result } = outcome;
 
-    // Reset or Back-to-import superseded this run; don't resurrect its
-    // result. Clearing `generating` is still ours to do - Back doesn't
-    // touch it, and a stuck true would disable Generate forever.
+    // Reset, Back-to-import, or step navigation superseded this run; don't
+    // resurrect its result. Clearing `generating` is the run's own cleanup:
+    // Back-to-import and Reset also clear it themselves (they need the UI
+    // unlocked immediately), but setStep navigation only bumps the ref and
+    // relies on this patch.
     if (stale()) {
       patch({ generating: false });
       return;
@@ -576,7 +608,7 @@ export default function GeneratePage() {
                 return (
                   <button
                     key={key}
-                    onClick={() => setStep(key)}
+                    onClick={() => navigateToStep(key)}
                     disabled={disabled}
                     className={`${cls.navBtn} bg-transparent border ${
                       step === key
@@ -656,7 +688,7 @@ export default function GeneratePage() {
                         generating: false,
                       });
                     } else {
-                      setStep(step === "schedule" ? "doubles" : "teams");
+                      navigateToStep(step === "schedule" ? "doubles" : "teams");
                     }
                   }}
                 >
