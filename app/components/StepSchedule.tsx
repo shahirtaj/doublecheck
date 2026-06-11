@@ -1,6 +1,6 @@
 "use client";
 
-import { type MouseEvent } from "react";
+import { type MouseEvent, type MutableRefObject } from "react";
 import {
   pairKey,
   unpackPairKey,
@@ -22,10 +22,18 @@ type StepScheduleProps = {
   saveToStorage: SaveToStorageFn;
   scheduleYear: number;
   onGenerate: () => void;
+  generateSeqRef: MutableRefObject<number>;
 };
 
 export function StepSchedule(props: StepScheduleProps) {
-  const { state, patch, saveToStorage, scheduleYear, onGenerate } = props;
+  const {
+    state,
+    patch,
+    saveToStorage,
+    scheduleYear,
+    onGenerate,
+    generateSeqRef,
+  } = props;
   const {
     schedule,
     displayWeeks,
@@ -50,6 +58,13 @@ export function StepSchedule(props: StepScheduleProps) {
 
   async function handleSaveAndShare() {
     if (!schedule || !selectedFormat) return;
+    // A Regenerate (or a Step 2 re-Generate) while the POST is in flight
+    // resets share state for a schedule this response doesn't describe -
+    // landing it would attach the old schedule's link, or its error, to the
+    // new schedule. Bail after every await and at the top of the catch, the
+    // same supersession pattern as the import fetch helpers.
+    const requestSeq = generateSeqRef.current;
+    const stale = () => generateSeqRef.current !== requestSeq;
 
     // Already shared this exact schedule — the existing link still points at
     // it, so there's nothing to do. Regenerate clears shareUrl and saved
@@ -137,12 +152,15 @@ export function StepSchedule(props: StepScheduleProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      if (stale()) return;
       const data = await res.json();
+      if (stale()) return;
       if (!res.ok)
         throw new Error(data?.error || `Request failed (HTTP ${res.status}).`);
       const fullUrl = `${window.location.origin}${data.url}`;
       patch({ shareUrl: fullUrl, shareStatus: "ready" });
     } catch (e) {
+      if (stale()) return;
       patch({
         shareStatus: "error",
         shareError: (e as Error).message || "Could not create a share link.",

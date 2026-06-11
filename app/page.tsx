@@ -120,6 +120,13 @@ export default function GeneratePage() {
   // either way a slow first response would land last and win.
   const importSeqRef = useRef(0);
 
+  // Monotonic counter for schedule generations. handleGenerate bumps it, and
+  // the Save & Share POST captures it at entry so a response landing after a
+  // Regenerate (or a Step 2 re-Generate) can't attach the old schedule's
+  // link - or its error - to the new schedule. Same supersession pattern as
+  // importSeqRef above.
+  const generateSeqRef = useRef(0);
+
   // Header tooltip: rendered as a fixed-position div at the root of the
   // return so it escapes the matrix's overflow containers. The hovered
   // cell's bounding rect drives positioning; a 200ms delay before showing
@@ -398,6 +405,9 @@ export default function GeneratePage() {
   }, [avoidSets, manualDoubles]);
 
   function handleGenerate() {
+    // Supersede any in-flight Save & Share - its response must not patch
+    // share state for the schedule this call is about to replace.
+    generateSeqRef.current++;
     const { hard, soft } = mergedAvoidSets;
     const result = buildSchedule({
       teamCount,
@@ -574,6 +584,7 @@ export default function GeneratePage() {
                 saveToStorage={saveToStorage}
                 scheduleYear={scheduleYear}
                 onGenerate={handleGenerate}
+                generateSeqRef={generateSeqRef}
               />
             )}
           </>
