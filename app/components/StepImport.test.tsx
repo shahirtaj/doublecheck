@@ -423,6 +423,9 @@ describe("re-import after Back", () => {
       rivalryPins: [{ teamA: 0, teamB: 1, week: 3 }],
       manualDoubles: new Set(["2-5"]),
       confirmRemovePinIndex: 0,
+      // The Yahoo OAuth return path hydrates a stored "doubles" before the
+      // auto-import applies - the gate must drop back to name verification.
+      furthestStep: "doubles",
     });
     const user = userEvent.setup();
 
@@ -446,6 +449,7 @@ describe("re-import after Back", () => {
       }),
     );
     expect(h.getState().step).toBe("teams");
+    expect(h.getState().furthestStep).toBe("teams");
   });
 
   it("drops existing history when a same-shape import shares no roster member", async () => {

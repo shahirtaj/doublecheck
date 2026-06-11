@@ -627,8 +627,11 @@ export function ImportSections(props: ImportSectionsProps) {
       priorFormat: null,
       // Explicit, not inherited: hydration can restore step "doubles"
       // before a Yahoo OAuth auto-import lands here, and a fresh apply must
-      // start at name verification.
+      // start at name verification. The gate resets too - without it that
+      // same hydration path leaves the stepper unlocked past Step 1, letting
+      // a freshly applied (possibly different) league skip verification.
       step: "teams",
+      furthestStep: "teams",
       ...(leagueChanged ? { lookbackOverride: null } : {}),
       teams: nextTeams,
       userIds: nextUserIds,
