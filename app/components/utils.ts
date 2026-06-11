@@ -664,6 +664,56 @@ export async function generateWithRetry(
   return { result, attempts };
 }
 
+// Copy for the over-avoided degree proof (overAvoidedTeams, lib/algorithm):
+// the one failure class we can name exactly, so the message names the teams
+// and counts instead of generic remedies. Two variants share the first
+// sentence: `remedies` builds the pre-Generate error (bare-imperative
+// remedy sentence naming only the controls that exist - manual avoids,
+// the Lookback Window when it's rendered and above zero, Season History
+// when prior seasons exist); null builds the live matrix warning.
+export function overAvoidedMessage(
+  entries: ReadonlyArray<{ team: number; avoided: number }>,
+  teams: ReadonlyArray<string>,
+  teamCount: number,
+  doublesPerTeam: number,
+  remedies: {
+    hasManualAvoids: boolean;
+    canShrinkLookback: boolean;
+    hasPriorSeasons: boolean;
+  } | null,
+): string {
+  const maxAvoidable = teamCount - 1 - doublesPerTeam;
+  const cause = `(each team must double ${doublesPerTeam} of its ${teamCount - 1} opponents)`;
+  let detail: string;
+  if (entries.length === 1) {
+    const e = entries[0]!;
+    detail = `${teams[e.team]} has ${e.avoided} hard-avoided opponent${e.avoided === 1 ? "" : "s"} - this format allows at most ${maxAvoidable} ${cause}.`;
+  } else {
+    const names = entries.map((e) => teams[e.team]);
+    const list =
+      names.length === 2
+        ? names.join(" and ")
+        : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+    detail = `${list} have too many hard-avoided opponents - this format allows at most ${maxAvoidable} per team ${cause}.`;
+  }
+  if (remedies === null) {
+    return `${detail} Generating will fail until some are removed.`;
+  }
+  const options: string[] = [];
+  if (remedies.hasManualAvoids) options.push("clear some manual avoids");
+  if (remedies.canShrinkLookback) options.push("shrink the Lookback Window");
+  if (remedies.hasPriorSeasons)
+    options.push("edit the doubles recorded in Season History");
+  // Over-avoidance requires avoids, which only come from the matrix or
+  // history, so at least one remedy always applies.
+  const list =
+    options.length <= 2
+      ? options.join(" or ")
+      : `${options.slice(0, -1).join(", ")}, or ${options[options.length - 1]}`;
+  const remedy = list.charAt(0).toUpperCase() + list.slice(1);
+  return `${detail} ${remedy}.`;
+}
+
 // The constraint sources that can bind a failed generation, as the caller
 // sees them. The client can't tell which one actually bound (pins, manual
 // avoids, and lookback-derived doubles all feed the same search), so the

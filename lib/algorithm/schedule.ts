@@ -64,6 +64,29 @@ export function buildSchedule(config: ScheduleConfig): ScheduleResult {
     };
   }
 
+  // Cheap exact infeasibility proof before any search: a team whose
+  // doubleable opponents can't cover its required doubles can never
+  // generate, so the failure is deterministic - no retry, and the message
+  // never advises one. Necessary-not-sufficient: silence here does not
+  // prove feasibility, it only converts the common over-avoided case from
+  // "indistinguishable from bad luck" to a definitive answer.
+  const overAvoided = overAvoidedTeams(
+    teamCount,
+    doublesPerTeam,
+    hardAvoid,
+    rivalryPins,
+  );
+  if (overAvoided.length > 0) {
+    return {
+      ok: false,
+      reason: "generation-failed",
+      message:
+        `Hard avoids leave a team without enough opponents to double - each team must double ${doublesPerTeam} of its ${teamCount - 1} opponents, ` +
+        `so at most ${teamCount - 1 - doublesPerTeam} can be hard-avoided.`,
+      retryable: false,
+    };
+  }
+
   // Detect 2-pin pairs whose weeks are not the natural double-partner pair
   // (W, W±separation). Such pins force the same matching to be at two
   // non-partner weeks under the slot-based architecture, which mirrors every
@@ -255,6 +278,44 @@ function validate(teamCount: number, weekCount: number): ScheduleResult | null {
     };
   }
   return null;
+}
+
+// Teams whose hard-avoid count makes generation provably impossible: each
+// team must double doublesPerTeam of its (teamCount - 1) opponents, so a
+// team with fewer doubleable opponents than that can never appear in any
+// valid schedule. Pins override avoidance, so a hard-avoided pair that is
+// 2-pinned (forced to double) still counts as doubleable - without that
+// exception this would falsely reject satisfiable inputs, the one
+// unforgivable bug in a deterministic "impossible" verdict. The condition
+// is necessary, not sufficient: an empty result does not prove feasibility.
+// Exported so the client can render the same proof as a live matrix warning
+// and a named pre-Generate error; buildSchedule runs it as defense-in-depth.
+export function overAvoidedTeams(
+  teamCount: number,
+  doublesPerTeam: number,
+  hardAvoid: ReadonlySet<PairKey>,
+  rivalryPins: ReadonlyArray<RivalryPin>,
+): Array<{ team: number; avoided: number }> {
+  const twoPinned = new Set<PairKey>();
+  const pinCounts = new Map<PairKey, number>();
+  for (const p of rivalryPins) {
+    const k = pairKey(p.teamA, p.teamB);
+    const c = (pinCounts.get(k) ?? 0) + 1;
+    pinCounts.set(k, c);
+    if (c >= 2) twoPinned.add(k);
+  }
+  const out: Array<{ team: number; avoided: number }> = [];
+  const maxAvoidable = teamCount - 1 - doublesPerTeam;
+  for (let i = 0; i < teamCount; i++) {
+    let avoided = 0;
+    for (let j = 0; j < teamCount; j++) {
+      if (j === i) continue;
+      const k = pairKey(i, j);
+      if (hardAvoid.has(k) && !twoPinned.has(k)) avoided++;
+    }
+    if (avoided > maxAvoidable) out.push({ team: i, avoided });
+  }
+  return out;
 }
 
 // Resolve rivalry pins into per-slot must-include lists with explicit slot →

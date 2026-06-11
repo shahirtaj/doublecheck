@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import {
+  overAvoidedTeams,
   pairKey,
   unpackPairKey,
   type AvoidMap,
@@ -12,7 +13,7 @@ import {
   type SeasonHistory,
 } from "@/lib/algorithm";
 import { cls } from "./styles";
-import { abbrev, priorSeasonAges } from "./utils";
+import { abbrev, overAvoidedMessage, priorSeasonAges } from "./utils";
 import { CURRENT_YEAR, CURRENT_YEAR_STR } from "./constants";
 import type { Patch, SaveToStorageFn, State } from "./state";
 
@@ -86,6 +87,23 @@ export function StepReview(props: StepReviewProps) {
 
   const teamCount = selectedFormat?.teamCount ?? 0;
   const weekCount = selectedFormat?.weekCount ?? 0;
+  const doublesPerTeam = weekCount - (teamCount - 1);
+
+  // Live degree proof for the matrix warning: the same check handleGenerate
+  // runs before starting a run (and buildSchedule re-runs as defense-in-
+  // depth), surfaced where the avoids are created.
+  const overAvoided = useMemo(
+    () =>
+      teamCount > 0
+        ? overAvoidedTeams(
+            teamCount,
+            doublesPerTeam,
+            mergedAvoidSets.hard,
+            rivalryPins,
+          )
+        : [],
+    [teamCount, doublesPerTeam, mergedAvoidSets, rivalryPins],
+  );
 
   // Dismiss the matrix header tooltip on page scroll. The tooltip is
   // fixed-position relative to the header's bounding rect at hover time;
@@ -781,6 +799,19 @@ export function StepReview(props: StepReviewProps) {
           </>
         )}
       </p>
+
+      {overAvoided.length > 0 && (
+        <div className="bg-amber-950 border border-amber-800 rounded-md px-3 py-2 text-[11px] text-amber-400 mt-2">
+          ⚠{" "}
+          {overAvoidedMessage(
+            overAvoided,
+            teams,
+            teamCount,
+            doublesPerTeam,
+            null,
+          )}
+        </div>
+      )}
 
       {manualDoubles.size > 0 && (
         <div className="mt-3">

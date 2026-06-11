@@ -638,23 +638,77 @@ describe("buildSchedule rivalry pins", () => {
     }
   });
 
-  it("flags seeded-search misses as retryable", () => {
-    // Hard-avoiding every pair makes the doubled-matching search fail (no
-    // edges remain) via the stochastic path - the result must tell callers
-    // a retry is meaningful (the client's auto-retry keys on this).
-    const allPairs = new Set<PairKey>();
-    for (let i = 0; i < 8; i++)
-      for (let j = i + 1; j < 8; j++) allPairs.add(pairKey(i, j));
+  it("proves over-avoided teams infeasible deterministically (no retry)", () => {
+    // 8/13: dp = 6 of 7 opponents, so at most 1 hard-avoided opponent per
+    // team. Two avoids on team 0 are provably impossible - the degree check
+    // must catch it before any search, not classify it as a retryable miss.
     const r = buildSchedule({
       teamCount: 8,
       weekCount: 13,
-      hardAvoid: allPairs,
-      random: mulberry32(0xa11),
+      hardAvoid: new Set([pairKey(0, 1), pairKey(0, 2)]),
+      random: mulberry32(0xd361),
     });
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.reason).toBe("generation-failed");
-    if (r.reason === "generation-failed") expect(r.retryable).toBe(true);
+    if (r.reason === "generation-failed") {
+      expect(r.retryable).toBe(false);
+      expect(r.message).toBe(
+        "Hard avoids leave a team without enough opponents to double - each team must double 6 of its 7 opponents, so at most 1 can be hard-avoided.",
+      );
+    }
+  });
+
+  it("accepts a team at exactly the avoid cap", () => {
+    const r = buildSchedule({
+      teamCount: 8,
+      weekCount: 13,
+      hardAvoid: new Set([pairKey(0, 1)]),
+      random: mulberry32(0xd362),
+    });
+    assertSuccess(r);
+    expect(r.doubledPairs.has(pairKey(0, 1))).toBe(false);
+  });
+
+  it("does not count a 2-pinned pair as avoided (pins override avoidance)", () => {
+    // Team 0 has two hard avoids, but (0,1) is pinned to play twice - the
+    // pin overrides the avoid, so (0,1) is doubleable and team 0 is back at
+    // the cap. A naive degree check would falsely reject this satisfiable
+    // input - the one unforgivable bug in a deterministic verdict.
+    const r = buildSchedule({
+      teamCount: 8,
+      weekCount: 13,
+      hardAvoid: new Set([pairKey(0, 1), pairKey(0, 2)]),
+      rivalryPins: [pinTo(2, 0, 1), pinTo(null, 0, 1)],
+      random: mulberry32(0xd363),
+    });
+    assertSuccess(r);
+    expect(r.doubledPairs.has(pairKey(0, 1))).toBe(true);
+    expect(r.doubledPairs.has(pairKey(0, 2))).toBe(false);
+  });
+
+  it("flags seeded-search misses as retryable", () => {
+    // The 8/13 non-partner 2-pin succeeds on only a fraction of seeds (see
+    // the NON_PARTNER_CASES profile); scan a fixed seed family for a miss
+    // and assert the miss is marked retryable - a fresh run can genuinely
+    // succeed, and the client's auto-retry keys on the flag. (An all-pairs
+    // hard-avoid set can't serve as the fixture: the degree check now
+    // proves that case infeasible deterministically - which is the point.)
+    let sawMiss = false;
+    for (let s = 0; s < 30 && !sawMiss; s++) {
+      const r = buildSchedule({
+        teamCount: 8,
+        weekCount: 13,
+        rivalryPins: [pinTo(3, 0, 1), pinTo(7, 0, 1)],
+        random: mulberry32(0xa11 + s),
+      });
+      if (!r.ok) {
+        sawMiss = true;
+        expect(r.reason).toBe("generation-failed");
+        if (r.reason === "generation-failed") expect(r.retryable).toBe(true);
+      }
+    }
+    expect(sawMiss).toBe(true);
   });
 
   // Pin + manual "✕" in the matrix. Manual ✕ adds the pair to the hard-avoid

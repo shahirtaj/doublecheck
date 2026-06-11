@@ -21,6 +21,7 @@ import {
   importSeasonsParam,
   mergeImportedHistory,
   normalizeHistory,
+  overAvoidedMessage,
   priorSeasonAges,
   priorSeasons,
   remapIndexRowsByName,
@@ -1354,6 +1355,67 @@ describe("generationFailureMessage", () => {
     // Nothing to loosen - retrying is the only remedy.
     expect(msg(false, false, false)).toBe(
       "Could not generate a valid schedule after several attempts. Try generating again.",
+    );
+  });
+});
+
+describe("overAvoidedMessage", () => {
+  const teams = ["Alpha", "Bravo", "Charlie", "Delta"];
+  // 8/13-shaped numbers: dp 6 of 7 opponents, at most 1 avoidable.
+  const one = [{ team: 0, avoided: 4 }];
+  const remediesAll = {
+    hasManualAvoids: true,
+    canShrinkLookback: true,
+    hasPriorSeasons: true,
+  };
+
+  it("names the team, counts, and every applicable remedy", () => {
+    expect(overAvoidedMessage(one, teams, 8, 6, remediesAll)).toBe(
+      "Alpha has 4 hard-avoided opponents - this format allows at most 1 (each team must double 6 of its 7 opponents). Clear some manual avoids, shrink the Lookback Window, or edit the doubles recorded in Season History.",
+    );
+  });
+
+  it("offers only the remedies whose controls exist", () => {
+    expect(
+      overAvoidedMessage(one, teams, 8, 6, {
+        hasManualAvoids: true,
+        canShrinkLookback: false,
+        hasPriorSeasons: false,
+      }),
+    ).toBe(
+      "Alpha has 4 hard-avoided opponents - this format allows at most 1 (each team must double 6 of its 7 opponents). Clear some manual avoids.",
+    );
+    // The zero-manual case: history caused it, so history controls fix it.
+    expect(
+      overAvoidedMessage(one, teams, 8, 6, {
+        hasManualAvoids: false,
+        canShrinkLookback: true,
+        hasPriorSeasons: true,
+      }),
+    ).toBe(
+      "Alpha has 4 hard-avoided opponents - this format allows at most 1 (each team must double 6 of its 7 opponents). Shrink the Lookback Window or edit the doubles recorded in Season History.",
+    );
+  });
+
+  it("uses the singular for one avoided opponent and lists multiple teams", () => {
+    expect(
+      overAvoidedMessage([{ team: 1, avoided: 1 }], teams, 4, 3, null),
+    ).toBe(
+      "Bravo has 1 hard-avoided opponent - this format allows at most 0 (each team must double 3 of its 3 opponents). Generating will fail until some are removed.",
+    );
+    expect(
+      overAvoidedMessage(
+        [
+          { team: 0, avoided: 3 },
+          { team: 2, avoided: 2 },
+        ],
+        teams,
+        8,
+        6,
+        null,
+      ),
+    ).toBe(
+      "Alpha and Charlie have too many hard-avoided opponents - this format allows at most 1 per team (each team must double 6 of its 7 opponents). Generating will fail until some are removed.",
     );
   });
 });

@@ -1,6 +1,6 @@
 // Public surface of the scheduling algorithm.
 
-export { buildSchedule } from "./schedule";
+export { buildSchedule, overAvoidedTeams } from "./schedule";
 export { describeFormat } from "./format";
 export { buildAvoidMap } from "./avoid";
 export type { AvoidMap } from "./avoid";

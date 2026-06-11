@@ -6,6 +6,7 @@ import {
   buildAvoidMap,
   buildSchedule,
   describeFormat,
+  overAvoidedTeams,
   type LookbackWindow,
   type RivalryPin,
 } from "@/lib/algorithm";
@@ -21,6 +22,7 @@ import {
   deriveLookback,
   generateWithRetry,
   generationFailureMessage,
+  overAvoidedMessage,
   normalizeHistory,
   priorSeasons,
   yahooOAuthReturnPatch,
@@ -438,6 +440,41 @@ export default function GeneratePage() {
     // The retry loop yields to the event loop, so the Generate/Regenerate
     // buttons disable on `generating`; this guard catches any other entry.
     if (generating) return;
+
+    // Cheap exact infeasibility proof before anything runs: an over-avoided
+    // team can never generate, so no run, no budget, no retry advice - the
+    // error names the team and the controls that can fix it. The same proof
+    // drives the live matrix warning in StepReview, and buildSchedule
+    // re-runs it as defense-in-depth.
+    if (format) {
+      const over = overAvoidedTeams(
+        teamCount,
+        format.doublesPerTeam,
+        mergedAvoidSets.hard,
+        rivalryPins,
+      );
+      if (over.length > 0) {
+        patch({
+          genError: overAvoidedMessage(
+            over,
+            teams,
+            teamCount,
+            format.doublesPerTeam,
+            {
+              hasManualAvoids: manualDoubles.size > 0,
+              canShrinkLookback: effectiveLookbackTotal > 0,
+              hasPriorSeasons: priorSeasonCount > 0,
+            },
+          ),
+          saved: false,
+          shareStatus: "idle",
+          shareUrl: "",
+          shareError: "",
+          shareCopied: false,
+        });
+        return;
+      }
+    }
     // Supersede any in-flight Save & Share - its response must not patch
     // share state for the schedule this call is about to replace. (Save &
     // Share is disabled while generating, so the reverse interleaving -
