@@ -546,7 +546,10 @@ function resolvePins(
       weekCount,
       dp,
       separation,
-      "double",
+      // Slot fallback: the chosen week mirrors W1's whole matching, so pick
+      // unpinned-then-far, not least-loaded (see enumerateCandidateWeeks).
+      "double-mirrored",
+      pinnedTeamsAtWeek,
     );
     let placed = false;
     for (const W of candidates) {
@@ -572,7 +575,9 @@ function resolvePins(
         weekCount,
         dp,
         separation,
-        "double",
+        // Same mirror reasoning as the W2 pick above.
+        "double-mirrored",
+        pinnedTeamsAtWeek,
       );
       let firstPlaced = false;
       for (const W of w1Candidates) {
@@ -702,9 +707,32 @@ function isValidTeamPair(pin: RivalryPin, teamCount: number): boolean {
 // default block structure intact. dp is doublesPerTeam; weeks in (dp, wc-dp]
 // (1-indexed) are the natural "middle" / single-slot zone.
 // - kind === "single": prefer middle weeks (least-loaded first), then ends.
-// - kind === "double" with partnerWeek: prefer partnerWeek ± separation,
-//   which matches the default block pairing; then any other week.
-// - kind === "double" without partnerWeek: prefer block-end weeks.
+// - kind === "double"/"double-mirrored" with partnerWeek: prefer
+//   partnerWeek ± separation, which matches the default block pairing; then
+//   any other week, ordered per the kind (below).
+// - kind === "double"/"double-mirrored" without partnerWeek: prefer
+//   block-end weeks.
+//
+// "double-mirrored" is the main path's Pass C: the chosen week and
+// partnerWeek become a double SLOT, which mirrors its entire matching
+// across both weeks - so |W - partnerWeek| is the repeat separation of
+// every pair in that matching, and the plain least-loaded order (with its
+// deterministic `|| a - b` tiebreak) parked the whole mirror at separation
+// 2 whenever the natural partner week was occupied. Its fallback order is
+// unpinned-weeks-first, then farthest. The unpinned bucket comes first
+// because Pass C is greedy with no backtracking and resolvePins runs once,
+// deterministically, outside the retry loop: a fallback that grabs a week
+// some not-yet-processed pin is pinned to forces later same-week pins into
+// this slot and can turn a satisfiable pin set into a 100%-reproducible
+// failure (pinnedWeeksToAvoid is the same lookahead map that
+// place1PinAtWeek consults for the same order-independence reason).
+//
+// The weekly path's classifier stays on plain "double": there is no mirror
+// there (non-partner week pairs get independent matchings), and far weeks
+// land on block-end slot weeks whose constraint webs make
+// buildMatchingsByWeek dramatically slower - the order-independence test's
+// 12/14 scenario went from sub-second to timeout when farthest-first was
+// applied to it.
 function enumerateCandidateWeeks(
   _teamA: number,
   _teamB: number,
@@ -713,19 +741,32 @@ function enumerateCandidateWeeks(
   weekCount: number,
   doublesPerTeam: number,
   separation: number,
-  kind: "single" | "double",
+  kind: "single" | "double" | "double-mirrored",
+  pinnedWeeksToAvoid?: ReadonlyMap<number, ReadonlySet<number>>,
 ): number[] {
   const loadOf = (W: number): number => teamsInWeek.get(W)?.size ?? 0;
   const allWeeks: number[] = [];
   for (let W = 1; W <= weekCount; W++) allWeeks.push(W);
 
-  if (kind === "double" && partnerWeek !== null) {
+  if (kind !== "single" && partnerWeek !== null) {
     const preferred = [
       partnerWeek + separation,
       partnerWeek - separation,
     ].filter((W) => W >= 1 && W <= weekCount);
     const others = allWeeks.filter((W) => !preferred.includes(W));
-    others.sort((a, b) => loadOf(a) - loadOf(b) || a - b);
+    const distOf =
+      kind === "double-mirrored"
+        ? (W: number): number => Math.abs(W - partnerWeek)
+        : (): number => 0;
+    const pinnedAt = (W: number): number =>
+      pinnedWeeksToAvoid?.get(W)?.size ? 1 : 0;
+    others.sort(
+      (a, b) =>
+        pinnedAt(a) - pinnedAt(b) ||
+        distOf(b) - distOf(a) ||
+        loadOf(a) - loadOf(b) ||
+        a - b,
+    );
     return [...preferred, ...others];
   }
 

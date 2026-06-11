@@ -660,6 +660,84 @@ describe("buildSchedule rivalry pins", () => {
     expect(r.doubledPairs.has(pairKey(0, 1))).toBe(true);
   });
 
+  it("specific+any fallback keeps the mirrored slot far when the partner week is blocked", () => {
+    // (0,1)@3 + any-week, with (2,3) hard-avoided and pinned to W3's natural
+    // partner week - the forced single there blocks the preferred candidate,
+    // so Pass C's fallback picks the slot's other week. The chosen week and
+    // week 3 become a double slot that mirrors its ENTIRE matching across
+    // both weeks, so the fallback's distance is every mirrored pair's repeat
+    // separation. Pre-fix the fallback ordered by load with a lowest-week
+    // tiebreak, deterministically parking the mirror at separation 2 on all
+    // 20 seeds of both formats while a far week sat free; farthest-first
+    // ordering lands it at 10+ (at or above these formats' natural seps of
+    // 11 and 7 minus the edge offset). The floor of 8 is comfortably above
+    // the bug and below the observed 10.
+    const cases = [
+      { teams: 12, weeks: 14, blockWeek: 14 }, // sep 11: partner of W3 is 14
+      { teams: 8, weeks: 13, blockWeek: 10 }, // sep 7: partner of W3 is 10
+    ];
+    for (const { teams, weeks, blockWeek } of cases) {
+      for (let seed = 0; seed < 20; seed++) {
+        const r = buildSchedule({
+          teamCount: teams,
+          weekCount: weeks,
+          hardAvoid: new Set([pairKey(2, 3)]),
+          rivalryPins: [
+            pinTo(blockWeek, 2, 3),
+            pinTo(3, 0, 1),
+            pinTo(null, 0, 1),
+          ],
+          random: mulberry32(0xf4f4 + seed),
+        });
+        assertSuccess(r);
+        const appearances = pairAppearances(r, 0, 1);
+        expect(appearances).toHaveLength(2);
+        expect(appearances).toContain(3);
+        expect(
+          Math.abs(appearances[0]! - appearances[1]!),
+        ).toBeGreaterThanOrEqual(8);
+      }
+    }
+  });
+
+  it("far fallback yields other pins' pinned weeks to keep multi-pin sets satisfiable", () => {
+    // resolvePins runs once, deterministically, outside the retry loop, so
+    // a greedy fallback that grabs a week another pin is pinned to is a
+    // 100%-reproducible failure, not a re-rollable one. Here (1,8)@14
+    // forces a single at week 14 (its natural double at week 3 team-
+    // conflicts with (0,1)'s pin), so (0,1)@3's fallback runs; a purely
+    // farthest-first order grabs week 13 - (2,4)'s pinned week, allowed by
+    // the team-overlap checks - which forces (4,6)@3 to join slot (3,13)
+    // where team 4 is pinned, failing the whole set on every seed. The
+    // unpinned-first bucket steers the fallback to week 12 instead, and
+    // all four pins place.
+    for (let seed = 0; seed < 20; seed++) {
+      const r = buildSchedule({
+        teamCount: 12,
+        weekCount: 14,
+        rivalryPins: [
+          pinTo(14, 1, 8),
+          pinTo(3, 0, 1),
+          pinTo(null, 0, 1),
+          pinTo(3, 4, 6),
+          pinTo(null, 4, 6),
+          pinTo(13, 2, 4),
+          pinTo(null, 2, 4),
+        ],
+        random: mulberry32(0xca5c + seed),
+      });
+      assertSuccess(r);
+      expect(pairAppearances(r, 1, 8)).toContain(14);
+      expect(pairAppearances(r, 0, 1)).toContain(3);
+      expect(pairAppearances(r, 4, 6)).toContain(3);
+      expect(pairAppearances(r, 2, 4)).toContain(13);
+      // The fallback still lands far: (0,1)'s any-week leg keeps a real
+      // separation rather than parking next to week 3.
+      const w01 = pairAppearances(r, 0, 1);
+      expect(Math.abs(w01[0]! - w01[1]!)).toBeGreaterThanOrEqual(8);
+    }
+  });
+
   it("single pin works for a non-avoided pair (plays at the pinned week, may also appear elsewhere)", () => {
     // 1 pin = "at least one game" — the pair is guaranteed at the pinned week
     // and remains eligible for natural doubling. With a middle-week pin the
