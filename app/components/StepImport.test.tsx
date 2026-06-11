@@ -400,11 +400,12 @@ describe("re-import after Back", () => {
     expect(h.getState().lookbackOverride).toBe(2);
   });
 
-  it("clears pins, the armed remove confirm, and the persisted pin list on apply", async () => {
+  it("clears pins, avoids, the armed remove confirm, and the persisted lists on apply", async () => {
     // Apply replaces the pin list, so the armed per-row Remove confirm must
     // disarm (it would re-arm on whatever pin lands at that index next) and
-    // the cleared list must ride the saveToStorage extras - the patch hasn't
-    // flushed at save time, so the closure still sees the old pins.
+    // the cleared lists must ride the saveToStorage extras - the patch hasn't
+    // flushed at save time, so the closure still sees the old pins and
+    // manual avoids.
     vi.stubGlobal(
       "fetch",
       vi
@@ -420,6 +421,7 @@ describe("re-import after Back", () => {
       priorFormat: { teamCount: 10, weekCount: 13 },
       teams: Array.from({ length: 10 }, (_, i) => `Team ${i + 1}`),
       rivalryPins: [{ teamA: 0, teamB: 1, week: 3 }],
+      manualDoubles: new Set(["2-5"]),
       confirmRemovePinIndex: 0,
     });
     const user = userEvent.setup();
@@ -429,12 +431,19 @@ describe("re-import after Back", () => {
     await user.click(screen.getByRole("button", { name: "Apply" }));
 
     expect(h.getState().rivalryPins).toEqual([]);
+    expect(h.getState().manualDoubles.size).toBe(0);
     expect(h.getState().confirmRemovePinIndex).toBeNull();
-    // The patch hasn't flushed at save time, so the cleared pins and the
-    // Step 1 landing must ride the extras (a stale persisted step would
-    // make the next reload skip name verification).
+    // The patch hasn't flushed at save time, so the cleared pins, the
+    // cleared manual avoids, and the Step 1 landing must ride the extras
+    // (a stale persisted step would make the next reload skip name
+    // verification; stale avoids would resurrect index pairs that may point
+    // at the wrong teams after a re-sort or league switch).
     expect(h.saveToStorage).toHaveBeenCalledWith(
-      expect.objectContaining({ rivalryPins: [], step: "teams" }),
+      expect.objectContaining({
+        rivalryPins: [],
+        manualDoubles: [],
+        step: "teams",
+      }),
     );
     expect(h.getState().step).toBe("teams");
   });

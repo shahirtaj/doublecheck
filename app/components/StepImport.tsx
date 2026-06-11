@@ -649,10 +649,11 @@ export function ImportSections(props: ImportSectionsProps) {
       teams: nextTeams,
       userIds: nextUserIds,
       format: detected,
-      // The patch above hasn't flushed, so the cleared pins and the Step 1
-      // landing must ride along or the save would persist the closure's
-      // stale values.
+      // The patch above hasn't flushed, so the cleared pins and avoids and
+      // the Step 1 landing must ride along or the save would persist the
+      // closure's stale values.
       rivalryPins: [],
+      manualDoubles: [],
       step: "teams",
       ...(nextLeagueName ? { leagueName: nextLeagueName } : {}),
       ...(leagueChanged ? { lookbackOverride: null } : {}),
