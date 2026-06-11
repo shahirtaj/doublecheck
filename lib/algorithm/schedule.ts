@@ -1267,12 +1267,29 @@ function pickDoubledSetSlotAware(
       if (doubled.has(k)) continue;
       const [a, b] = unpackPairKey(k);
       if (degree[a]! >= dp || degree[b]! >= dp) continue;
+      const inW1 = keys1.has(k);
+      const otherWeek = inW1 ? W2 : W1;
+      // The promotion lands the pair's second appearance at the slot's other
+      // week, so both teams must be free there - the analogue of the main
+      // path's pinnedTeamsConflict check before committing a natural double.
+      // Without it, two 1-pins sharing a team at a slot's two weeks promote
+      // into each other's weeks, putting the shared team twice in one week's
+      // must-include; findMatchingForWeek fails that structurally, so every
+      // widening tier of the attempt burns for nothing. Check `augmented`
+      // (base pins plus this slot's earlier promotions), not the base lists.
+      // A skipped pair stays a plain 1-pin: its pinned week is already in
+      // the base must-include, and the top-up below may still double it as a
+      // leftover for the partner-slot phase to place.
+      const otherList = augmented.get(otherWeek);
+      if (
+        otherList?.some(([x, y]) => x === a || y === a || x === b || y === b)
+      ) {
+        continue;
+      }
       doubled.add(k);
       degree[a]!++;
       degree[b]!++;
-      const inW1 = keys1.has(k);
-      const otherWeek = inW1 ? W2 : W1;
-      let list = augmented.get(otherWeek);
+      let list = otherList;
       if (!list) {
         list = [];
         augmented.set(otherWeek, list);
