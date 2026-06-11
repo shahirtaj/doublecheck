@@ -496,7 +496,11 @@ export default function GeneratePage() {
     if (!result.ok) {
       patch({
         generating: false,
-        genError: generationFailureMessage(result, rivalryPins.length > 0),
+        genError: generationFailureMessage(result, {
+          hasPins: rivalryPins.length > 0,
+          hasManualAvoids: manualDoubles.size > 0,
+          canShrinkLookback: effectiveLookbackTotal > 0,
+        }),
         saved: false,
         shareStatus: "idle",
         shareUrl: "",

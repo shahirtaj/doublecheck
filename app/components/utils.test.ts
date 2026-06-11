@@ -1283,7 +1283,7 @@ describe("generationFailureMessage", () => {
           message: "No fairness issue.",
           format: {} as never,
         },
-        false,
+        { hasPins: false, hasManualAvoids: false, canShrinkLookback: false },
       ),
     ).toBe("No fairness issue.");
     expect(
@@ -1294,7 +1294,7 @@ describe("generationFailureMessage", () => {
           message: "Bad shape.",
           retryable: false,
         },
-        true,
+        { hasPins: true, hasManualAvoids: true, canShrinkLookback: true },
       ),
     ).toBe("Bad shape.");
   });
@@ -1312,23 +1312,48 @@ describe("generationFailureMessage", () => {
           message: msg,
           retryable: false,
         },
-        true,
+        { hasPins: true, hasManualAvoids: true, canShrinkLookback: true },
       ),
     ).toBe(msg);
   });
 
-  it("writes the post-retry copy for retryable failures, by pin presence", () => {
+  it("names every applicable remedy for retryable failures, and only those", () => {
     const failed: ScheduleResult = {
       ok: false,
       reason: "generation-failed",
       message: "Could not generate a schedule with these constraints.",
       retryable: true,
     };
-    expect(generationFailureMessage(failed, true)).toBe(
+    const msg = (
+      hasPins: boolean,
+      hasManualAvoids: boolean,
+      canShrinkLookback: boolean,
+    ) =>
+      generationFailureMessage(failed, {
+        hasPins,
+        hasManualAvoids,
+        canShrinkLookback,
+      });
+    // Everything present: pins lead, but all three controls are named - a
+    // user may prefer dropping an avoid or a season of lookback over a pin.
+    expect(msg(true, true, true)).toBe(
+      "Could not generate a valid schedule after several attempts. Try generating again, removing some rivalry pins, clearing some manual avoids, or shrinking the Lookback Window.",
+    );
+    // Pins only - no pointer at controls with nothing behind them.
+    expect(msg(true, false, false)).toBe(
       "Could not generate a valid schedule after several attempts. Try generating again or removing some rivalry pins.",
     );
-    expect(generationFailureMessage(failed, false)).toBe(
+    // Avoids and lookback without pins (the old no-pins copy).
+    expect(msg(false, true, true)).toBe(
       "Could not generate a valid schedule after several attempts. Try generating again, clearing some manual avoids, or shrinking the Lookback Window.",
+    );
+    // Lookback only.
+    expect(msg(false, false, true)).toBe(
+      "Could not generate a valid schedule after several attempts. Try generating again or shrinking the Lookback Window.",
+    );
+    // Nothing to loosen - retrying is the only remedy.
+    expect(msg(false, false, false)).toBe(
+      "Could not generate a valid schedule after several attempts. Try generating again.",
     );
   });
 });

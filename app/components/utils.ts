@@ -664,15 +664,35 @@ export async function generateWithRetry(
   return { result, attempts };
 }
 
+// The constraint sources that can bind a failed generation, as the caller
+// sees them. The client can't tell which one actually bound (pins, manual
+// avoids, and lookback-derived doubles all feed the same search), so the
+// message names every control that exists - and only those: pointing a user
+// at "manual avoids" they never set, or a Lookback Window control that isn't
+// rendered (it hides without prior seasons), is worse than the old bias of
+// always naming pins first.
+export type GenerationRemedies = {
+  hasPins: boolean;
+  hasManualAvoids: boolean;
+  // True when the Step 2 Lookback Window control is visible and above zero
+  // (page.tsx's effectiveLookbackTotal > 0). Shrinking only relieves the
+  // search once it cuts into the hard window, but the control is still the
+  // right pointer - the same advice the no-pins copy always gave.
+  canShrinkLookback: boolean;
+};
+
 // User-facing message for a failed generation, written for the post-retry
 // world: a retryable failure only renders after generateWithRetry burned its
 // budget, so "try generating again" is honest advice (a fresh click buys a
 // whole new batch of attempts) and the constraint remedies cover the truly
 // infeasible case - the two are indistinguishable once the search has
-// missed that many times.
+// missed that many times. Pins lead the remedy list when present (the most
+// likely binding constraint), but every applicable control is named - a
+// user may well prefer dropping an avoid or a season of lookback over a
+// rivalry pin.
 export function generationFailureMessage(
   result: Extract<ScheduleResult, { ok: false }>,
-  hasPins: boolean,
+  remedies: GenerationRemedies,
 ): string {
   // Format skips and invalid-format carry their own definitive messages.
   if (result.reason !== "generation-failed") return result.message;
@@ -681,9 +701,13 @@ export function generationFailureMessage(
   // and "try generating again" would be false advice - the algorithm's own
   // message is definitive and never advises retrying.
   if (!result.retryable) return result.message;
-  return hasPins
-    ? "Could not generate a valid schedule after several attempts. Try generating again or removing some rivalry pins."
-    : // Hard avoids come from manual avoids AND doubled history, so the
-      // remedy names both controls that shrink the constraint set.
-      "Could not generate a valid schedule after several attempts. Try generating again, clearing some manual avoids, or shrinking the Lookback Window.";
+  const options = ["generating again"];
+  if (remedies.hasPins) options.push("removing some rivalry pins");
+  if (remedies.hasManualAvoids) options.push("clearing some manual avoids");
+  if (remedies.canShrinkLookback) options.push("shrinking the Lookback Window");
+  const list =
+    options.length <= 2
+      ? options.join(" or ")
+      : `${options.slice(0, -1).join(", ")}, or ${options[options.length - 1]}`;
+  return `Could not generate a valid schedule after several attempts. Try ${list}.`;
 }
