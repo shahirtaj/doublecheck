@@ -7,6 +7,20 @@ export const MAX_LEAGUE_NAME_LENGTH = 128;
 export const MAX_USER_ID_LENGTH = 128;
 export const MAX_SEASON_LABEL_LENGTH = 16;
 export const MAX_DOUBLE_KEY_LENGTH = 256;
+// Real values are short platform slugs ("sleeper", "espn", "yahoo"); the cap
+// bounds hand-crafted payloads without restricting the value set (new
+// platforms must work before the server is redeployed).
+export const MAX_PLATFORM_LENGTH = 32;
+// History grows one row per season year with no client-side pruning, so the
+// cap can't be derived - it's calendar-bounded instead. Fantasy platforms
+// date to the mid-1990s (~36 rows in 2026, +1/year), so 100 is ~70 years of
+// headroom.
+export const MAX_HISTORY_ROWS = 100;
+// seasonYear renders into the shared page's OG title; the range just keeps
+// hand-crafted payloads plausible (Number.isInteger(1e300) is true, so the
+// integer check alone admits absurd values).
+export const MIN_SEASON_YEAR = 1900;
+export const MAX_SEASON_YEAR = 3000;
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -69,17 +83,24 @@ export function validatePayload(body: unknown): string | null {
 
   if (
     body.seasonYear !== undefined &&
-    (typeof body.seasonYear !== "number" || !Number.isInteger(body.seasonYear))
+    (typeof body.seasonYear !== "number" ||
+      !Number.isInteger(body.seasonYear) ||
+      body.seasonYear < MIN_SEASON_YEAR ||
+      body.seasonYear > MAX_SEASON_YEAR)
   ) {
-    return "seasonYear must be an integer when provided.";
+    return `seasonYear must be an integer between ${MIN_SEASON_YEAR} and ${MAX_SEASON_YEAR} when provided.`;
   }
 
   // platform is optional (older clients won't send it). Used by the shared
   // view to render platform-specific apply instructions; we don't restrict
   // the string set here in case the client adds more platforms before the
-  // server is redeployed.
-  if (body.platform !== undefined && typeof body.platform !== "string") {
-    return "platform must be a string when provided.";
+  // server is redeployed - only its length, like every other stored string.
+  if (
+    body.platform !== undefined &&
+    (typeof body.platform !== "string" ||
+      body.platform.length > MAX_PLATFORM_LENGTH)
+  ) {
+    return `platform must be a string of at most ${MAX_PLATFORM_LENGTH} characters when provided.`;
   }
 
   // Index pair key as the client builds them with pairKey(): "i-j" with
@@ -112,6 +133,9 @@ export function validatePayload(body: unknown): string | null {
   // payloads being re-shared; the client treats those as index format, so
   // they get the index-key check.
   if (!Array.isArray(body.history)) return "history must be an array.";
+  if (body.history.length > MAX_HISTORY_ROWS) {
+    return `history must have at most ${MAX_HISTORY_ROWS} rows.`;
+  }
   const maxDoublesPerSeason = (teamCount * (teamCount - 1)) / 2;
   for (const row of body.history) {
     if (!isPlainObject(row)) return "Each history row must be an object.";
@@ -152,6 +176,11 @@ export function validatePayload(body: unknown): string | null {
 
   if (!Array.isArray(body.manualDoubles))
     return "manualDoubles must be an array.";
+  // The client builds this from a Set, so it can never exceed the roster's
+  // pair count - the cap only blocks duplicate-spam in crafted payloads.
+  if (body.manualDoubles.length > maxDoublesPerSeason) {
+    return "manualDoubles has more entries than the roster has pairs.";
+  }
   if (!body.manualDoubles.every(isIndexPairKey)) {
     return 'Each manual double must be "i-j" with i < j < teamCount.';
   }
@@ -163,6 +192,12 @@ export function validatePayload(body: unknown): string | null {
   if (body.rivalryPins !== undefined) {
     if (!Array.isArray(body.rivalryPins)) {
       return "rivalryPins must be an array when provided.";
+    }
+    // A pair can play at most twice, so 2 * pairs is the loosest envelope
+    // over any format; the client's own per-team/per-week limits sit well
+    // inside it.
+    if (body.rivalryPins.length > 2 * maxDoublesPerSeason) {
+      return "rivalryPins has more entries than the roster's pairs can play (two per pair).";
     }
     for (const pin of body.rivalryPins) {
       if (!isPlainObject(pin)) return "Each rivalry pin must be an object.";
@@ -199,11 +234,18 @@ export function validatePayload(body: unknown): string | null {
 
   // Weeks arrays render directly in SharedScheduleView, so they get full
   // per-pair validation: every matchup is [int, int] with both indices in
-  // [0, teamCount). `field` is interpolated into the error messages.
+  // [0, teamCount). `field` is interpolated into the error messages. Real
+  // schedules are perfect matchings (exactly teamCount / 2 matchups per
+  // week); the cap is <= rather than === so a short week never rejects, it
+  // only blocks matchup-spam in crafted payloads.
+  const maxMatchupsPerWeek = teamCount / 2;
   const validateWeeks = (weeks: unknown[], field: string): string | null => {
     for (const week of weeks) {
       if (!Array.isArray(week)) {
         return `Each ${field} entry must be an array.`;
+      }
+      if (week.length > maxMatchupsPerWeek) {
+        return `Each ${field} entry must have at most teamCount / 2 matchups.`;
       }
       for (const pair of week) {
         if (
@@ -235,6 +277,9 @@ export function validatePayload(body: unknown): string | null {
   if (!Array.isArray(schedule.doubledPairs)) {
     return "schedule.doubledPairs must be an array.";
   }
+  if (schedule.doubledPairs.length > maxDoublesPerSeason) {
+    return "schedule.doubledPairs has more entries than the roster has pairs.";
+  }
   if (!schedule.doubledPairs.every(isIndexPairKey)) {
     return 'Each doubled pair must be "i-j" with i < j < teamCount.';
   }
@@ -249,6 +294,9 @@ export function validatePayload(body: unknown): string | null {
     if (repeats === undefined) continue;
     if (!Array.isArray(repeats)) {
       return `schedule.${field} must be an array when provided.`;
+    }
+    if (repeats.length > maxDoublesPerSeason) {
+      return `schedule.${field} has more entries than the roster has pairs.`;
     }
     if (!repeats.every(isIndexPairKey)) {
       return `Each schedule.${field} entry must be "i-j" with i < j < teamCount.`;
@@ -279,6 +327,10 @@ export function validatePayload(body: unknown): string | null {
   if (schedule.rivalryPlacements !== undefined) {
     if (!Array.isArray(schedule.rivalryPlacements)) {
       return "schedule.rivalryPlacements must be an array when provided.";
+    }
+    // One placement per placed pin, so pins' envelope bounds this too.
+    if (schedule.rivalryPlacements.length > 2 * maxDoublesPerSeason) {
+      return "schedule.rivalryPlacements has more entries than the roster's pairs can play (two per pair).";
     }
     for (const p of schedule.rivalryPlacements) {
       if (!isPlainObject(p)) return "Each rivalry placement must be an object.";

@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   buildStoredPayload,
   MAX_DOUBLE_KEY_LENGTH,
+  MAX_HISTORY_ROWS,
   MAX_LEAGUE_NAME_LENGTH,
+  MAX_PLATFORM_LENGTH,
   MAX_SEASON_LABEL_LENGTH,
+  MAX_SEASON_YEAR,
   MAX_TEAM_NAME_LENGTH,
   MAX_USER_ID_LENGTH,
+  MIN_SEASON_YEAR,
   validatePayload,
 } from "./validate";
 
@@ -164,20 +168,27 @@ describe("validatePayload", () => {
       expect(validatePayload(payload)).toBe(expected);
     });
 
-    it("rejects a non-integer seasonYear", () => {
+    it("rejects a non-integer or out-of-range seasonYear", () => {
+      const expected = `seasonYear must be an integer between ${MIN_SEASON_YEAR} and ${MAX_SEASON_YEAR} when provided.`;
       const payload = validPayload();
       payload.seasonYear = "2026";
-      expect(validatePayload(payload)).toBe(
-        "seasonYear must be an integer when provided.",
-      );
+      expect(validatePayload(payload)).toBe(expected);
+      payload.seasonYear = MIN_SEASON_YEAR - 1;
+      expect(validatePayload(payload)).toBe(expected);
+      payload.seasonYear = MAX_SEASON_YEAR + 1;
+      expect(validatePayload(payload)).toBe(expected);
+      // Number.isInteger(1e300) is true - the range check is what blocks it.
+      payload.seasonYear = 1e300;
+      expect(validatePayload(payload)).toBe(expected);
     });
 
-    it("rejects a non-string platform", () => {
+    it("rejects a non-string or over-length platform", () => {
+      const expected = `platform must be a string of at most ${MAX_PLATFORM_LENGTH} characters when provided.`;
       const payload = validPayload();
       payload.platform = 1;
-      expect(validatePayload(payload)).toBe(
-        "platform must be a string when provided.",
-      );
+      expect(validatePayload(payload)).toBe(expected);
+      payload.platform = "x".repeat(MAX_PLATFORM_LENGTH + 1);
+      expect(validatePayload(payload)).toBe(expected);
     });
 
     it("rejects non-array userIds, history, and manualDoubles", () => {
@@ -490,6 +501,123 @@ describe("validatePayload", () => {
     it("rejects a non-boolean clean flag", () => {
       expect(validatePayload(withSchedule({ clean: "yes" }))).toBe(
         "schedule.clean must be a boolean when provided.",
+      );
+    });
+  });
+
+  // Count caps: every entry is individually valid, so only the cap rejects.
+  // The real client can't exceed any of these (sets can't hold duplicate
+  // pair keys, schedules are perfect matchings, the pin UI enforces tighter
+  // per-team/per-week limits) - the caps exist for hand-crafted payloads.
+  describe("count caps", () => {
+    // For the 4-team payload: C(4,2) = 6 pairs, 2 matchups per week.
+    const allPairs = ["0-1", "0-2", "0-3", "1-2", "1-3", "2-3"];
+    const pinsAtCap = allPairs.flatMap((key) => {
+      const [i, j] = key.split("-").map(Number);
+      return [
+        { teamA: i, teamB: j, week: null },
+        { teamA: i, teamB: j, week: 1 },
+      ];
+    });
+
+    it("accepts a payload at every count cap", () => {
+      const payload = validPayload();
+      payload.platform = "x".repeat(MAX_PLATFORM_LENGTH);
+      payload.seasonYear = MAX_SEASON_YEAR;
+      payload.history = Array.from({ length: MAX_HISTORY_ROWS }, (_, i) => ({
+        season: String(1926 + i),
+        doubles: [],
+      }));
+      payload.manualDoubles = allPairs;
+      payload.rivalryPins = pinsAtCap;
+      payload.schedule = {
+        ...(payload.schedule as Record<string, unknown>),
+        doubledPairs: allPairs,
+        softRepeated: allPairs,
+        hardRepeated: allPairs,
+        rivalryPlacements: pinsAtCap.map((p) => ({
+          teamA: p.teamA,
+          teamB: p.teamB,
+          pinnedWeek: p.week,
+          placedWeek: 1,
+        })),
+      };
+      expect(validatePayload(payload)).toBeNull();
+    });
+
+    it("rejects history with more rows than the cap", () => {
+      const payload = validPayload();
+      payload.history = Array.from(
+        { length: MAX_HISTORY_ROWS + 1 },
+        (_, i) => ({ season: String(1925 + i), doubles: [] }),
+      );
+      expect(validatePayload(payload)).toBe(
+        `history must have at most ${MAX_HISTORY_ROWS} rows.`,
+      );
+    });
+
+    it("rejects duplicate-spam in manualDoubles past the pair count", () => {
+      const payload = validPayload();
+      payload.manualDoubles = [...allPairs, "0-1"];
+      expect(validatePayload(payload)).toBe(
+        "manualDoubles has more entries than the roster has pairs.",
+      );
+    });
+
+    it("rejects rivalryPins past two per pair", () => {
+      const payload = validPayload();
+      payload.rivalryPins = [...pinsAtCap, { teamA: 0, teamB: 1, week: null }];
+      expect(validatePayload(payload)).toBe(
+        "rivalryPins has more entries than the roster's pairs can play (two per pair).",
+      );
+    });
+
+    it("rejects a week with more matchups than teamCount / 2", () => {
+      const weeks = (validPayload().schedule as { weeks: number[][][] }).weeks;
+      weeks[0] = [
+        [0, 1],
+        [2, 3],
+        [0, 2],
+      ];
+      expect(validatePayload(withSchedule({ weeks }))).toBe(
+        "Each schedule.weeks entry must have at most teamCount / 2 matchups.",
+      );
+      expect(validatePayload(withSchedule({ displayWeeks: weeks }))).toBe(
+        "Each schedule.displayWeeks entry must have at most teamCount / 2 matchups.",
+      );
+    });
+
+    it("rejects duplicate-spam in doubledPairs and the repeat lists", () => {
+      expect(
+        validatePayload(withSchedule({ doubledPairs: [...allPairs, "0-1"] })),
+      ).toBe(
+        "schedule.doubledPairs has more entries than the roster has pairs.",
+      );
+      expect(
+        validatePayload(withSchedule({ softRepeated: [...allPairs, "0-1"] })),
+      ).toBe(
+        "schedule.softRepeated has more entries than the roster has pairs.",
+      );
+      expect(
+        validatePayload(withSchedule({ hardRepeated: [...allPairs, "0-1"] })),
+      ).toBe(
+        "schedule.hardRepeated has more entries than the roster has pairs.",
+      );
+    });
+
+    it("rejects rivalryPlacements past two per pair", () => {
+      const placements = [...pinsAtCap, { teamA: 0, teamB: 1, week: null }].map(
+        (p) => ({
+          teamA: p.teamA,
+          teamB: p.teamB,
+          pinnedWeek: p.week,
+          placedWeek: 1,
+        }),
+      );
+      expect(
+        validatePayload(withSchedule({ rivalryPlacements: placements })),
+      ).toBe(
+        "schedule.rivalryPlacements has more entries than the roster's pairs can play (two per pair).",
       );
     });
   });
