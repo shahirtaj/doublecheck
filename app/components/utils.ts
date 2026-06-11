@@ -656,6 +656,7 @@ export async function generateWithRetry(
   } while (
     !result.ok &&
     result.reason === "generation-failed" &&
+    result.retryable &&
     attempts < maxAttempts &&
     now() - start < budgetMs &&
     !shouldStop()
@@ -664,21 +665,22 @@ export async function generateWithRetry(
 }
 
 // User-facing message for a failed generation, written for the post-retry
-// world: by the time this renders, generateWithRetry has already burned its
+// world: a retryable failure only renders after generateWithRetry burned its
 // budget, so "try generating again" is honest advice (a fresh click buys a
 // whole new batch of attempts) and the constraint remedies cover the truly
-// infeasible case - we can't cheaply tell the two apart.
+// infeasible case - the two are indistinguishable once the search has
+// missed that many times.
 export function generationFailureMessage(
   result: Extract<ScheduleResult, { ok: false }>,
   hasPins: boolean,
 ): string {
   // Format skips and invalid-format carry their own definitive messages.
   if (result.reason !== "generation-failed") return result.message;
-  // Pin validation failures (out-of-range indices/weeks from a corrupted
-  // restore - the pin form can't produce them) are deterministic and
-  // specific; keep them verbatim. Prefix-coupled to the algorithm's two
-  // "Invalid rivalry pin…" messages in schedule.ts.
-  if (result.message.startsWith("Invalid rivalry pin")) return result.message;
+  // Deterministic failures (pin validation, pin placement conflicts) return
+  // identically on every attempt, so the retry loop stopped after one try
+  // and "try generating again" would be false advice - the algorithm's own
+  // message is definitive and never advises retrying.
+  if (!result.retryable) return result.message;
   return hasPins
     ? "Could not generate a valid schedule after several attempts. Try generating again or removing some rivalry pins."
     : // Hard avoids come from manual avoids AND doubled history, so the

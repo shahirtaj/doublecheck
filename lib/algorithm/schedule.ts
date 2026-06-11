@@ -83,7 +83,14 @@ export function buildSchedule(config: ScheduleConfig): ScheduleResult {
 
   const resolved = resolvePins(rivalryPins, format, hardAvoid);
   if ("error" in resolved) {
-    return { ok: false, reason: "generation-failed", message: resolved.error };
+    // resolvePins is deterministic (no randomness reaches it), so every
+    // error here returns identically on retry.
+    return {
+      ok: false,
+      reason: "generation-failed",
+      message: resolved.error,
+      retryable: false,
+    };
   }
 
   const {
@@ -144,6 +151,7 @@ export function buildSchedule(config: ScheduleConfig): ScheduleResult {
         ? PIN_FAIL_MESSAGE
         : "Could not generate doubled matchings satisfying the hard-avoid constraints. " +
           "Try shrinking the hard-avoid set.",
+      retryable: true,
     };
   }
 
@@ -166,6 +174,7 @@ export function buildSchedule(config: ScheduleConfig): ScheduleResult {
       message: hasPins
         ? PIN_FAIL_MESSAGE
         : "Could not decompose the remaining single-play pairs into perfect matchings.",
+      retryable: true,
     };
   }
 
@@ -216,6 +225,7 @@ function validate(teamCount: number, weekCount: number): ScheduleResult | null {
       ok: false,
       reason: "invalid-format",
       message: `Team count must be an even integer >= 2 (got ${teamCount}).`,
+      retryable: false,
     };
   }
   if (!Number.isInteger(weekCount) || weekCount < 1) {
@@ -223,6 +233,7 @@ function validate(teamCount: number, weekCount: number): ScheduleResult | null {
       ok: false,
       reason: "invalid-format",
       message: `Week count must be a positive integer (got ${weekCount}).`,
+      retryable: false,
     };
   }
   if (weekCount < teamCount - 1) {
@@ -232,6 +243,7 @@ function validate(teamCount: number, weekCount: number): ScheduleResult | null {
       message:
         `Week count (${weekCount}) is less than the ${teamCount - 1} weeks required for a single round-robin ` +
         `with ${teamCount} teams. Incomplete round-robins are not supported.`,
+      retryable: false,
     };
   }
   if (weekCount > 2 * (teamCount - 1)) {
@@ -239,6 +251,7 @@ function validate(teamCount: number, weekCount: number): ScheduleResult | null {
       ok: false,
       reason: "invalid-format",
       message: `Week count (${weekCount}) exceeds two full round-robins (${2 * (teamCount - 1)} weeks) for ${teamCount} teams.`,
+      retryable: false,
     };
   }
   return null;
@@ -1783,7 +1796,14 @@ function buildScheduleWeekByWeek(
 
   const pinResult = classifyPinsForWeekly(pins, format, hardAvoid);
   if ("error" in pinResult) {
-    return { ok: false, reason: "generation-failed", message: pinResult.error };
+    // classifyPinsForWeekly is deterministic (no randomness reaches it), so
+    // every error here returns identically on retry.
+    return {
+      ok: false,
+      reason: "generation-failed",
+      message: pinResult.error,
+      retryable: false,
+    };
   }
   const {
     forcedDoubled,
@@ -1805,6 +1825,8 @@ function buildScheduleWeekByWeek(
         ok: false,
         reason: "generation-failed",
         message: PIN_FAIL_MESSAGE,
+        // Pure pin arithmetic - deterministic.
+        retryable: false,
       };
     }
   }
@@ -1935,5 +1957,12 @@ function buildScheduleWeekByWeek(
       };
     }
   }
-  return { ok: false, reason: "generation-failed", message: PIN_FAIL_MESSAGE };
+  return {
+    ok: false,
+    reason: "generation-failed",
+    message: PIN_FAIL_MESSAGE,
+    // Every strict/relaxed attempt of the seeded search missed - a fresh
+    // run can land differently.
+    retryable: true,
+  };
 }

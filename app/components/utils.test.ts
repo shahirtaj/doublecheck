@@ -1148,6 +1148,7 @@ describe("generateWithRetry", () => {
     ok: false,
     reason: "generation-failed",
     message: "Could not generate a schedule with these constraints.",
+    retryable: true,
   };
   const success = { ok: true } as ScheduleResult;
   // Scripted attempt sequence; repeats the last entry if called again.
@@ -1239,7 +1240,7 @@ describe("generateWithRetry", () => {
     expect(callCount()).toBe(1);
   });
 
-  it("does not retry deterministic non-generation-failed results", async () => {
+  it("does not retry deterministic results", async () => {
     const skip: ScheduleResult = {
       ok: false,
       reason: "pure-round-robin",
@@ -1250,8 +1251,17 @@ describe("generateWithRetry", () => {
       ok: false,
       reason: "invalid-format",
       message: "Bad shape.",
+      retryable: false,
     };
-    for (const result of [skip, invalid]) {
+    // generation-failed but flagged deterministic by the algorithm (pin
+    // validation, placement conflicts) - retrying returns identically.
+    const deterministic: ScheduleResult = {
+      ok: false,
+      reason: "generation-failed",
+      message: "Could not generate a schedule with these constraints.",
+      retryable: false,
+    };
+    for (const result of [skip, invalid, deterministic]) {
       const { attempt, callCount } = scripted([result]);
       const out = await generateWithRetry(attempt, 1000, 10, {
         now: instantClock,
@@ -1278,27 +1288,41 @@ describe("generationFailureMessage", () => {
     ).toBe("No fairness issue.");
     expect(
       generationFailureMessage(
-        { ok: false, reason: "invalid-format", message: "Bad shape." },
+        {
+          ok: false,
+          reason: "invalid-format",
+          message: "Bad shape.",
+          retryable: false,
+        },
         true,
       ),
     ).toBe("Bad shape.");
   });
 
-  it("passes through the algorithm's specific pin-validation messages", () => {
-    const msg = "Invalid rivalry pin week: must be between 1 and 14.";
+  it("passes through deterministic generation-failed messages verbatim", () => {
+    // The retry loop stopped after one try, so "try generating again" would
+    // be false advice; the algorithm's message is definitive.
+    const msg =
+      "Could not generate a schedule with these constraints. Try removing some rivalry pins.";
     expect(
       generationFailureMessage(
-        { ok: false, reason: "generation-failed", message: msg },
+        {
+          ok: false,
+          reason: "generation-failed",
+          message: msg,
+          retryable: false,
+        },
         true,
       ),
     ).toBe(msg);
   });
 
-  it("writes the post-retry copy for stochastic failures, by pin presence", () => {
+  it("writes the post-retry copy for retryable failures, by pin presence", () => {
     const failed: ScheduleResult = {
       ok: false,
       reason: "generation-failed",
       message: "Could not generate a schedule with these constraints.",
+      retryable: true,
     };
     expect(generationFailureMessage(failed, true)).toBe(
       "Could not generate a valid schedule after several attempts. Try generating again or removing some rivalry pins.",

@@ -102,6 +102,15 @@ export type ScheduleFailure = {
   ok: false;
   reason: "invalid-format" | "generation-failed";
   message: string;
+  // True when the failure came from the seeded search - retrying with fresh
+  // randomness can genuinely succeed (the client's Generate auto-retry keys
+  // on this). False for deterministic failures (input validation, pin
+  // classification/placement conflicts) that return identically on every
+  // attempt; their messages never advise retrying, so callers show them
+  // verbatim. Each error site knows its own class locally - resolvePins and
+  // classifyPinsForWeekly are deterministic end to end, so their wrapping
+  // sites set false wholesale.
+  retryable: boolean;
 };
 
 export type ScheduleResult =

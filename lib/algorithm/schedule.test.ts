@@ -440,6 +440,8 @@ describe("buildSchedule rivalry pins", () => {
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.reason).toBe("generation-failed");
+    // Pin placement conflicts are deterministic - callers must not retry.
+    if (r.reason === "generation-failed") expect(r.retryable).toBe(false);
   });
 
   it("places an any-week pin and records the algorithm-chosen week", () => {
@@ -626,6 +628,33 @@ describe("buildSchedule rivalry pins", () => {
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.reason).toBe("generation-failed");
+    // Pin validation is deterministic - callers must not retry, and the
+    // specific message renders verbatim (no client-side rewriting).
+    if (r.reason === "generation-failed") {
+      expect(r.retryable).toBe(false);
+      expect(r.message).toBe(
+        "Invalid rivalry pin week: must be between 1 and 14.",
+      );
+    }
+  });
+
+  it("flags seeded-search misses as retryable", () => {
+    // Hard-avoiding every pair makes the doubled-matching search fail (no
+    // edges remain) via the stochastic path - the result must tell callers
+    // a retry is meaningful (the client's auto-retry keys on this).
+    const allPairs = new Set<PairKey>();
+    for (let i = 0; i < 8; i++)
+      for (let j = i + 1; j < 8; j++) allPairs.add(pairKey(i, j));
+    const r = buildSchedule({
+      teamCount: 8,
+      weekCount: 13,
+      hardAvoid: allPairs,
+      random: mulberry32(0xa11),
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toBe("generation-failed");
+    if (r.reason === "generation-failed") expect(r.retryable).toBe(true);
   });
 
   // Pin + manual "✕" in the matrix. Manual ✕ adds the pair to the hard-avoid
