@@ -751,13 +751,23 @@ export function generationFailureMessage(
   // and "try generating again" would be false advice - the algorithm's own
   // message is definitive and never advises retrying.
   if (!result.retryable) return result.message;
-  const options = ["generating again"];
-  if (remedies.hasPins) options.push("removing some rivalry pins");
-  if (remedies.hasManualAvoids) options.push("clearing some manual avoids");
-  if (remedies.canShrinkLookback) options.push("shrinking the Lookback Window");
+  // Sequenced, not a flat menu: the structure encodes what we actually
+  // know. A fresh click buys a whole new batch of attempts and usually
+  // suffices (the unlucky case); constraint removal is what to suspect
+  // only when repeated clicks keep failing (the infeasible-beyond-our-
+  // proofs case) - and repeated failure is also exactly the signal that
+  // separates the two from the user's seat.
+  const base =
+    "Could not generate a valid schedule after several attempts. Try generating again.";
+  const escalations: string[] = [];
+  if (remedies.hasPins) escalations.push("removing some rivalry pins");
+  if (remedies.hasManualAvoids) escalations.push("clearing some manual avoids");
+  if (remedies.canShrinkLookback)
+    escalations.push("shrinking the Lookback Window");
+  if (escalations.length === 0) return base;
   const list =
-    options.length <= 2
-      ? options.join(" or ")
-      : `${options.slice(0, -1).join(", ")}, or ${options[options.length - 1]}`;
-  return `Could not generate a valid schedule after several attempts. Try ${list}.`;
+    escalations.length <= 2
+      ? escalations.join(" or ")
+      : `${escalations.slice(0, -1).join(", ")}, or ${escalations[escalations.length - 1]}`;
+  return `${base} If it keeps failing, try ${list}.`;
 }

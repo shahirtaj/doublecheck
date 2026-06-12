@@ -1338,19 +1338,19 @@ describe("generationFailureMessage", () => {
     // Everything present: pins lead, but all three controls are named - a
     // user may prefer dropping an avoid or a season of lookback over a pin.
     expect(msg(true, true, true)).toBe(
-      "Could not generate a valid schedule after several attempts. Try generating again, removing some rivalry pins, clearing some manual avoids, or shrinking the Lookback Window.",
+      "Could not generate a valid schedule after several attempts. Try generating again. If it keeps failing, try removing some rivalry pins, clearing some manual avoids, or shrinking the Lookback Window.",
     );
     // Pins only - no pointer at controls with nothing behind them.
     expect(msg(true, false, false)).toBe(
-      "Could not generate a valid schedule after several attempts. Try generating again or removing some rivalry pins.",
+      "Could not generate a valid schedule after several attempts. Try generating again. If it keeps failing, try removing some rivalry pins.",
     );
     // Avoids and lookback without pins (the old no-pins copy).
     expect(msg(false, true, true)).toBe(
-      "Could not generate a valid schedule after several attempts. Try generating again, clearing some manual avoids, or shrinking the Lookback Window.",
+      "Could not generate a valid schedule after several attempts. Try generating again. If it keeps failing, try clearing some manual avoids or shrinking the Lookback Window.",
     );
     // Lookback only.
     expect(msg(false, false, true)).toBe(
-      "Could not generate a valid schedule after several attempts. Try generating again or shrinking the Lookback Window.",
+      "Could not generate a valid schedule after several attempts. Try generating again. If it keeps failing, try shrinking the Lookback Window.",
     );
     // Nothing to loosen - retrying is the only remedy.
     expect(msg(false, false, false)).toBe(
