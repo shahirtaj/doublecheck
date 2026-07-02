@@ -17,10 +17,7 @@ export type LookbackWindow = {
 
 // Shape and rotational properties of a (teamCount, weekCount) format.
 export type FormatVariant =
-  | "pure-round-robin"
-  | "complete-double-round-robin"
-  | "standard"
-  | "inverted";
+  "pure-round-robin" | "complete-double-round-robin" | "standard" | "inverted";
 
 export type FormatProperties = {
   teamCount: number;
@@ -114,9 +111,7 @@ export type ScheduleFailure = {
 };
 
 export type ScheduleResult =
-  | ScheduleSuccess
-  | ScheduleSkipped
-  | ScheduleFailure;
+  ScheduleSuccess | ScheduleSkipped | ScheduleFailure;
 
 // Identity format used to record a season's doubles for future avoidance.
 // "index": pair keys are "i-j" referring to team indices in this season's roster.

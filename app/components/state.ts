@@ -154,8 +154,7 @@ export const initialState: State = {
 };
 
 export type Action =
-  | { type: "patch"; patch: Partial<State> }
-  | { type: "reset" };
+  { type: "patch"; patch: Partial<State> } | { type: "reset" };
 
 export function reducer(state: State, action: Action): State {
   switch (action.type) {

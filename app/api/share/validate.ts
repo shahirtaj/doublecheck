@@ -388,11 +388,9 @@ export function buildStoredPayload(body: Record<string, unknown>) {
   const schedule = body.schedule as Record<string, unknown>;
   const history = body.history as Array<Record<string, unknown>>;
   const rivalryPins = body.rivalryPins as
-    | Array<Record<string, unknown>>
-    | undefined;
+    Array<Record<string, unknown>> | undefined;
   const rivalryPlacements = schedule.rivalryPlacements as
-    | Array<Record<string, unknown>>
-    | undefined;
+    Array<Record<string, unknown>> | undefined;
   return {
     format: { teamCount: format.teamCount, weekCount: format.weekCount },
     teams: body.teams,
