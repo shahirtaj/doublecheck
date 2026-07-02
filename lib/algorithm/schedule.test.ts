@@ -1402,53 +1402,45 @@ describe("buildSchedule rivalry pins", () => {
       expect(overlap).toBe(6);
     });
 
-    it(
-      "two 1-pins sharing a team at one slot's two weeks succeed on every seed",
-      { timeout: 20_000 },
-      () => {
-        // (0,1)@2 and (0,2)@(2 + sep) land at the two weeks of the natural
-        // slot [2, 2 + sep]; the non-partner (4,5) 2-pin routes generation to
-        // the weekly path, whose slot-aware picker promotes 1-pin pairs into
-        // the slot's other week. Pre-fix that promotion checked only degree
-        // caps, so both pairs promoted into each other's weeks - team 0 twice
-        // in one week's must-include, structurally impossible for
-        // findMatchingForWeek - and every widening tier burned until the
-        // random-fallback rescue. 14/15 exhausted all 30 attempts on 2 of
-        // these 20 seeds (and the others wasted ~5x the post-fix wall time);
-        // the conflict guard makes all seeds succeed.
-        // Explicit timeout: 60 seeded buildSchedule calls run ~2s unloaded but
-        // have been observed past the 5s default under parallel machine load -
-        // a wall-clock flake, not a determinism break (the outcomes are
-        // seeded); the headroom keeps the suite's no-flakiness guarantee about
-        // results, which is the part that matters.
-        const cases = [
-          { teams: 12, weeks: 14 },
-          { teams: 14, weeks: 15 },
-          { teams: 12, weeks: 13 },
-        ];
-        for (const { teams, weeks } of cases) {
-          const slotPartnerWeek = 2 + (teams - 1); // sep = weekCount - dp = teams - 1
-          for (let seed = 0; seed < 20; seed++) {
-            const r = buildSchedule({
-              teamCount: teams,
-              weekCount: weeks,
-              rivalryPins: [
-                pinTo(2, 0, 1),
-                pinTo(slotPartnerWeek, 0, 2),
-                pinTo(1, 4, 5),
-                pinTo(5, 4, 5),
-              ],
-              random: mulberry32(0xabc123 + seed),
-            });
-            assertSuccess(r);
-            expect(pairAt(r, 2).has(pairKey(0, 1))).toBe(true);
-            expect(pairAt(r, slotPartnerWeek).has(pairKey(0, 2))).toBe(true);
-            expect(pairAt(r, 1).has(pairKey(4, 5))).toBe(true);
-            expect(pairAt(r, 5).has(pairKey(4, 5))).toBe(true);
-          }
+    it("two 1-pins sharing a team at one slot's two weeks succeed on every seed", () => {
+      // (0,1)@2 and (0,2)@(2 + sep) land at the two weeks of the natural
+      // slot [2, 2 + sep]; the non-partner (4,5) 2-pin routes generation to
+      // the weekly path, whose slot-aware picker promotes 1-pin pairs into
+      // the slot's other week. Pre-fix that promotion checked only degree
+      // caps, so both pairs promoted into each other's weeks - team 0 twice
+      // in one week's must-include, structurally impossible for
+      // findMatchingForWeek - and every widening tier burned until the
+      // random-fallback rescue. 14/15 exhausted all 30 attempts on 2 of
+      // these 20 seeds (and the others wasted ~5x the post-fix wall time);
+      // the conflict guard makes all seeds succeed. (Wall-clock headroom
+      // for this 60-call sweep comes from vitest.config's testTimeout.)
+      const cases = [
+        { teams: 12, weeks: 14 },
+        { teams: 14, weeks: 15 },
+        { teams: 12, weeks: 13 },
+      ];
+      for (const { teams, weeks } of cases) {
+        const slotPartnerWeek = 2 + (teams - 1); // sep = weekCount - dp = teams - 1
+        for (let seed = 0; seed < 20; seed++) {
+          const r = buildSchedule({
+            teamCount: teams,
+            weekCount: weeks,
+            rivalryPins: [
+              pinTo(2, 0, 1),
+              pinTo(slotPartnerWeek, 0, 2),
+              pinTo(1, 4, 5),
+              pinTo(5, 4, 5),
+            ],
+            random: mulberry32(0xabc123 + seed),
+          });
+          assertSuccess(r);
+          expect(pairAt(r, 2).has(pairKey(0, 1))).toBe(true);
+          expect(pairAt(r, slotPartnerWeek).has(pairKey(0, 2))).toBe(true);
+          expect(pairAt(r, 1).has(pairKey(4, 5))).toBe(true);
+          expect(pairAt(r, 5).has(pairKey(4, 5))).toBe(true);
         }
-      },
-    );
+      }
+    });
 
     // Non-partner-pin separation profile per format. Each format gets a
     // non-partner (0,1) pin and we measure the worst unpinned-doubled
