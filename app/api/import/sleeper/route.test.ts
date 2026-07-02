@@ -134,7 +134,7 @@ describe("username lookup with no current or prior leagues", () => {
     expect(res.status).toBe(404);
     const body = (await res.json()) as { error?: string };
     expect(body.error).toBe(
-      `No Sleeper NFL leagues found for "dormantuser" in ${y - 1} or ${y}. Renew the league on Sleeper, or enter its league ID to import it without renewing.`,
+      `No Sleeper NFL leagues found for "dormantuser" in ${y - 1} or ${y}. Renew your league on Sleeper, or enter its league ID.`,
     );
   });
 });

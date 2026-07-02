@@ -388,8 +388,8 @@ export function ImportSections(props: ImportSectionsProps) {
         const leagues = (data?.leagues || []) as SleeperLeagueOption[];
         if (leagues.length === 0) {
           throw new Error(
-            `No Sleeper NFL leagues found for this user in ${CURRENT_YEAR - 1} or ${CURRENT_YEAR}. ` +
-              "Renew the league on Sleeper, or enter its league ID to import it without renewing.",
+            `No Sleeper NFL leagues found for "${input}" in ${CURRENT_YEAR - 1} or ${CURRENT_YEAR}. ` +
+              "Renew your league on Sleeper, or enter its league ID.",
           );
         }
         if (leagues.length === 1) {
