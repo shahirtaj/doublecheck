@@ -875,8 +875,7 @@ export function ImportSections(props: ImportSectionsProps) {
     const name = manualLeagueName.trim();
     const initialTeams = Array.from({ length: tc }, (_, i) => `Team ${i + 1}`);
     const initialUserIds = Array.from({ length: tc }, () => null) as (
-      | string
-      | null
+      string | null
     )[];
     // Mirror the handleApplyImport sort path so index 0 is always the
     // alphabetically-first team. No-op for the numbered defaults, but

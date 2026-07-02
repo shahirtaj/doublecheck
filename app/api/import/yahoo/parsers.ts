@@ -75,8 +75,7 @@ export function parseLeaguesList(json: unknown): YahooLeagueMeta[] {
   const userArr = (users?.["0"] as Record<string, unknown> | undefined)?.user;
   if (!Array.isArray(userArr)) return result;
   const games = (userArr[1] as Record<string, unknown> | undefined)?.games as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   if (!games) return result;
   const gameCount = asNumber(games.count);
   for (let g = 0; g < gameCount; g++) {
@@ -89,8 +88,7 @@ export function parseLeaguesList(json: unknown): YahooLeagueMeta[] {
     const leagueCount = asNumber(leagues.count);
     for (let l = 0; l < leagueCount; l++) {
       const leagueWrapper = leagues[String(l)] as
-        | Record<string, unknown>
-        | undefined;
+        Record<string, unknown> | undefined;
       const leagueArr = leagueWrapper?.league;
       if (!leagueArr) continue;
       const meta = flattenYahooMeta(leagueArr);
@@ -207,8 +205,7 @@ export function parseScoreboard(json: unknown): YahooMatchup[] {
   const count = asNumber(matchupsObj.count);
   for (let i = 0; i < count; i++) {
     const wrapper = matchupsObj[String(i)] as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const matchup = wrapper?.matchup as Record<string, unknown> | undefined;
     if (!matchup) continue;
     const meta = flattenYahooMeta(matchup);
@@ -221,8 +218,7 @@ export function parseScoreboard(json: unknown): YahooMatchup[] {
     const teamIds: number[] = [];
     for (let t = 0; t < teamCount; t++) {
       const tWrapper = teamsHolder[String(t)] as
-        | Record<string, unknown>
-        | undefined;
+        Record<string, unknown> | undefined;
       const teamArr = tWrapper?.team;
       if (!teamArr) continue;
       const tMeta = flattenYahooMeta(
