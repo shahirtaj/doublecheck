@@ -26,6 +26,52 @@ export type SeasonResult = SeasonData & {
 
 export type FailedSeason = { season: string; error: string };
 
+// One entry of the username-lookup league picker, plus the renewal pointer
+// the merge needs (stripped before the response - the client picker only
+// renders leagueId/name/season).
+export type LeagueYearEntry = {
+  leagueId: string;
+  name: string;
+  season: string;
+  previousLeagueId: string | null;
+};
+
+// Merge a user's current-year and prior-year league lists for the picker.
+// Leagues renew independently across the June-September window, so during
+// the offseason a user's leagues are SPLIT across two years: renewed ones
+// under the new season, not-yet-renewed ones still under last season. The
+// old first-non-empty-year lookup made one renewal hide every unrenewed
+// league (a two-league user saw only the renewed league, auto-selected).
+// Rule: every current-year league, plus each prior-year league that no
+// current-year league supersedes via previous_league_id (the renewed
+// league's prior edition would otherwise appear twice). Sorted season
+// descending then name ascending with numeric compare - the same order the
+// Yahoo picker uses.
+export function mergeLeagueYears(
+  currentYear: LeagueYearEntry[],
+  priorYear: LeagueYearEntry[],
+): Array<{ leagueId: string; name: string; season: string }> {
+  const superseded = new Set(
+    currentYear
+      .map((l) => l.previousLeagueId)
+      .filter((id): id is string => typeof id === "string" && id.length > 0),
+  );
+  const merged = [
+    ...currentYear,
+    ...priorYear.filter((l) => !superseded.has(l.leagueId)),
+  ];
+  return merged
+    .map(({ leagueId, name, season }) => ({ leagueId, name, season }))
+    .sort((a, b) => {
+      const bySeason = b.season.localeCompare(a.season, undefined, {
+        numeric: true,
+      });
+      return bySeason !== 0
+        ? bySeason
+        : a.name.localeCompare(b.name, undefined, { numeric: true });
+    });
+}
+
 export type SettledSeasons = {
   results: SeasonResult[];
   failed: FailedSeason[];

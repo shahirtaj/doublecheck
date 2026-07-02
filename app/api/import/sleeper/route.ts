@@ -10,8 +10,8 @@ import { NextResponse } from "next/server";
 import { pairKey } from "@/lib/algorithm";
 import type { PairKey } from "@/lib/algorithm";
 import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
-import { settleSeasonFetches } from "./seasons";
-import type { SeasonTarget } from "./seasons";
+import { mergeLeagueYears, settleSeasonFetches } from "./seasons";
+import type { LeagueYearEntry, SeasonTarget } from "./seasons";
 
 const BASE = "https://api.sleeper.app/v1";
 // Fallback when the client doesn't specify ?seasons=N. Matches the previous
@@ -111,23 +111,26 @@ async function lookupUserLeagues(
       `Sleeper user "${username}" not found. Check the spelling.`,
     );
   }
-  // Try the current year first, then fall back to the prior year. Most
-  // returning leagues only show up under the new year once the commissioner
-  // recreates them (often weeks before the draft); during the offseason the
-  // user's "active" leagues are still under last year. The chain walker on
-  // the leagueId side handles historical seasons regardless.
+  // Merge the current AND prior year rather than first-non-empty: leagues
+  // renew independently across the June-September window, so mid-offseason
+  // a user's leagues are split across two years - renewed ones under the
+  // new season, not-yet-renewed ones still under last season. Returning the
+  // first non-empty year made one renewal hide every unrenewed league.
+  // mergeLeagueYears (seasons.ts) drops the prior editions of renewed
+  // leagues via previous_league_id; the chain walker on the leagueId side
+  // handles historical seasons regardless.
   const currentYear = new Date().getFullYear();
-  for (const year of [currentYear, currentYear - 1]) {
-    const options = await fetchUserLeaguesForYear(user.user_id, year);
-    if (options.length > 0) return options;
-  }
-  return [];
+  const [current, prior] = await Promise.all([
+    fetchUserLeaguesForYear(user.user_id, currentYear),
+    fetchUserLeaguesForYear(user.user_id, currentYear - 1),
+  ]);
+  return mergeLeagueYears(current, prior);
 }
 
 async function fetchUserLeaguesForYear(
   userId: string,
   year: number,
-): Promise<SleeperLeagueOption[]> {
+): Promise<LeagueYearEntry[]> {
   let leagues: SleeperLeague[];
   try {
     leagues = await fetchJson<SleeperLeague[]>(
@@ -146,8 +149,11 @@ async function fetchUserLeaguesForYear(
       leagueId: l.league_id,
       name: (l.name || "").trim() || l.league_id,
       season: (l.season || "").trim() || String(year),
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+      previousLeagueId:
+        typeof l.previous_league_id === "string" && l.previous_league_id
+          ? l.previous_league_id
+          : null,
+    }));
 }
 
 async function discoverChain(

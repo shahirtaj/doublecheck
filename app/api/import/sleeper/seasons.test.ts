@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { settleSeasonFetches } from "./seasons";
-import type { SeasonData, SeasonTarget } from "./seasons";
+import { mergeLeagueYears, settleSeasonFetches } from "./seasons";
+import type { LeagueYearEntry, SeasonData, SeasonTarget } from "./seasons";
 
 function target(season: string, leagueId: string): SeasonTarget {
   return {
@@ -133,5 +133,84 @@ describe("settleSeasonFetches", () => {
       { season: "2025", error: "string reason" },
       { season: "2024", error: "unknown error" },
     ]);
+  });
+});
+
+describe("mergeLeagueYears", () => {
+  const entry = (
+    leagueId: string,
+    name: string,
+    season: string,
+    previousLeagueId: string | null = null,
+  ): LeagueYearEntry => ({ leagueId, name, season, previousLeagueId });
+
+  it("keeps unrenewed prior-year leagues alongside renewed current-year ones", () => {
+    // The mixed-renewal offseason state that motivated the merge: one league
+    // renewed for the new season (its previous_league_id points at its prior
+    // edition), the other still filed under last year. The old
+    // first-non-empty-year lookup returned only the renewed league.
+    const current = [entry("2026A", "Ffl", "2026", "2025A")];
+    const prior = [
+      entry("2025B", "Mkay Touchdown", "2025", "2024B"),
+      entry("2025A", "Ffl", "2025", "2024A"),
+    ];
+    expect(mergeLeagueYears(current, prior)).toEqual([
+      { leagueId: "2026A", name: "Ffl", season: "2026" },
+      { leagueId: "2025B", name: "Mkay Touchdown", season: "2025" },
+    ]);
+  });
+
+  it("returns only current-year leagues when every league renewed", () => {
+    const current = [
+      entry("2026A", "Alpha", "2026", "2025A"),
+      entry("2026B", "Beta", "2026", "2025B"),
+    ];
+    const prior = [
+      entry("2025A", "Alpha", "2025"),
+      entry("2025B", "Beta", "2025"),
+    ];
+    expect(mergeLeagueYears(current, prior).map((l) => l.leagueId)).toEqual([
+      "2026A",
+      "2026B",
+    ]);
+  });
+
+  it("falls back to the prior year when nothing has renewed yet", () => {
+    const prior = [
+      entry("2025B", "Beta", "2025"),
+      entry("2025A", "Alpha", "2025"),
+    ];
+    expect(mergeLeagueYears([], prior).map((l) => l.name)).toEqual([
+      "Alpha",
+      "Beta",
+    ]);
+  });
+
+  it("keeps a brand-new current-year league from hiding prior leagues", () => {
+    // A first-season league has no previous_league_id; it must not
+    // suppress anything, and null pointers must not match anything.
+    const current = [entry("2026N", "New League", "2026", null)];
+    const prior = [entry("2025B", "Old League", "2025")];
+    expect(mergeLeagueYears(current, prior).map((l) => l.name)).toEqual([
+      "New League",
+      "Old League",
+    ]);
+  });
+
+  it("sorts season descending, then name ascending with numeric compare", () => {
+    const current = [
+      entry("c2", "League 10", "2026"),
+      entry("c1", "League 2", "2026"),
+    ];
+    const prior = [entry("p1", "Aardvark", "2025")];
+    expect(mergeLeagueYears(current, prior).map((l) => l.name)).toEqual([
+      "League 2",
+      "League 10",
+      "Aardvark",
+    ]);
+  });
+
+  it("returns [] when both years are empty", () => {
+    expect(mergeLeagueYears([], [])).toEqual([]);
   });
 });
