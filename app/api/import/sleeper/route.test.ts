@@ -116,3 +116,25 @@ describe("POST /api/import/sleeper", () => {
     expect(body.error).toContain("2024:");
   });
 });
+
+describe("username lookup with no current or prior leagues", () => {
+  it("404s with the renew-or-league-ID remedy", async () => {
+    // The dormant-league persona: the user exists but every league last
+    // played before the two-year picker window. Renewing is the primary
+    // remedy (they need a live season to apply a schedule anyway, and the
+    // renewal makes the picker find it); the league-ID path imports the
+    // old history without renewing.
+    const y = new Date().getFullYear();
+    stubSleeperApi({
+      "/user/dormantuser": () => jsonRes({ user_id: "u1" }),
+      [`/user/u1/leagues/nfl/${y}`]: () => jsonRes([]),
+      [`/user/u1/leagues/nfl/${y - 1}`]: () => jsonRes([]),
+    });
+    const res = await POST(postRequest({ username: "dormantuser" }));
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe(
+      `No Sleeper NFL leagues found for "dormantuser" in ${y - 1} or ${y}. Renew the league on Sleeper, or enter its league ID to import it without renewing.`,
+    );
+  });
+});

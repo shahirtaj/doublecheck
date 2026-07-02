@@ -352,7 +352,7 @@ export async function POST(req: Request) {
           const currentYear = new Date().getFullYear();
           return NextResponse.json(
             {
-              error: `No Sleeper NFL leagues found for "${username}" in ${currentYear - 1} or ${currentYear}. If your league is older, enter its league ID instead.`,
+              error: `No Sleeper NFL leagues found for "${username}" in ${currentYear - 1} or ${currentYear}. Renew the league on Sleeper, or enter its league ID to import it without renewing.`,
             },
             { status: 404 },
           );

@@ -34,6 +34,7 @@ import {
   withholdingWarningMessage,
   withholdPreGapSeasons,
 } from "./utils";
+import { CURRENT_YEAR } from "./constants";
 import type { Patch, SaveToStorageFn, State } from "./state";
 
 type ImportSectionsProps = {
@@ -386,7 +387,10 @@ export function ImportSections(props: ImportSectionsProps) {
           );
         const leagues = (data?.leagues || []) as SleeperLeagueOption[];
         if (leagues.length === 0) {
-          throw new Error("No Sleeper NFL leagues found for this user.");
+          throw new Error(
+            `No Sleeper NFL leagues found for this user in ${CURRENT_YEAR - 1} or ${CURRENT_YEAR}. ` +
+              "Renew the league on Sleeper, or enter its league ID to import it without renewing.",
+          );
         }
         if (leagues.length === 1) {
           patch({
