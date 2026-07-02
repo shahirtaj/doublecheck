@@ -9,7 +9,7 @@ Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3, Inter 
 - `npm run build` - production build
 - `npm run typecheck` - TypeScript check
 - `npm run lint` - ESLint (flat config in `eslint.config.mjs`)
-- `npm test` - Vitest (429 tests)
+- `npm test` - Vitest (440 tests)
 - `npm run test:watch` - Vitest in watch mode
 
 ## Project structure
@@ -59,6 +59,7 @@ Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3, Inter 
 - API route logic tests are colocated with the routes (`app/api/**/*.test.ts`). The testable logic lives in sibling modules (`seasons.ts`, `chain.ts`, `parsers.ts`, `validate.ts`) because Next.js route files may only export route handlers - put new route logic there, not inline in `route.ts`. `vitest.config.ts` maps the `@/*` alias for these tests.
 - Component tests (RTL + jsdom) are colocated with the components (`app/components/*.test.tsx`) and opt into jsdom with a per-file `// @vitest-environment jsdom` docblock - the suite default stays node, so both kinds mix in one run. jest-dom's matchers are wired globally in `vitest.setup.ts` (included in tsconfig so typecheck sees the expect augmentation).
 - Extract-vs-RTL rule: pure component logic (message assembly, param parsing, cause classification) gets extracted into `utils.ts` and tested directly in node; RTL covers render and interaction only, never as a vehicle for reaching pure logic.
+- `package-lock.test.ts` (project root) guards the `libc` fields on the lockfile's `@rolldown/binding-linux-*` and `lightningcss-linux-*` entries: npm < 11.11.0 strips them when regenerating the lockfile (bit PR #22), and without them Linux `npm ci` installs both the glibc and musl variants. If it fails after a dep bump, restore the fields (regenerate with npm >= 11.11.0) - don't loosen the test. Delete it once everything that regenerates the lockfile runs npm >= 11.11.0. Root files aren't globbed by tsconfig or the lint script, so the file is listed explicitly in both.
 - `ImportSections` tests render through the minimal stateful harness at the top of `StepImport.test.tsx` (`renderImportSections`): useState owns a `State` seeded from `initialState`, `patch` is a merging setState (so effects and re-renders behave as in the app), the platform/source/seq refs are plain objects the test mutates to simulate mid-flight dropdown switches and request supersession, `fetch` is stubbed per test, and `saveToStorage` is a spy. RTL can't auto-register cleanup without Vitest globals, so the file calls `cleanup()` in its own `afterEach`. `StepSchedule.test.tsx` uses the same harness shape (`renderStepSchedule`), with the generation seq ref as a plain object and an `onGenerate` stub that mimics `handleGenerate`'s supersession side effects.
 - Tests use deterministic Mulberry32 PRNG seeded per test case
 - All 7 supported formats have full constraint coverage
