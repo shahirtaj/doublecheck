@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint app lib vitest.config.ts tailwind.config.ts vitest.setup.ts",
+    "lint": "eslint app lib vitest.config.ts tailwind.config.ts vitest.setup.ts package-lock.test.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",

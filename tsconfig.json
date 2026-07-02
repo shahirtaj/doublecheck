@@ -32,6 +32,7 @@
     "app/**/*.tsx",
     "vitest.setup.ts",
     "vitest.config.ts",
+    "package-lock.test.ts",
     "tailwind.config.ts",
     "next-env.d.ts",
     ".next/types/**/*.ts",
