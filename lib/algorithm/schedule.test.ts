@@ -821,6 +821,26 @@ describe("buildSchedule rivalry pins", () => {
     }
   });
 
+  it("places more distinct 1-pinned opponents than doublesPerTeam as singles", () => {
+    // The pin form's relaxed cap rests on this: 1-pins force games, not
+    // doubles, so a team may be pinned against more distinct opponents than
+    // it can double - here three middle-week rivalry games for team 0 in a
+    // dp=2 format. Middle weeks keep the pins out of the natural-double
+    // block area, so all three place as forced singles.
+    for (let seed = 0; seed < 5; seed++) {
+      const r = buildSchedule({
+        teamCount: 12,
+        weekCount: 13,
+        rivalryPins: [pinTo(4, 0, 1), pinTo(6, 0, 2), pinTo(8, 0, 3)],
+        random: mulberry32(0x9175 + seed),
+      });
+      assertSuccess(r);
+      expect(pairAppearances(r, 0, 1)).toContain(4);
+      expect(pairAppearances(r, 0, 2)).toContain(6);
+      expect(pairAppearances(r, 0, 3)).toContain(8);
+    }
+  });
+
   it("single pin works for a non-avoided pair (plays at the pinned week, may also appear elsewhere)", () => {
     // 1 pin = "at least one game" — the pair is guaranteed at the pinned week
     // and remains eligible for natural doubling. With a middle-week pin the

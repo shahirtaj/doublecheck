@@ -664,6 +664,49 @@ export async function generateWithRetry(
   return { result, attempts };
 }
 
+// Cap check for adding a rivalry pin. Only a pair's SECOND pin forces a
+// double (a 1-pin means "at least one game": block-area 1-pins try the
+// natural double but fall back to a single when they must), so the per-team
+// cap counts opponents from 2-pinned pairs only. The old form counted every
+// pinned opponent, refusing e.g. three locked single rivalry games for one
+// team in a two-double format - a feasible, reasonable request. Anything
+// infeasible the looser form admits is rejected instantly and
+// deterministically at Generate time (resolvePins, retryable: false).
+// Returns null when the pin is allowed; fires only for a pair's second pin
+// (a pair already at its pin cap is the pairAtMax check's job, keeping that
+// message's more specific wording).
+export function pinDoubleCapError(
+  rivalryPins: ReadonlyArray<RivalryPin>,
+  teamA: number,
+  teamB: number,
+  teams: ReadonlyArray<string>,
+  doublesPerTeam: number,
+): string | null {
+  const pairCounts = new Map<PairKey, number>();
+  for (const p of rivalryPins) {
+    const k = pairKey(p.teamA, p.teamB);
+    pairCounts.set(k, (pairCounts.get(k) ?? 0) + 1);
+  }
+  const thisKey = pairKey(teamA, teamB);
+  if ((pairCounts.get(thisKey) ?? 0) !== 1) return null;
+  const doubledOpponents = (team: number): number => {
+    let n = 0;
+    for (const [k, c] of pairCounts) {
+      if (c < 2 || k === thisKey) continue;
+      const [a, b] = unpackPairKey(k);
+      if (a === team || b === team) n++;
+    }
+    return n;
+  };
+  for (const team of [teamA, teamB]) {
+    const n = doubledOpponents(team);
+    if (n >= doublesPerTeam) {
+      return `${teams[team]} already has ${n} repeat opponent${n === 1 ? "" : "s"} pinned - this format supports at most ${doublesPerTeam} per team.`;
+    }
+  }
+  return null;
+}
+
 // Copy for the over-avoided degree proof (overAvoidedTeams, lib/algorithm):
 // the one failure class we can name exactly, so the message names the teams
 // and counts instead of generic remedies. Two variants share the first

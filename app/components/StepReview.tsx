@@ -13,7 +13,12 @@ import {
   type SeasonHistory,
 } from "@/lib/algorithm";
 import { cls } from "./styles";
-import { abbrev, overAvoidedMessage, priorSeasonAges } from "./utils";
+import {
+  abbrev,
+  overAvoidedMessage,
+  pinDoubleCapError,
+  priorSeasonAges,
+} from "./utils";
 import { CURRENT_YEAR, CURRENT_YEAR_STR } from "./constants";
 import type { Patch, SaveToStorageFn, State } from "./state";
 
@@ -1133,28 +1138,18 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
       }
     }
   }
-  // Too many doubles for one team. Counts distinct pinned opponents
-  // per team across all pins (including "Any"). A second pin for the
-  // same pair doesn't add a new opponent, so it's allowed.
+  // Too many doubles for one team - but only a pair's second pin forces a
+  // double, so single-game pins don't consume repeat capacity (see
+  // pinDoubleCapError in utils.ts).
   if (!pinError && format) {
-    const opponentsOf = (team: number) => {
-      const set = new Set<number>();
-      for (const p of rivalryPins) {
-        if (p.teamA === team) set.add(p.teamB);
-        else if (p.teamB === team) set.add(p.teamA);
-      }
-      return set;
-    };
-    const maxDoubles = format.doublesPerTeam;
-    const oppA = opponentsOf(safeA);
-    if (!oppA.has(safeB) && oppA.size >= maxDoubles) {
-      pinError = `${teams[safeA]} is already pinned against ${oppA.size} different opponents - this format supports at most ${maxDoubles} repeat opponents per team.`;
-    } else {
-      const oppB = opponentsOf(safeB);
-      if (!oppB.has(safeA) && oppB.size >= maxDoubles) {
-        pinError = `${teams[safeB]} is already pinned against ${oppB.size} different opponents - this format supports at most ${maxDoubles} repeat opponents per team.`;
-      }
-    }
+    pinError =
+      pinDoubleCapError(
+        rivalryPins,
+        safeA,
+        safeB,
+        teams,
+        format.doublesPerTeam,
+      ) ?? "";
   }
   // Too many matchups in one week. A full week is teamCount / 2.
   if (!pinError && pinWeek !== null) {

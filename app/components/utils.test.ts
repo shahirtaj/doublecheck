@@ -22,6 +22,7 @@ import {
   mergeImportedHistory,
   normalizeHistory,
   overAvoidedMessage,
+  pinDoubleCapError,
   priorSeasonAges,
   priorSeasons,
   remapIndexRowsByName,
@@ -1417,5 +1418,56 @@ describe("overAvoidedMessage", () => {
     ).toBe(
       "Alpha and Charlie have too many hard-avoided opponents - this format allows at most 1 per team (each team must double 6 of its 7 opponents). Generating will fail until some are removed.",
     );
+  });
+});
+
+describe("pinDoubleCapError", () => {
+  const teams = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"];
+  const pin = (a: number, b: number, week: number | null = null) => ({
+    teamA: a,
+    teamB: b,
+    week,
+  });
+
+  it("never fires for a pair's first pin - 1-pins don't consume doubles", () => {
+    // Three single-game pins on team 0 in a dp=2 format: the old check
+    // refused this feasible request ("at most 2 repeat opponents"); the
+    // relaxed check allows any number of distinct 1-pin opponents.
+    const pins = [pin(0, 1, 4), pin(0, 2, 6), pin(0, 3, 8)];
+    expect(pinDoubleCapError(pins, 0, 4, teams, 2)).toBeNull();
+  });
+
+  it("fires when a pair's second pin would exceed the team's double capacity", () => {
+    // Team 0 already has two forced doubles (2-pinned pairs with 1 and 2);
+    // a second pin on (0,3) would force a third in a dp=2 format.
+    const pins = [
+      pin(0, 1, 2),
+      pin(0, 1, null),
+      pin(0, 2, 5),
+      pin(0, 2, null),
+      pin(0, 3, 8),
+    ];
+    expect(pinDoubleCapError(pins, 0, 3, teams, 2)).toBe(
+      "Alpha already has 2 repeat opponents pinned - this format supports at most 2 per team.",
+    );
+  });
+
+  it("allows a second pin while the team is under its double capacity", () => {
+    const pins = [pin(0, 1, 2), pin(0, 1, null), pin(0, 3, 8)];
+    expect(pinDoubleCapError(pins, 0, 3, teams, 2)).toBeNull();
+  });
+
+  it("uses the singular for one repeat opponent", () => {
+    const pins = [pin(1, 2, 3), pin(1, 2, null), pin(1, 4, 7)];
+    expect(pinDoubleCapError(pins, 1, 4, teams, 1)).toBe(
+      "Bravo already has 1 repeat opponent pinned - this format supports at most 1 per team.",
+    );
+  });
+
+  it("defers a pair already at its pin cap to the pairAtMax check", () => {
+    // (0,1) already has two pins; re-adding is pairAtMax's job, with its
+    // more specific message - this check stays silent.
+    const pins = [pin(0, 1, 2), pin(0, 1, null)];
+    expect(pinDoubleCapError(pins, 0, 1, teams, 1)).toBeNull();
   });
 });
