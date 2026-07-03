@@ -1394,6 +1394,10 @@ export function StepImport(props: StepImportProps) {
                 const next = [...teams];
                 next[i] = e.target.value;
                 patch({ teams: next });
+                // Persist per keystroke: cheap (small payload, local write),
+                // and a reload mid-rename otherwise reverts the edit. The
+                // patch hasn't flushed, so `next` rides the extras.
+                saveToStorage({ teams: next });
               }}
               placeholder={`Team ${i + 1}`}
               maxLength={24}

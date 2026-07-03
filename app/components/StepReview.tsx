@@ -153,6 +153,11 @@ export function StepReview(props: StepReviewProps) {
     if (next.has(key)) next.delete(key);
     else next.add(key);
     patch({ manualDoubles: next });
+    // Persist immediately: reloads land returning users back on this step
+    // (step-restore), so save-on-navigation silently loses edits on the
+    // ~80%-mobile audience whose tabs get evicted. The patch hasn't flushed,
+    // so the new set rides the extras (the documented closure trap).
+    saveToStorage({ manualDoubles: [...next] });
   }
 
   function togglePastSeasonDouble(i: number, j: number) {
@@ -828,12 +833,13 @@ export function StepReview(props: StepReviewProps) {
               <button
                 type="button"
                 className={cls.dangerBtn}
-                onClick={() =>
+                onClick={() => {
                   patch({
                     manualDoubles: new Set(),
                     confirmClearManualDoubles: false,
-                  })
-                }
+                  });
+                  saveToStorage({ manualDoubles: [] });
+                }}
               >
                 Yes, clear
               </button>
@@ -963,6 +969,7 @@ export function StepReview(props: StepReviewProps) {
         confirmRemovePinIndex={confirmRemovePinIndex}
         mergedAvoidSets={mergedAvoidSets}
         patch={patch}
+        saveToStorage={saveToStorage}
       />
 
       <div className="flex gap-3 mt-6 flex-wrap justify-center">
@@ -994,6 +1001,7 @@ type RivalryPinBuilderProps = {
   confirmRemovePinIndex: number | null;
   mergedAvoidSets: AvoidSets;
   patch: Patch;
+  saveToStorage: SaveToStorageFn;
 };
 
 function RivalryPinBuilder(props: RivalryPinBuilderProps) {
@@ -1012,6 +1020,7 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
     confirmRemovePinIndex,
     mergedAvoidSets,
     patch,
+    saveToStorage,
   } = props;
 
   // Derive valid team indices. safeB is forced to differ from safeA
@@ -1332,6 +1341,9 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
               pinTeamB: nextB,
               pinJustAdded: true,
             });
+            // Persist immediately - reloads land on this step, and the
+            // patch hasn't flushed, so the new list rides the extras.
+            saveToStorage({ rivalryPins: nextPins });
           }}
         >
           Pin
@@ -1383,14 +1395,16 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
                       <button
                         type="button"
                         className={cls.rowDangerBtn}
-                        onClick={() =>
+                        onClick={() => {
+                          const nextPins = rivalryPins.filter(
+                            (_, i) => i !== idx,
+                          );
                           patch({
-                            rivalryPins: rivalryPins.filter(
-                              (_, i) => i !== idx,
-                            ),
+                            rivalryPins: nextPins,
                             confirmRemovePinIndex: null,
-                          })
-                        }
+                          });
+                          saveToStorage({ rivalryPins: nextPins });
+                        }}
                       >
                         Yes, remove
                       </button>
@@ -1423,15 +1437,16 @@ function RivalryPinBuilder(props: RivalryPinBuilderProps) {
                 <button
                   type="button"
                   className={cls.dangerBtn}
-                  onClick={() =>
+                  onClick={() => {
                     patch({
                       rivalryPins: [],
                       confirmClearRivalryPins: false,
                       // The list is gone - an armed per-row Remove confirm
                       // would re-arm on the next pin added at that index.
                       confirmRemovePinIndex: null,
-                    })
-                  }
+                    });
+                    saveToStorage({ rivalryPins: [] });
+                  }}
                 >
                   Yes, clear
                 </button>
