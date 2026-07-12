@@ -3,6 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "devEngines": {
+    "packageManager": {
+      "name": "npm",
+      "version": ">=11.11.1",
+      "onFail": "warn"
+    }
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
