@@ -9,12 +9,12 @@ import { describe, expect, it } from "vitest";
 // with npm >= 11.11.0) rather than loosening the test. Delete the test once
 // everything that regenerates the lockfile runs npm >= 11.11.0.
 //
-// Only the @rolldown/binding and lightningcss families publish `libc`; the
-// other Linux natives (@next/swc, @unrs, @tailwindcss/oxide) legitimately
-// lack it, and the -gnueabihf builds do too - hence the exact -gnu/-musl
-// suffix match.
+// Only the @next/swc (since Next 16.2.10), @rolldown/binding, and
+// lightningcss families publish `libc`; the other Linux natives (@unrs,
+// @img/sharp, @tailwindcss/oxide) legitimately lack it, and the -gnueabihf
+// builds do too - hence the exact -gnu/-musl suffix match.
 const LIBC_ENTRY =
-  /^node_modules\/(?:@rolldown\/binding|lightningcss)-linux-[^/]+-(?:gnu|musl)$/;
+  /^node_modules\/(?:@next\/swc|@rolldown\/binding|lightningcss)-linux-[^/]+-(?:gnu|musl)$/;
 
 describe("package-lock.json libc metadata", () => {
   const { packages } = JSON.parse(
