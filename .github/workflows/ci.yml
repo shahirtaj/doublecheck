@@ -27,7 +27,7 @@ jobs:
       # updated past it) hard-fails `npm ci` against that shape. Node 24 also
       # matches the Vercel build image.
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: "npm"
