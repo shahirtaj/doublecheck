@@ -28,6 +28,10 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
+  // Cascades to every route that doesn't set its own alternates; /s/[slug]
+  // overrides with a self-canonical so share pages aren't declared
+  // duplicates of the homepage.
+  alternates: { canonical: "/" },
   icons: {
     icon: [{ url: FAVICON_DATA_URL, type: "image/svg+xml" }],
   },

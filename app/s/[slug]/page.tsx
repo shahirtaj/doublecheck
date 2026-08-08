@@ -100,11 +100,17 @@ export async function generateMetadata({
   // keeps these pages out of indexes while OG link previews keep working.
   const robots = { index: false, follow: false };
 
+  // The root layout's alternates would cascade canonical "/" onto share
+  // pages, declaring them duplicates of the homepage; self-canonical keeps
+  // the inherited value out.
+  const alternates = { canonical: `/s/${slug}` };
+
   if (!isValidPayload(data)) {
     return {
       title: fallbackTitle,
       description: fallbackDescription,
       robots,
+      alternates,
       openGraph: {
         title: fallbackTitle,
         description: fallbackDescription,
@@ -126,6 +132,7 @@ export async function generateMetadata({
     title,
     description,
     robots,
+    alternates,
     openGraph: {
       title,
       description,
