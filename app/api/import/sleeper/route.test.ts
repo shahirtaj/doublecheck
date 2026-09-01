@@ -117,6 +117,53 @@ describe("POST /api/import/sleeper", () => {
   });
 });
 
+describe("renewal resolution mode", () => {
+  const y = new Date().getFullYear();
+
+  it("resolves a stored league ID to its renewed edition", async () => {
+    stubSleeperApi({
+      [`/user/111/leagues/nfl/${y}`]: () =>
+        jsonRes([league("900", String(y), "800")]),
+      [`/user/111/leagues/nfl/${y - 1}`]: () => jsonRes([]),
+    });
+    const res = await POST(postRequest({ renewFrom: "800", userIds: ["111"] }));
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ leagueId: "900" });
+  });
+
+  it("400s a non-numeric renewFrom", async () => {
+    stubSleeperApi({});
+    const res = await POST(
+      postRequest({ renewFrom: "not-a-league", userIds: ["111"] }),
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe(
+      "renewFrom must be a positive numeric Sleeper league ID.",
+    );
+  });
+
+  it("returns the stored ID untouched when no usable manager IDs come along", async () => {
+    stubSleeperApi({});
+    const res = await POST(
+      postRequest({ renewFrom: "800", userIds: ["not-numeric", 7, null] }),
+    );
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ leagueId: "800" });
+  });
+
+  it("502s when every manager listing fails - never resolves stale during an outage", async () => {
+    stubSleeperApi({
+      [`/user/111/leagues/nfl/${y}`]: () => jsonRes({}, 503),
+      [`/user/111/leagues/nfl/${y - 1}`]: () => jsonRes({}, 503),
+    });
+    const res = await POST(postRequest({ renewFrom: "800", userIds: ["111"] }));
+    expect(res.status).toBe(502);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toMatch(/^Failed to find the renewed Sleeper league:/);
+  });
+});
+
 describe("username lookup with no current or prior leagues", () => {
   it("404s with the renew-or-league-ID remedy", async () => {
     // The dormant-league persona: the user exists but every league last

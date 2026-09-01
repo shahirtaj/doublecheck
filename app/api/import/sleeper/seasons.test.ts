@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { mergeLeagueYears, settleSeasonFetches } from "./seasons";
-import type { LeagueYearEntry, SeasonData, SeasonTarget } from "./seasons";
+import {
+  mergeLeagueYears,
+  resolveRenewedLeague,
+  settleSeasonFetches,
+} from "./seasons";
+import type {
+  LeagueYearEntry,
+  ResolveCandidate,
+  SeasonData,
+  SeasonTarget,
+} from "./seasons";
 
 function target(season: string, leagueId: string): SeasonTarget {
   return {
@@ -212,5 +221,145 @@ describe("mergeLeagueYears", () => {
 
   it("returns [] when both years are empty", () => {
     expect(mergeLeagueYears([], [])).toEqual([]);
+  });
+});
+
+function cand(leagueId: string, prev: string | null): ResolveCandidate {
+  return { leagueId, previousLeagueId: prev };
+}
+
+// Stub pair for resolveRenewedLeague: `listings` keys are "userId:year"
+// (missing keys list empty, Error values throw), `leagues` backs the chain
+// walk (missing IDs resolve null). Both record their calls.
+function resolver(opts: {
+  listings: Record<string, ResolveCandidate[] | Error>;
+  leagues?: Record<string, ResolveCandidate>;
+}) {
+  const listCalls: string[] = [];
+  const leagueCalls: string[] = [];
+  const listLeagues = async (
+    userId: string,
+    year: number,
+  ): Promise<ResolveCandidate[]> => {
+    const key = `${userId}:${year}`;
+    listCalls.push(key);
+    const entry = opts.listings[key];
+    if (entry === undefined) return [];
+    if (entry instanceof Error) throw entry;
+    return entry;
+  };
+  const fetchLeague = async (
+    leagueId: string,
+  ): Promise<ResolveCandidate | null> => {
+    leagueCalls.push(leagueId);
+    return opts.leagues?.[leagueId] ?? null;
+  };
+  return { listLeagues, fetchLeague, listCalls, leagueCalls };
+}
+
+describe("resolveRenewedLeague", () => {
+  it("resolves the renewed edition via a direct previous_league_id match", async () => {
+    const { listLeagues, fetchLeague, listCalls, leagueCalls } = resolver({
+      listings: { "u1:2026": [cand("B", "A")] },
+    });
+    await expect(
+      resolveRenewedLeague("A", ["u1"], [2026, 2025], listLeagues, fetchLeague),
+    ).resolves.toBe("B");
+    // Both years are listed (renewals split across the offseason window),
+    // and a direct match never needs the chain walk.
+    expect(listCalls).toEqual(["u1:2026", "u1:2025"]);
+    expect(leagueCalls).toEqual([]);
+  });
+
+  it("returns the stored ID when the league has not renewed", async () => {
+    const { listLeagues, fetchLeague } = resolver({
+      listings: { "u1:2025": [cand("A", null)] },
+    });
+    await expect(
+      resolveRenewedLeague("A", ["u1"], [2026, 2025], listLeagues, fetchLeague),
+    ).resolves.toBe("A");
+  });
+
+  it("prefers the successor over the stored league appearing in an older list", async () => {
+    const { listLeagues, fetchLeague } = resolver({
+      listings: {
+        "u1:2026": [cand("B", "A")],
+        "u1:2025": [cand("A", null)],
+      },
+    });
+    await expect(
+      resolveRenewedLeague("A", ["u1"], [2026, 2025], listLeagues, fetchLeague),
+    ).resolves.toBe("B");
+  });
+
+  it("finds a multi-season-old stored ID through the chain walk", async () => {
+    const { listLeagues, fetchLeague, leagueCalls } = resolver({
+      listings: { "u1:2026": [cand("C", "B")] },
+      leagues: { B: cand("B", "A") },
+    });
+    await expect(
+      resolveRenewedLeague("A", ["u1"], [2026, 2025], listLeagues, fetchLeague),
+    ).resolves.toBe("C");
+    expect(leagueCalls).toEqual(["B"]);
+  });
+
+  it("falls back to the stored ID when no candidate's chain contains it", async () => {
+    const { listLeagues, fetchLeague } = resolver({
+      listings: { "u1:2026": [cand("X", null), cand("Y", "Z")] },
+      leagues: { Z: cand("Z", null) },
+    });
+    await expect(
+      resolveRenewedLeague("A", ["u1"], [2026, 2025], listLeagues, fetchLeague),
+    ).resolves.toBe("A");
+  });
+
+  it("tolerates per-listing failures as long as one listing succeeds", async () => {
+    const { listLeagues, fetchLeague } = resolver({
+      listings: {
+        "u1:2026": new Error("HTTP 500"),
+        "u1:2025": new Error("HTTP 500"),
+        "u2:2026": [cand("B", "A")],
+      },
+    });
+    await expect(
+      resolveRenewedLeague(
+        "A",
+        ["u1", "u2"],
+        [2026, 2025],
+        listLeagues,
+        fetchLeague,
+      ),
+    ).resolves.toBe("B");
+  });
+
+  it("throws when every listing fails - an outage must not resolve stale", async () => {
+    const { listLeagues, fetchLeague } = resolver({
+      listings: {
+        "u1:2026": new Error("HTTP 503 from Sleeper"),
+        "u1:2025": new Error("HTTP 503 from Sleeper"),
+      },
+    });
+    await expect(
+      resolveRenewedLeague("A", ["u1"], [2026, 2025], listLeagues, fetchLeague),
+    ).rejects.toThrow("HTTP 503 from Sleeper");
+  });
+
+  it("stops the chain walk at the fetch budget", async () => {
+    const { listLeagues, fetchLeague, leagueCalls } = resolver({
+      listings: { "u1:2026": [cand("E", "D")] },
+      leagues: { D: cand("D", "C"), C: cand("C", "B"), B: cand("B", "A") },
+    });
+    await expect(
+      resolveRenewedLeague("A", ["u1"], [2026], listLeagues, fetchLeague, 2),
+    ).resolves.toBe("A");
+    expect(leagueCalls).toEqual(["D", "C"]);
+  });
+
+  it("returns the stored ID for an empty userIds list without listing", async () => {
+    const { listLeagues, fetchLeague, listCalls } = resolver({ listings: {} });
+    await expect(
+      resolveRenewedLeague("A", [], [2026, 2025], listLeagues, fetchLeague),
+    ).resolves.toBe("A");
+    expect(listCalls).toEqual([]);
   });
 });

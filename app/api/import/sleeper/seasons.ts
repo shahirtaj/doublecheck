@@ -72,6 +72,104 @@ export function mergeLeagueYears(
     });
 }
 
+// A league as the renewal resolver sees it: its ID plus the backward
+// renewal pointer ("0"/empty already normalized to null by the fetchers).
+export type ResolveCandidate = {
+  leagueId: string;
+  previousLeagueId: string | null;
+};
+
+// Find the current edition of a league whose stored ID may be seasons old.
+// Sleeper league IDs change on renewal and previous_league_id only points
+// backward, so the successor has to come from a manager's league lists:
+// every (userId, year) pair is listed, and the league whose renewal chain
+// contains `renewFrom` wins. Resolution order:
+//   1. Direct match - a candidate's previous_league_id IS renewFrom (the
+//      common next-season restore). Checked across all lists first so the
+//      renewed edition beats renewFrom itself appearing in an older list.
+//   2. renewFrom itself still listed - the league hasn't renewed; it IS the
+//      current edition.
+//   3. Chain walk - a candidate's chain reaches renewFrom in 2+ hops (the
+//      link is several seasons old), bounded by `chainFetchBudget` total
+//      fetchLeague calls. A fetch failure or "0" terminator just ends that
+//      candidate's walk.
+//   4. No match - return renewFrom. The stored league still exists on
+//      Sleeper, so importing it yields the newest data these managers can
+//      reach (not renewed, or renewed under managers we weren't given).
+// Per-listing failures are tolerated (a deleted account shouldn't kill
+// resolution), but if EVERY listing fails the resolver throws - falling
+// back to renewFrom then would silently import a stale league during an
+// outage that the caller should surface instead.
+export async function resolveRenewedLeague(
+  renewFrom: string,
+  userIds: readonly string[],
+  years: readonly number[],
+  listLeagues: (userId: string, year: number) => Promise<ResolveCandidate[]>,
+  fetchLeague: (leagueId: string) => Promise<ResolveCandidate | null>,
+  chainFetchBudget = 10,
+): Promise<string> {
+  const candidates: ResolveCandidate[] = [];
+  const seen = new Set<string>();
+  let listingsSucceeded = 0;
+  let lastListingError: unknown = null;
+  for (const userId of userIds) {
+    for (const year of years) {
+      let leagues: ResolveCandidate[];
+      try {
+        leagues = await listLeagues(userId, year);
+      } catch (e) {
+        lastListingError = e;
+        continue;
+      }
+      listingsSucceeded++;
+      for (const league of leagues) {
+        if (!league.leagueId || seen.has(league.leagueId)) continue;
+        seen.add(league.leagueId);
+        candidates.push(league);
+      }
+    }
+  }
+  if (listingsSucceeded === 0 && userIds.length > 0) {
+    throw lastListingError instanceof Error
+      ? lastListingError
+      : new Error("Could not list leagues for any saved manager.");
+  }
+
+  const isChainEnd = (id: string | null): id is null =>
+    id === null || id === "" || id === "0";
+
+  for (const candidate of candidates) {
+    if (candidate.previousLeagueId === renewFrom) return candidate.leagueId;
+  }
+  if (seen.has(renewFrom)) return renewFrom;
+
+  let budget = chainFetchBudget;
+  const walked = new Set<string>();
+  for (const candidate of candidates) {
+    let prev = isChainEnd(candidate.previousLeagueId)
+      ? null
+      : candidate.previousLeagueId;
+    while (prev !== null && budget > 0) {
+      // Chains can converge (co-managers listing the same league lineage);
+      // a visited link means some earlier candidate already walked past it
+      // without finding renewFrom.
+      if (walked.has(prev)) break;
+      walked.add(prev);
+      budget--;
+      let link: ResolveCandidate | null;
+      try {
+        link = await fetchLeague(prev);
+      } catch {
+        break;
+      }
+      if (!link) break;
+      if (link.previousLeagueId === renewFrom) return candidate.leagueId;
+      prev = isChainEnd(link.previousLeagueId) ? null : link.previousLeagueId;
+    }
+  }
+  return renewFrom;
+}
+
 export type SettledSeasons = {
   results: SeasonResult[];
   failed: FailedSeason[];

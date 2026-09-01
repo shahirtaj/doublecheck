@@ -1,17 +1,29 @@
 // Direct port of fetch-sleeper.js into a serverless Route Handler. Server-side
 // fetch eliminates the browser CORS issue that the original Node script worked
-// around. Two modes share the route:
+// around. Three modes share the route:
 //   - POST { leagueId } → walk the renew chain back from leagueId, returning
 //     ImportedSeasonRecord[] for completed seasons (the original behavior).
 //   - POST { username } → look up the Sleeper user_id, list their current-year
 //     NFL leagues, and return them as { leagues } for the client picker.
+//   - POST { renewFrom, userIds } → resolve a stored league ID (possibly a
+//     season old - IDs change on renewal) to the league's current edition
+//     via the saved managers' league lists, returning { leagueId } for a
+//     follow-up seasons fetch.
 
 import { NextResponse } from "next/server";
 import { pairKey } from "@/lib/algorithm";
 import type { PairKey } from "@/lib/algorithm";
 import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
-import { mergeLeagueYears, settleSeasonFetches } from "./seasons";
-import type { LeagueYearEntry, SeasonTarget } from "./seasons";
+import {
+  mergeLeagueYears,
+  resolveRenewedLeague,
+  settleSeasonFetches,
+} from "./seasons";
+import type {
+  LeagueYearEntry,
+  ResolveCandidate,
+  SeasonTarget,
+} from "./seasons";
 
 const BASE = "https://api.sleeper.app/v1";
 // Fallback when the client doesn't specify ?seasons=N. Matches the previous
@@ -25,6 +37,13 @@ const DEFAULT_SEASONS = 5;
 // as a prior. Matches MAX_IMPORT_SEASONS on the client; keep them in sync.
 const MAX_SEASONS_CAP = 14;
 const MAX_USERNAME_LENGTH = 50;
+// Sleeper league IDs are ~19-digit numerics; the cap just bounds crafted
+// input without constraining real IDs.
+const MAX_RENEW_FROM_LENGTH = 32;
+// Renewal resolution needs only one saved manager who is still in the
+// league for a direct match, so a handful covers real leagues; the cap
+// bounds the lookup fan-out (userIds x 2 year listings).
+const MAX_RESOLVE_USER_IDS = 5;
 
 type SleeperLeague = {
   league_id?: string;
@@ -154,6 +173,40 @@ async function fetchUserLeaguesForYear(
           ? l.previous_league_id
           : null,
     }));
+}
+
+// Renewal-resolution fetchers. Unlike fetchUserLeaguesForYear, the listing
+// deliberately propagates errors - resolveRenewedLeague tolerates per-listing
+// failures but must be able to tell "no successor found" from "Sleeper is
+// down", or an outage would silently resolve to the stale stored league.
+async function listLeaguesForResolution(
+  userId: string,
+  year: number,
+): Promise<ResolveCandidate[]> {
+  const leagues = await fetchJson<SleeperLeague[]>(
+    `${BASE}/user/${userId}/leagues/nfl/${year}`,
+  );
+  if (!Array.isArray(leagues)) return [];
+  return leagues
+    .filter(
+      (l): l is SleeperLeague & { league_id: string } =>
+        typeof l?.league_id === "string" && l.league_id.length > 0,
+    )
+    .map((l) => ({
+      leagueId: l.league_id,
+      previousLeagueId: nextChainId(l.previous_league_id),
+    }));
+}
+
+async function fetchLeagueForResolution(
+  leagueId: string,
+): Promise<ResolveCandidate | null> {
+  const league = await fetchJson<SleeperLeague>(`${BASE}/league/${leagueId}`);
+  if (!league || typeof league !== "object" || !league.league_id) return null;
+  return {
+    leagueId: league.league_id,
+    previousLeagueId: nextChainId(league.previous_league_id),
+  };
 }
 
 async function discoverChain(
@@ -317,9 +370,14 @@ export async function POST(req: Request) {
         ? Math.min(requestedSeasons, MAX_SEASONS_CAP)
         : DEFAULT_SEASONS;
 
-    let body: { leagueId?: string; username?: string };
+    let body: {
+      leagueId?: string;
+      username?: string;
+      renewFrom?: string;
+      userIds?: unknown;
+    };
     try {
-      body = (await req.json()) as { leagueId?: string; username?: string };
+      body = (await req.json()) as typeof body;
     } catch {
       return NextResponse.json(
         { error: "Invalid JSON body." },
@@ -365,6 +423,52 @@ export async function POST(req: Request) {
         console.error("[/api/import/sleeper] lookupUserLeagues failed:", e);
         return NextResponse.json(
           { error: `Failed to look up Sleeper user: ${(e as Error).message}` },
+          { status: 502 },
+        );
+      }
+    }
+
+    const renewFrom = (body.renewFrom || "").trim();
+    if (renewFrom) {
+      if (
+        !/^\d+$/.test(renewFrom) ||
+        /^0+$/.test(renewFrom) ||
+        renewFrom.length > MAX_RENEW_FROM_LENGTH
+      ) {
+        return NextResponse.json(
+          { error: "renewFrom must be a positive numeric Sleeper league ID." },
+          { status: 400 },
+        );
+      }
+      // Saved manager IDs are numeric Sleeper user_ids; anything else came
+      // from a different platform's payload and can't be looked up - skip
+      // rather than reject, the stored data isn't the user's fault.
+      const userIds = (Array.isArray(body.userIds) ? body.userIds : [])
+        .filter((u): u is string => typeof u === "string" && /^\d+$/.test(u))
+        .slice(0, MAX_RESOLVE_USER_IDS);
+      if (userIds.length === 0) {
+        // Nothing to resolve with - the stored ID is the best available.
+        return NextResponse.json({ leagueId: renewFrom });
+      }
+      try {
+        const currentYear = new Date().getFullYear();
+        const resolved = await resolveRenewedLeague(
+          renewFrom,
+          userIds,
+          // Current and prior year, mirroring the username lookup: leagues
+          // renew across the June-September window, so pre-renewal the
+          // newest edition still lives under last year.
+          [currentYear, currentYear - 1],
+          listLeaguesForResolution,
+          fetchLeagueForResolution,
+        );
+        return NextResponse.json({ leagueId: resolved });
+      } catch (e) {
+        console.error("[/api/import/sleeper] resolveRenewedLeague failed:", e);
+        return NextResponse.json(
+          {
+            error: `Failed to find the renewed Sleeper league: ${(e as Error).message}`,
+          },
           { status: 502 },
         );
       }
