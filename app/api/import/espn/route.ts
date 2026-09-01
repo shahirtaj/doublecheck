@@ -40,7 +40,8 @@ type EspnMatchup = {
 type EspnLeague = {
   teams?: EspnTeam[];
   schedule?: EspnMatchup[];
-  settings?: { name?: string };
+  // Only present when the request includes view=mSettings.
+  settings?: { name?: string; isPublic?: boolean };
 };
 
 // ESPN signals "this league is private" inconsistently: sometimes 401, often
@@ -70,7 +71,9 @@ function privateLeagueError(seasonId: number): Error {
 }
 
 async function fetchEspnSeason(leagueId: string, seasonId: number) {
-  const url = `${BASE}/${seasonId}/segments/0/leagues/${leagueId}?view=mMatchupScore&view=mTeam`;
+  // mSettings is what delivers `settings` (the league name) - the matchup
+  // and team views alone return no settings object at all.
+  const url = `${BASE}/${seasonId}/segments/0/leagues/${leagueId}?view=mMatchupScore&view=mTeam&view=mSettings`;
 
   async function doFetch(): Promise<Response> {
     try {
