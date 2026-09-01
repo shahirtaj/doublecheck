@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { settleEspnSeasons } from "./seasons";
+import { EspnSeasonError, settleEspnSeasons } from "./seasons";
 
 type SeasonStub = { seasonYear: string };
 
 function privateError(year: number): Error {
-  return new Error(`Season ${year} is private. Public leagues only for now.`);
+  return new EspnSeasonError(`Season ${year} is private.`, "private");
 }
 
 function notFoundError(year: number): Error {
-  return new Error(`Season ${year} not found for this league.`);
+  return new EspnSeasonError(
+    `Season ${year} not found for this league.`,
+    "not-found",
+  );
 }
 
 // Builds a fetcher whose behavior is scripted per year: a number N fails the
@@ -86,6 +89,25 @@ describe("settleEspnSeasons", () => {
       { season: "2021", error: "Season 2021 not found for this league." },
     ]);
     expect(calls).toEqual({ 2022: 1, 2021: 1 });
+  });
+
+  it("classifies on the error kind, not the message text", async () => {
+    // A plain Error whose message happens to mention "not found" or "is
+    // private" (an ESPN body snippet, say) is still transient: retried
+    // once, and neither allPrivate nor allNotFound.
+    const { fetchOne, calls } = scriptedFetcher({
+      2025: new Error("ESPN returned non-JSON: page not found, is private."),
+    });
+
+    const { failed, allPrivate, allNotFound } = await settleEspnSeasons(
+      [2025],
+      fetchOne,
+    );
+
+    expect(failed.map((f) => f.season)).toEqual(["2025"]);
+    expect(allPrivate).toBe(false);
+    expect(allNotFound).toBe(false);
+    expect(calls).toEqual({ 2025: 2 });
   });
 
   it("reports a both-attempts transient failure under the year label", async () => {

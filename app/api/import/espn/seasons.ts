@@ -7,18 +7,39 @@
 
 export type FailedSeason = { season: string; error: string };
 
+// Deterministic failure classes. Anything else a fetch throws (network,
+// 5xx, malformed body) is treated as transient and retried once.
+export type EspnFailureKind = "private" | "not-found";
+
+// Thrown by the per-season fetch for the deterministic statuses so
+// settlement classifies on the kind, not on message text - a message that
+// merely mentions "not found" must not skip the retry.
+export class EspnSeasonError extends Error {
+  readonly kind: EspnFailureKind;
+
+  constructor(message: string, kind: EspnFailureKind) {
+    super(message);
+    this.name = "EspnSeasonError";
+    this.kind = kind;
+  }
+}
+
+function failureKind(reason: unknown): EspnFailureKind | "transient" {
+  return reason instanceof EspnSeasonError ? reason.kind : "transient";
+}
+
 export type SettledEspnSeasons<T> = {
   results: T[];
   failed: FailedSeason[];
   errors: string[];
   // True when nothing succeeded, every failure was a deterministic
   // private/not-found status, and at least one was private - the route
-  // surfaces that as a clean 403 instead of a 502 dump. Mixed
-  // private + not-found stays private: a young private league 404s its
-  // pre-creation years, and making the league public is still the remedy.
+  // surfaces that as a clean 403 (or 401 on the cookie path) instead of a
+  // 502 dump. Mixed private + not-found stays private: a young private
+  // league 404s its pre-creation years, and the cookie remedy still applies.
   allPrivate: boolean;
   // True when nothing succeeded and EVERY failure was not-found - a wrong or
-  // nonexistent league ID, where "make your league public" would mislead.
+  // nonexistent league ID, where the private-league remedies would mislead.
   allNotFound: boolean;
 };
 
@@ -37,8 +58,7 @@ export async function settleEspnSeasons<T>(
   const retryIdx = settled
     .map((result, i) => {
       if (result.status !== "rejected") return -1;
-      const msg = result.reason instanceof Error ? result.reason.message : "";
-      return msg.includes("is private.") || msg.includes("not found") ? -1 : i;
+      return failureKind(result.reason) === "transient" ? i : -1;
     })
     .filter((i) => i >= 0);
   if (retryIdx.length > 0) {
@@ -72,8 +92,9 @@ export async function settleEspnSeasons<T>(
           : typeof result.reason === "string"
             ? result.reason
             : "unknown error";
-      const isPrivate = msg.includes("is private.");
-      const isNotFound = msg.includes("not found");
+      const kind = failureKind(result.reason);
+      const isPrivate = kind === "private";
+      const isNotFound = kind === "not-found";
       if (isPrivate) sawPrivate = true;
       if (!isPrivate && !isNotFound) allDeterministic = false;
       if (!isNotFound) allNotFound = false;
