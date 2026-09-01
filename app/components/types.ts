@@ -27,6 +27,10 @@ export type ImportSource = ImportPlatform | "link";
 export type ImportPreview = {
   platform: ImportPlatform;
   seasons: ImportedSeasonRecord[];
+  // The platform league identifier the seasons were fetched with (Sleeper
+  // league_id, ESPN league ID, Yahoo league key) - Apply records it as
+  // State.sourceLeagueId so the league can be re-imported without re-typing.
+  sourceLeagueId: string | null;
 };
 
 // Hydratable subset of a fetched share payload — everything except the
@@ -41,6 +45,7 @@ export type LinkPreview = {
   history?: SeasonHistory[];
   manualDoubles?: PairKey[];
   rivalryPins?: RivalryPin[];
+  sourceLeagueId?: string;
 };
 
 export type ImportStatus = "" | "loading" | "ready" | "error";

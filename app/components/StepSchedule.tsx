@@ -53,6 +53,7 @@ export function StepSchedule(props: StepScheduleProps) {
     history,
     manualDoubles,
     rivalryPins,
+    sourceLeagueId,
   } = state;
 
   if (!schedule) return null;
@@ -131,6 +132,9 @@ export function StepSchedule(props: StepScheduleProps) {
         leagueName,
         seasonYear: scheduleYear,
         platform,
+        // Optional in the payload (undefined for manual leagues and older
+        // states); lets a restore offer one-click re-import.
+        sourceLeagueId: sourceLeagueId ?? undefined,
         teams,
         userIds,
         history: nextHistory,

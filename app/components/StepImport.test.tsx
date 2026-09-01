@@ -10,7 +10,7 @@ import type {
   ImportSource,
   ImportedSeasonRecord,
 } from "./types";
-import { ImportSections } from "./StepImport";
+import { ImportSections, StepImport } from "./StepImport";
 
 // Minimal stateful stand-in for page.tsx: useState owns State, patch is a
 // merging setState (so effects and re-renders behave as in the app), the
@@ -764,5 +764,210 @@ describe("stale-response guards", () => {
 
     expect(h.getState().linkPreview).toBeNull();
     expect(h.getState().importStatus).toBe("loading");
+  });
+});
+
+describe("one-click re-import (pendingSourceReimport)", () => {
+  it("resolves a Sleeper source ID and previews the resolved league", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ leagueId: "900" }))
+      .mockResolvedValueOnce(jsonResponse([importedSeason("2026")]));
+    vi.stubGlobal("fetch", fetchMock);
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      sourceLeagueId: "800",
+      leagueId: "800",
+      userIds: ["111", null, "222"],
+      priorFormat: { teamCount: 10, weekCount: 13 },
+      pendingSourceReimport: true,
+    });
+
+    await waitFor(() => expect(h.getState().importStatus).toBe("ready"));
+    expect(h.getState().pendingSourceReimport).toBe(false);
+    // Resolution first, carrying the stored ID and only the non-null
+    // manager IDs (the forward path to the renewed league).
+    expect(fetchMock.mock.calls[0]![0]).toBe("/api/import/sleeper");
+    expect(
+      JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string),
+    ).toEqual({ renewFrom: "800", userIds: ["111", "222"] });
+    // The seasons fetch and the visible input both use the resolved ID.
+    expect(fetchMock.mock.calls[1]![0]).toBe("/api/import/sleeper?seasons=3");
+    expect(
+      JSON.parse((fetchMock.mock.calls[1]![1] as RequestInit).body as string),
+    ).toEqual({ leagueId: "900" });
+    expect(h.getState().leagueId).toBe("900");
+    expect(h.getState().importPreview?.sourceLeagueId).toBe("900");
+  });
+
+  it("fetches ESPN directly with the stored ID - ESPN IDs are stable", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse([importedSeason("2026")]));
+    vi.stubGlobal("fetch", fetchMock);
+    const h = renderImportSections({
+      platform: "espn",
+      importSource: "espn",
+      sourceLeagueId: "555",
+      leagueId: "555",
+      priorFormat: { teamCount: 10, weekCount: 13 },
+      pendingSourceReimport: true,
+    });
+
+    await waitFor(() => expect(h.getState().importStatus).toBe("ready"));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![0]).toBe("/api/import/espn?seasons=3");
+    expect(
+      JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string),
+    ).toEqual({ leagueId: "555" });
+    expect(h.getState().importPreview?.sourceLeagueId).toBe("555");
+  });
+
+  it("surfaces a resolution failure instead of importing the stale league", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          { error: "Failed to find the renewed Sleeper league: HTTP 503" },
+          502,
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      sourceLeagueId: "800",
+      userIds: ["111"],
+      pendingSourceReimport: true,
+    });
+
+    await waitFor(() => expect(h.getState().importStatus).toBe("error"));
+    // No follow-up seasons fetch - a silently stale import would defeat
+    // the whole point of the shortcut.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(h.getState().importMsg).toBe(
+      "Failed to find the renewed Sleeper league: HTTP 503",
+    );
+  });
+
+  it("Apply records the fetched ID as sourceLeagueId, riding the save extras", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse([importedSeason("2026")])),
+    );
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "sleeper",
+      leagueId: "123456789",
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    await screen.findByText("1 season: 2026");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(h.getState().sourceLeagueId).toBe("123456789");
+    expect(h.saveToStorage).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceLeagueId: "123456789" }),
+    );
+  });
+
+  it("restores sourceLeagueId from a share payload on link apply", async () => {
+    const h = renderImportSections({
+      platform: "sleeper",
+      importSource: "link",
+      linkPreview: {
+        format: { teamCount: 4, weekCount: 3 },
+        teams: ["A", "B", "C", "D"],
+        userIds: [null, null, null, null],
+        platform: "sleeper",
+        sourceLeagueId: "800",
+      },
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(h.getState().sourceLeagueId).toBe("800");
+    expect(h.saveToStorage).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceLeagueId: "800" }),
+    );
+  });
+
+  it("drops a restored sourceLeagueId when the platform falls back to manual", async () => {
+    // Older links (and crafted payloads) can pair an ID with a platform
+    // that can't re-import; the shortcut must not render off it.
+    const h = renderImportSections({
+      platform: "manual",
+      importSource: "link",
+      linkPreview: {
+        format: { teamCount: 4, weekCount: 3 },
+        teams: ["A", "B", "C", "D"],
+        userIds: [null, null, null, null],
+        sourceLeagueId: "800",
+      },
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(h.getState().sourceLeagueId).toBeNull();
+  });
+});
+
+describe("Step 1 re-import shortcut", () => {
+  const stepOrder = ["teams", "doubles", "schedule"] as const;
+
+  function renderStepOne(seed: Partial<State>) {
+    const onReimport = vi.fn();
+    render(
+      <StepImport
+        state={{ ...initialState, ...seed }}
+        patch={vi.fn()}
+        saveToStorage={vi.fn()}
+        stepOrder={stepOrder}
+        onReimport={onReimport}
+      />,
+    );
+    return { onReimport };
+  }
+
+  it("offers the re-import button for a synced league with a stored ID", async () => {
+    const { onReimport } = renderStepOne({
+      teams: ["A", "B", "C", "D"],
+      platform: "sleeper",
+      sourceLeagueId: "800",
+    });
+    const user = userEvent.setup();
+
+    await user.click(
+      screen.getByRole("button", { name: "Re-import from Sleeper" }),
+    );
+    expect(onReimport).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the nudge but points at Back when no ID is stored", () => {
+    // Pre-sourceLeagueId links and stored states are exactly the users the
+    // stale-roster nudge exists for - only the one-click button needs the ID.
+    renderStepOne({ teams: ["A", "B", "C", "D"], platform: "sleeper" });
+    expect(
+      screen.queryByRole("button", { name: /^Re-import from/ }),
+    ).toBeNull();
+    expect(
+      screen.getByText(/Re-import via Back to pick up this season's roster/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows neither the nudge nor the button for manual leagues", () => {
+    renderStepOne({
+      teams: ["A", "B", "C", "D"],
+      platform: "manual",
+      sourceLeagueId: "800",
+    });
+    expect(
+      screen.queryByRole("button", { name: /^Re-import from/ }),
+    ).toBeNull();
+    expect(screen.queryByText(/Names come from your last import/)).toBeNull();
   });
 });

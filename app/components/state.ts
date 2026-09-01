@@ -62,6 +62,13 @@ export type State = {
   scheduleCopied: boolean;
   platform: ImportPlatform;
   importSource: ImportSource;
+  // Platform league identifier of the most recent synced import (Sleeper
+  // league_id, ESPN league ID, Yahoo league key) - null for manual leagues.
+  // Persisted and shared so a restored league can re-import without
+  // re-typing the ID. Sleeper's stored ID belongs to the season it was
+  // imported in (league IDs change on renewal), so reuse goes through the
+  // route's renewal resolution first.
+  sourceLeagueId: string | null;
   leagueId: string;
   shareLinkInput: string;
   linkPreview: LinkPreview | null;
@@ -90,6 +97,11 @@ export type State = {
   // OAuth useEffect sets this flag, StepImport watches for it, calls the
   // fetch, then clears the flag.
   pendingYahooConnect: boolean;
+  // Same bridge shape for Step 1's "Re-import from <platform>" button: the
+  // button (page.tsx owns the Back-equivalent patch) sets the flag,
+  // ImportSections watches for it, starts the platform fetch from
+  // sourceLeagueId, then clears the flag. Ephemeral - not persisted.
+  pendingSourceReimport: boolean;
 };
 
 export const initialState: State = {
@@ -127,6 +139,7 @@ export const initialState: State = {
   scheduleCopied: false,
   platform: "sleeper",
   importSource: "sleeper",
+  sourceLeagueId: null,
   leagueId: "",
   shareLinkInput: "",
   linkPreview: null,
@@ -151,6 +164,7 @@ export const initialState: State = {
   hoveredPastSeasonCell: null,
   canHover: false,
   pendingYahooConnect: false,
+  pendingSourceReimport: false,
 };
 
 export type Action =
@@ -180,6 +194,7 @@ export type SaveToStorageExtra = Partial<{
   lookbackOverride: number | null;
   leagueName: string;
   platform: ImportPlatform;
+  sourceLeagueId: string | null;
 }>;
 
 export type SaveToStorageFn = (extra?: SaveToStorageExtra) => void;

@@ -11,6 +11,10 @@ export const MAX_DOUBLE_KEY_LENGTH = 256;
 // bounds hand-crafted payloads without restricting the value set (new
 // platforms must work before the server is redeployed).
 export const MAX_PLATFORM_LENGTH = 32;
+// Real values are a Sleeper league_id (~19 digits), an ESPN league ID, or a
+// Yahoo league key ("461.l.123456"); the cap bounds hand-crafted payloads
+// without constraining any platform's identifier shape.
+export const MAX_SOURCE_LEAGUE_ID_LENGTH = 64;
 // History grows one row per season year with no client-side pruning, so the
 // cap can't be derived - it's calendar-bounded instead. Fantasy platforms
 // date to the mid-1990s (~36 rows in 2026, +1/year), so 100 is ~70 years of
@@ -101,6 +105,17 @@ export function validatePayload(body: unknown): string | null {
       body.platform.length > MAX_PLATFORM_LENGTH)
   ) {
     return `platform must be a string of at most ${MAX_PLATFORM_LENGTH} characters when provided.`;
+  }
+
+  // sourceLeagueId is optional (older clients and manual leagues won't send
+  // it). Restore uses it to offer one-click re-import; like platform, only
+  // the length is bound - each platform's identifier shape is its own.
+  if (
+    body.sourceLeagueId !== undefined &&
+    (typeof body.sourceLeagueId !== "string" ||
+      body.sourceLeagueId.length > MAX_SOURCE_LEAGUE_ID_LENGTH)
+  ) {
+    return `sourceLeagueId must be a string of at most ${MAX_SOURCE_LEAGUE_ID_LENGTH} characters when provided.`;
   }
 
   // Index pair key as the client builds them with pairKey(): "i-j" with
@@ -398,6 +413,7 @@ export function buildStoredPayload(body: Record<string, unknown>) {
     leagueName: body.leagueName,
     seasonYear: body.seasonYear,
     platform: body.platform,
+    sourceLeagueId: body.sourceLeagueId,
     history: history.map((row) => ({
       season: row.season,
       doubles: row.doubles,

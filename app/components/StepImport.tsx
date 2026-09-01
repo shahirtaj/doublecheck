@@ -141,6 +141,8 @@ export function ImportSections(props: ImportSectionsProps) {
     userIds,
     history,
     pendingYahooConnect,
+    pendingSourceReimport,
+    sourceLeagueId,
   } = state;
 
   const importBusy = importStatus === "loading";
@@ -178,10 +180,13 @@ export function ImportSections(props: ImportSectionsProps) {
   // the right size to refetch with INSTEAD of patching the preview. Pass
   // null to disable the check (the refetch itself); returns null after
   // patching.
+  // `sourceId` is the platform league identifier the request was made with;
+  // it rides the preview so Apply can record it as State.sourceLeagueId.
   function previewFetchedSeasons(
     plat: ImportPlatform,
     data: unknown,
     requestedSeasons: number | null,
+    sourceId: string | null,
   ): number | null {
     const { seasons, failed } = splitImportResponse(data);
     if (seasons.length === 0) {
@@ -237,7 +242,11 @@ export function ImportSections(props: ImportSectionsProps) {
       throw new Error(withholdingErrorMessage(cause, remedy));
     }
     patch({
-      importPreview: { platform: plat, seasons: kept },
+      importPreview: {
+        platform: plat,
+        seasons: kept,
+        sourceLeagueId: sourceId,
+      },
       importStatus: "ready",
       importMsg:
         withheldYears.length > 0
@@ -287,6 +296,7 @@ export function ImportSections(props: ImportSectionsProps) {
     body: Record<string, unknown>,
     stale: () => boolean,
     captureHelpUrl = false,
+    sourceId: string | null = null,
   ): Promise<void> {
     const data = await postSeasonsRequest(
       plat,
@@ -296,7 +306,12 @@ export function ImportSections(props: ImportSectionsProps) {
       captureHelpUrl,
     );
     if (data === STALE) return;
-    const refetchSize = previewFetchedSeasons(plat, data, requestSeasons);
+    const refetchSize = previewFetchedSeasons(
+      plat,
+      data,
+      requestSeasons,
+      sourceId,
+    );
     if (refetchSize === null) return;
     let second: unknown = null;
     try {
@@ -317,7 +332,7 @@ export function ImportSections(props: ImportSectionsProps) {
     if (second === STALE) return;
     if (second !== null) {
       try {
-        previewFetchedSeasons(plat, second, null);
+        previewFetchedSeasons(plat, second, null, sourceId);
         return;
       } catch {
         // 200 with a body that fails preview (empty, undetectable) - fall
@@ -326,7 +341,7 @@ export function ImportSections(props: ImportSectionsProps) {
         // post-await check.
       }
     }
-    previewFetchedSeasons(plat, data, null);
+    previewFetchedSeasons(plat, data, null, sourceId);
   }
 
   function resetImportUi() {
@@ -420,7 +435,13 @@ export function ImportSections(props: ImportSectionsProps) {
       importMsg: `Fetching season data from ${platformLabel(platform)}…`,
     });
     try {
-      await fetchSeasonsIntoPreview(platform, { leagueId: input }, stale, true);
+      await fetchSeasonsIntoPreview(
+        platform,
+        { leagueId: input },
+        stale,
+        true,
+        input,
+      );
     } catch (e) {
       if (stale()) return;
       patch({
@@ -448,6 +469,8 @@ export function ImportSections(props: ImportSectionsProps) {
         "sleeper",
         { leagueId: specificLeagueId },
         stale,
+        false,
+        specificLeagueId,
       );
     } catch (e) {
       if (stale()) return;
@@ -458,6 +481,117 @@ export function ImportSections(props: ImportSectionsProps) {
       });
     }
   }
+
+  // One-click re-import helpers for the Step 1 shortcut (see the
+  // pendingSourceReimport effect below). Same stale-guard pattern as every
+  // other fetch helper. ESPN league IDs are stable across seasons, so the
+  // stored ID fetches directly; a Sleeper ID belongs to the season it was
+  // imported in (IDs change on renewal), so it goes through the route's
+  // renewal resolution first.
+
+  async function fetchEspnFromSource(storedId: string) {
+    const requestSeq = ++importSeqRef.current;
+    const stale = () =>
+      platformRef.current !== "espn" ||
+      importSourceRef.current !== "espn" ||
+      importSeqRef.current !== requestSeq;
+    patch({
+      importStatus: "loading",
+      importMsg: "Fetching season data from ESPN…",
+      importPreview: null,
+    });
+    try {
+      await fetchSeasonsIntoPreview(
+        "espn",
+        { leagueId: storedId },
+        stale,
+        true,
+        storedId,
+      );
+    } catch (e) {
+      if (stale()) return;
+      patch({
+        importStatus: "error",
+        importMsg:
+          (e as Error).message || "Could not fetch season data from ESPN.",
+      });
+    }
+  }
+
+  async function fetchSleeperFromSource(storedId: string) {
+    const requestSeq = ++importSeqRef.current;
+    const stale = () =>
+      platformRef.current !== "sleeper" ||
+      importSourceRef.current !== "sleeper" ||
+      importSeqRef.current !== requestSeq;
+    patch({
+      importStatus: "loading",
+      importMsg: "Fetching season data from Sleeper…",
+      importPreview: null,
+      sleeperLeagues: null,
+      selectedSleeperLeague: "",
+    });
+    try {
+      // Resolve the stored ID to the league's current edition first. The
+      // saved managers' user_ids are the forward path (previous_league_id
+      // only points backward); with none saved, the stored ID is the best
+      // available and the route answers it back unchanged.
+      let resolved = storedId;
+      const managerIds = userIds.filter((id): id is string => id !== null);
+      if (managerIds.length > 0) {
+        const res = await fetch("/api/import/sleeper", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ renewFrom: storedId, userIds: managerIds }),
+        });
+        if (stale()) return;
+        const data = await res.json();
+        if (stale()) return;
+        if (!res.ok)
+          throw new Error(
+            data?.error || `Request failed (HTTP ${res.status}).`,
+          );
+        if (typeof data?.leagueId === "string" && data.leagueId) {
+          resolved = data.leagueId;
+        }
+      }
+      // Keep the visible league ID input in step with what's being fetched.
+      patch({ leagueId: resolved });
+      await fetchSeasonsIntoPreview(
+        "sleeper",
+        { leagueId: resolved },
+        stale,
+        false,
+        resolved,
+      );
+    } catch (e) {
+      if (stale()) return;
+      patch({
+        importStatus: "error",
+        importMsg:
+          (e as Error).message || "Could not fetch season data from Sleeper.",
+      });
+    }
+  }
+
+  // Step 1's "Re-import from <platform>" hand-off. page.tsx flips
+  // pendingSourceReimport alongside its Back-equivalent patch; we pick it up
+  // here and start the stored league's fetch. Yahoo reuses the leagues flow
+  // (no per-league fetch to shortcut - and if the OAuth cookie has expired,
+  // the Connect button shows as usual).
+  useEffect(() => {
+    if (!pendingSourceReimport) return;
+    patch({ pendingSourceReimport: false });
+    if (!sourceLeagueId) return;
+    if (platform === "yahoo") {
+      void fetchYahooLeagues();
+    } else if (platform === "espn") {
+      void fetchEspnFromSource(sourceLeagueId);
+    } else if (platform === "sleeper") {
+      void fetchSleeperFromSource(sourceLeagueId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSourceReimport]);
 
   // Yahoo helpers ─ separate from handleFetch because the flow is two-step:
   // first list the user's leagues (no body), then fetch a chosen league's
@@ -476,7 +610,13 @@ export function ImportSections(props: ImportSectionsProps) {
       importPreview: null,
     });
     try {
-      await fetchSeasonsIntoPreview("yahoo", { leagueKey }, stale);
+      await fetchSeasonsIntoPreview(
+        "yahoo",
+        { leagueKey },
+        stale,
+        false,
+        leagueKey,
+      );
     } catch (e) {
       if (stale()) return;
       patch({
@@ -641,6 +781,7 @@ export function ImportSections(props: ImportSectionsProps) {
       userIds: nextUserIds,
       history: newHistory,
       ...(nextLeagueName ? { leagueName: nextLeagueName } : {}),
+      sourceLeagueId: importPreview.sourceLeagueId,
       manualDoubles: new Set(),
       rivalryPins: [],
       // The pin list was just replaced, so an armed per-row Remove confirm
@@ -662,6 +803,7 @@ export function ImportSections(props: ImportSectionsProps) {
       rivalryPins: [],
       manualDoubles: [],
       step: "teams",
+      sourceLeagueId: importPreview.sourceLeagueId,
       ...(nextLeagueName ? { leagueName: nextLeagueName } : {}),
       ...(leagueChanged ? { lookbackOverride: null } : {}),
     });
@@ -714,6 +856,7 @@ export function ImportSections(props: ImportSectionsProps) {
         history?: SeasonHistory[];
         manualDoubles?: PairKey[];
         rivalryPins?: RivalryPin[];
+        sourceLeagueId?: string;
       };
       // Range-checked, not just type-checked: links predating the server
       // validator's format bounds could carry an unschedulable shape (e.g.
@@ -738,6 +881,7 @@ export function ImportSections(props: ImportSectionsProps) {
           history: payload.history,
           manualDoubles: payload.manualDoubles,
           rivalryPins: payload.rivalryPins,
+          sourceLeagueId: payload.sourceLeagueId,
         },
         importStatus: "ready",
         importMsg: "",
@@ -812,6 +956,15 @@ export function ImportSections(props: ImportSectionsProps) {
         ? linkPreview.platform
         : "manual";
     const restoredLeagueName = (linkPreview.leagueName || "").trim();
+    // A manual league has no source to re-import from; older links lack the
+    // field entirely. Either way null - the re-import shortcut just doesn't
+    // render until the next synced import records an ID.
+    const restoredSourceLeagueId =
+      restoredPlatform !== "manual" &&
+      typeof linkPreview.sourceLeagueId === "string" &&
+      linkPreview.sourceLeagueId
+        ? linkPreview.sourceLeagueId
+        : null;
     const nextFormat: SelectedFormat = {
       teamCount: linkPreview.format.teamCount,
       weekCount: linkPreview.format.weekCount,
@@ -837,6 +990,7 @@ export function ImportSections(props: ImportSectionsProps) {
       lookbackOverride: null,
       platform: restoredPlatform,
       importSource: restoredPlatform,
+      sourceLeagueId: restoredSourceLeagueId,
       linkPreview: null,
       shareLinkInput: "",
       shareStatus: "idle",
@@ -865,6 +1019,7 @@ export function ImportSections(props: ImportSectionsProps) {
       rivalryPins: remappedRivalryPins,
       lookbackOverride: null,
       platform: restoredPlatform,
+      sourceLeagueId: restoredSourceLeagueId,
       step: "teams",
     });
   }
@@ -909,6 +1064,7 @@ export function ImportSections(props: ImportSectionsProps) {
       displayWeeks: null,
       saved: false,
       lookbackOverride: null,
+      sourceLeagueId: null,
       linkPreview: null,
       step: "teams",
       furthestStep: "teams",
@@ -929,6 +1085,7 @@ export function ImportSections(props: ImportSectionsProps) {
       manualDoubles: [],
       rivalryPins: [],
       lookbackOverride: null,
+      sourceLeagueId: null,
       step: "teams",
     });
   }
@@ -1367,11 +1524,22 @@ type StepImportProps = {
   patch: Patch;
   saveToStorage: SaveToStorageFn;
   stepOrder: ReadonlyArray<"teams" | "doubles" | "schedule">;
+  // Step 1's one-click re-import from the stored source league. Lives in
+  // page.tsx: the handler is the Back button's teams-branch patch (it owns
+  // generationRunRef) plus the pendingSourceReimport bridge flag.
+  onReimport: () => void;
 };
 
 export function StepImport(props: StepImportProps) {
-  const { state, patch, saveToStorage, stepOrder } = props;
-  const { teams, leagueName, furthestStep } = state;
+  const { state, patch, saveToStorage, stepOrder, onReimport } = props;
+  const { teams, leagueName, furthestStep, platform, sourceLeagueId } = state;
+  // The stale-roster nudge shows for every synced league - links and stored
+  // states that predate sourceLeagueId need it most - but the one-click
+  // button only renders off a recorded ID (never off a guess; a wrong-league
+  // import would corrupt the avoidance window). Without the ID the hint
+  // points at the Back path instead.
+  const synced = platform !== "manual";
+  const canReimport = synced && sourceLeagueId !== null;
 
   return (
     <div className={cls.card}>
@@ -1405,7 +1573,20 @@ export function StepImport(props: StepImportProps) {
           </div>
         ))}
       </div>
+      {synced && (
+        <p className="text-xs text-slate-400 leading-relaxed mt-5 text-center">
+          Names come from your last import.{" "}
+          {canReimport
+            ? "Re-import to pick up this season's roster changes."
+            : "Re-import via Back to pick up this season's roster changes."}
+        </p>
+      )}
       <div className="flex gap-3 mt-6 flex-wrap justify-center">
+        {canReimport && (
+          <button className={cls.secondaryBtn} onClick={onReimport}>
+            Re-import from {platformLabel(platform)}
+          </button>
+        )}
         <button
           className={cls.primaryBtn}
           onClick={() => {

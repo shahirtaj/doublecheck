@@ -59,6 +59,7 @@ export default function GeneratePage() {
     confirmReset,
     platform,
     importSource,
+    sourceLeagueId,
     tooltipInfo,
   } = state;
 
@@ -306,6 +307,11 @@ export default function GeneratePage() {
             hydration.platform = d.platform;
             hydration.importSource = d.platform;
           }
+          // Older payloads lack the field; the null default stands for those
+          // (no re-import shortcut until the next synced import records one).
+          if (typeof d.sourceLeagueId === "string" && d.sourceLeagueId) {
+            hydration.sourceLeagueId = d.sourceLeagueId;
+          }
           hydration.furthestStep = "doubles";
           // Land where the user left off, clamped to Step 2: the generated
           // schedule is never persisted (regenerate fresh against current
@@ -356,6 +362,7 @@ export default function GeneratePage() {
           lookbackOverride,
           leagueName,
           platform,
+          sourceLeagueId,
           ...extra,
         };
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -374,6 +381,7 @@ export default function GeneratePage() {
       lookbackOverride,
       leagueName,
       platform,
+      sourceLeagueId,
     ],
   );
   useEffect(() => {
@@ -562,6 +570,27 @@ export default function GeneratePage() {
     });
   }
 
+  // Step 1's one-click re-import from the stored source league: the Back
+  // button's teams-branch patch (clear the format, stash it as the
+  // re-import comparison baseline, discard any in-flight generation) plus
+  // the pendingSourceReimport bridge flag ImportSections watches, with the
+  // stored ID prefilled into the visible league input. importSource rides
+  // along defensively - a programmatic landing that leaves it stale makes
+  // the guards discard the platform's own responses (the documented trap).
+  function handleSourceReimport() {
+    generationRunRef.current++;
+    patch({
+      selectedFormat: null,
+      priorFormat: selectedFormat,
+      step: "teams",
+      furthestStep: "teams",
+      generating: false,
+      importSource: platform,
+      ...(platform === "yahoo" ? {} : { leagueId: sourceLeagueId ?? "" }),
+      pendingSourceReimport: true,
+    });
+  }
+
   function handleResetEverything() {
     // Discard any in-flight generation run - its final patch would
     // resurrect a schedule (and the Step 3 landing) into the fresh state.
@@ -670,6 +699,7 @@ export default function GeneratePage() {
                 patch={patch}
                 saveToStorage={saveToStorage}
                 stepOrder={STEP_ORDER}
+                onReimport={handleSourceReimport}
               />
             )}
 

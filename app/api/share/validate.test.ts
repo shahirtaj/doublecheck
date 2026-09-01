@@ -7,6 +7,7 @@ import {
   MAX_PLATFORM_LENGTH,
   MAX_SEASON_LABEL_LENGTH,
   MAX_SEASON_YEAR,
+  MAX_SOURCE_LEAGUE_ID_LENGTH,
   MAX_TEAM_NAME_LENGTH,
   MAX_USER_ID_LENGTH,
   MIN_SEASON_YEAR,
@@ -86,6 +87,7 @@ describe("validatePayload", () => {
       payload.leagueName = "y".repeat(MAX_LEAGUE_NAME_LENGTH);
       payload.seasonYear = 2026;
       payload.platform = "sleeper";
+      payload.sourceLeagueId = "1".repeat(MAX_SOURCE_LEAGUE_ID_LENGTH);
       payload.rivalryPins = [{ teamA: 0, teamB: 1, week: null }];
       const schedule = payload.schedule as { weeks: unknown };
       payload.schedule = {
@@ -188,6 +190,15 @@ describe("validatePayload", () => {
       payload.platform = 1;
       expect(validatePayload(payload)).toBe(expected);
       payload.platform = "x".repeat(MAX_PLATFORM_LENGTH + 1);
+      expect(validatePayload(payload)).toBe(expected);
+    });
+
+    it("rejects a non-string or over-length sourceLeagueId", () => {
+      const expected = `sourceLeagueId must be a string of at most ${MAX_SOURCE_LEAGUE_ID_LENGTH} characters when provided.`;
+      const payload = validPayload();
+      payload.sourceLeagueId = 1180738142470492160;
+      expect(validatePayload(payload)).toBe(expected);
+      payload.sourceLeagueId = "1".repeat(MAX_SOURCE_LEAGUE_ID_LENGTH + 1);
       expect(validatePayload(payload)).toBe(expected);
     });
 
@@ -631,6 +642,9 @@ describe("buildStoredPayload", () => {
     // localStorage).
     const payload = validPayload();
     payload.format = { teamCount: 4, weekCount: 3, rider: "x" };
+    // Not a rider - but asserting it here guards the validated-but-not-
+    // rebuilt trap: a field the builder omits silently never stores.
+    payload.sourceLeagueId = "1180738142470492160";
     payload.history = [
       { season: "2025", doubles: ["0-1"], format: "index", rider: "x" },
     ];
@@ -645,6 +659,7 @@ describe("buildStoredPayload", () => {
 
     const stored = buildStoredPayload(payload);
     expect(stored.format).toEqual({ teamCount: 4, weekCount: 3 });
+    expect(stored.sourceLeagueId).toBe("1180738142470492160");
     expect(stored.history).toEqual([
       { season: "2025", doubles: ["0-1"], format: "index" },
     ]);
@@ -663,6 +678,7 @@ describe("buildStoredPayload", () => {
     const stored = buildStoredPayload(payload);
     expect("format" in stored.schedule).toBe(false);
     expect(stored.rivalryPins).toBeUndefined();
+    expect(stored.sourceLeagueId).toBeUndefined();
     expect(stored.schedule.rivalryPlacements).toBeUndefined();
     expect(stored.schedule.displayWeeks).toBeUndefined();
   });

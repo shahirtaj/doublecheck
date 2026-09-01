@@ -56,7 +56,7 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 - **ESPN** - public leagues by league ID. Private leagues must be set to public by the commissioner before import. Imports seasons through last year; the current season is never included.
 - **Yahoo Fantasy** - sign in with Yahoo Fantasy (OAuth 2.0). Tokens are stored in an encrypted httpOnly cookie - no database, no account needed. Imports completed seasons only. Distinct Yahoo leagues that share a name may collapse into one picker entry; rename one league on Yahoo to import both.
 - **Manual** - for unsupported platforms (NFL.com, CBS, etc.). Pick your league format, name your teams, and click the doubled matchups from each past season on an interactive grid.
-- **Restore from link** - returning users paste a previously-saved share URL (full URL, `/s/slug` path, or bare 8-char slug) to bring a league back into a fresh browser. Restores teams, userIds, league name, history, and rivalry pins from the share payload. Save & Share records the just-generated season into history before writing the link, so when you restore next year the shared year's doubles are already in the avoidance window - just import the new season and regenerate. The old schedule and any one-off manual avoids are dropped so you regenerate against current avoidance constraints.
+- **Restore from link** - returning users paste a previously-saved share URL (full URL, `/s/slug` path, or bare 8-char slug) to bring a league back into a fresh browser. Restores teams, userIds, league name, history, and rivalry pins from the share payload. Save & Share records the just-generated season into history before writing the link, so when you restore next year the shared year's doubles are already in the avoidance window - just re-import the new season and regenerate. The old schedule and any one-off manual avoids are dropped so you regenerate against current avoidance constraints. For synced leagues the link also remembers the league itself, so Step 1 offers a one-click **Re-import from Sleeper/ESPN/Yahoo Fantasy** button - no re-typing the league ID, and Sleeper's yearly league-ID change is followed to the current season automatically.
 
 Because Sleeper includes the in-progress season, a mid-season Sleeper re-import replaces a current-year history row saved via Save & Share with the season as actually scheduled on Sleeper - identical if you applied the generated schedule, and a correction if you didn't. Either way the current year's schedule generation is unaffected: avoidance only looks at earlier seasons.
 
@@ -66,7 +66,7 @@ If some of your seasons fail to fetch, or were played at a different roster size
 
 The tool is a three-step flow at [doublecheckff.com](https://doublecheckff.com):
 
-1. **Import or restore.** Pick your platform and enter your league ID (or, for Sleeper, your username - DoubleCheck lists your leagues to pick from). League format is auto-detected from imported data. For platforms without automatic import (NFL.com, CBS, etc.), choose **Manual** and enter your league info directly. Returning users can pick **Restore from link** and paste a previously-saved share URL to bring a league back into a fresh browser - teams, history, and rivalry pins all come back. Save & Share records the just-generated season into history before writing the link, so when you restore next year the shared year's doubles are already in the avoidance window - just import the new season and regenerate.
+1. **Import or restore.** Pick your platform and enter your league ID (or, for Sleeper, your username - DoubleCheck lists your leagues to pick from). League format is auto-detected from imported data. For platforms without automatic import (NFL.com, CBS, etc.), choose **Manual** and enter your league info directly. Returning users can pick **Restore from link** and paste a previously-saved share URL to bring a league back into a fresh browser - teams, history, and rivalry pins all come back. Save & Share records the just-generated season into history before writing the link, so when you restore next year the shared year's doubles are already in the avoidance window - for synced leagues, one click on **Re-import from Sleeper/ESPN/Yahoo Fantasy** pulls the new season, then regenerate.
 2. **Review.** See the lookback window (with optional override if you want to weight more or fewer prior seasons), scan past season history, review the avoidance matrix, and optionally pin rivalry matchups to specific weeks.
 3. **Schedule.** Browse the generated schedule week-by-week (pinned rivalry matchups are highlighted), click **Save & Share** to get a read-only `/s/{slug}` link your league members can open from any device, or expand **Full Schedule (Text)** for a plain-text dump. Links expire after 365 days.
 
@@ -78,7 +78,7 @@ No platform exposes a write API for league schedules, so commissioners enter the
 - **React 19**
 - **Tailwind CSS** for styling
 - **ESLint 9** with flat config (`eslint.config.mjs`)
-- **Vitest** for the test suite (453 tests; algorithm coverage across all 7 supported formats, including rivalry pins, plus import/share route logic and import-flow and schedule-step component coverage via React Testing Library)
+- **Vitest** for the test suite (480 tests; algorithm coverage across all 7 supported formats, including rivalry pins, plus import/share route logic and import-flow and schedule-step component coverage via React Testing Library)
 - **Vercel** for deployment
 
 See [ROADMAP.md](ROADMAP.md) for the full product roadmap and current state.
@@ -95,7 +95,7 @@ npm run dev
 
 The app runs without any environment variables configured - Yahoo Fantasy OAuth and share links won't work, but Sleeper imports, ESPN imports (public leagues), manual import, and schedule generation are fully functional locally.
 
-Run `npm test` to execute the test suite (453 tests). See [CLAUDE.md](CLAUDE.md) for the full command reference and project structure.
+Run `npm test` to execute the test suite (480 tests). See [CLAUDE.md](CLAUDE.md) for the full command reference and project structure.
 
 ## Support
 
