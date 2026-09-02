@@ -53,7 +53,7 @@ Pure round-robins (e.g. 14-team / 13-week) and complete double round-robins (e.g
 ## Supported platforms
 
 - **Sleeper** - fully public API. Enter your Sleeper username (pick from your leagues) or paste a league ID directly. Imports completed seasons plus the in-progress one once week 1 has been played - Sleeper publishes the full schedule up front, so the current season's doubles reflect the complete scheduled matchups.
-- **ESPN** - public leagues by league ID. Private leagues must be set to public by the commissioner before import. Imports seasons through last year; the current season is never included.
+- **ESPN** - by league ID. Public leagues import as-is; private leagues import with your `espn_s2` cookie, which DoubleCheck asks for only when the import needs it, sends to ESPN with the fetch, and never stores. (ESPN's "viewable to public" toggle opens only the in-progress season, so it can't open the prior seasons DoubleCheck needs.) Imports seasons through last year; the current season is never included.
 - **Yahoo Fantasy** - sign in with Yahoo Fantasy (OAuth 2.0). Tokens are stored in an encrypted httpOnly cookie - no database, no account needed. Imports completed seasons only. Distinct Yahoo leagues that share a name may collapse into one picker entry; rename one league on Yahoo to import both.
 - **Manual** - for unsupported platforms (NFL.com, CBS, etc.). Pick your league format, name your teams, and click the doubled matchups from each past season on an interactive grid.
 - **Restore from link** - returning users paste a previously-saved share URL (full URL, `/s/slug` path, or bare 8-char slug) to bring a league back into a fresh browser. Restores teams, userIds, league name, history, and rivalry pins from the share payload. Save & Share records the just-generated season into history before writing the link, so when you restore next year the shared year's doubles are already in the avoidance window - just re-import the new season and regenerate. The old schedule and any one-off manual avoids are dropped so you regenerate against current avoidance constraints. For synced leagues the link also remembers the league itself, so Step 1 offers a one-click **Re-import from Sleeper/ESPN/Yahoo Fantasy** button - no re-typing the league ID, and Sleeper's yearly league-ID change is followed to the current season automatically.
@@ -93,9 +93,9 @@ cp .env.example .env.local
 npm run dev
 ```
 
-The app runs without any environment variables configured - Yahoo Fantasy OAuth and share links won't work, but Sleeper imports, ESPN imports (public leagues), manual import, and schedule generation are fully functional locally.
+The app runs without any environment variables configured - Yahoo Fantasy OAuth and share links won't work, but Sleeper imports, ESPN imports, manual import, and schedule generation are fully functional locally.
 
-Run `npm test` to execute the test suite (480 tests). See [CLAUDE.md](CLAUDE.md) for the full command reference and project structure.
+Run `npm test` to execute the test suite (515 tests). See [CLAUDE.md](CLAUDE.md) for the full command reference and project structure.
 
 ## Support
 
