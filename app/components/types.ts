@@ -50,6 +50,26 @@ export type LinkPreview = {
 
 export type ImportStatus = "" | "loading" | "ready" | "error";
 
+// `code` on the ESPN import route's error bodies, mirrored from
+// app/api/import/espn/route.ts. Any of them opens the espn_s2 cookie
+// section under the league input: "private" is the anonymous denial,
+// "current-season-only" the same after the route proved the manager's
+// public toggle reached only the in-progress season, "cookies-rejected" a
+// denial with the cookie supplied.
+export const ESPN_AUTH_CODES = [
+  "private",
+  "current-season-only",
+  "cookies-rejected",
+] as const;
+export type EspnAuthCode = (typeof ESPN_AUTH_CODES)[number];
+
+export function isEspnAuthCode(value: unknown): value is EspnAuthCode {
+  return (
+    typeof value === "string" &&
+    (ESPN_AUTH_CODES as readonly string[]).includes(value)
+  );
+}
+
 export type YahooLeagueOption = {
   leagueKey: string;
   name: string;

@@ -971,3 +971,228 @@ describe("Step 1 re-import shortcut", () => {
     expect(screen.queryByText(/Names come from your last import/)).toBeNull();
   });
 });
+
+describe("ESPN cookie section", () => {
+  const PRIVATE_MESSAGE =
+    "This ESPN league is private. Import it with your espn_s2 cookie, or use Manual import.";
+  const REJECTED_MESSAGE =
+    "ESPN rejected the cookie for every season. Check that espn_s2 was copied completely, and that the signed-in ESPN account was in this league during those seasons.";
+  const MASK_CLASS = "[-webkit-text-security:disc]";
+
+  function requestBody(call: unknown[]): unknown {
+    return JSON.parse((call[1] as RequestInit).body as string);
+  }
+
+  it("opens on the private 403, sends the pasted cookie, and clears the prompt on success", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ error: PRIVATE_MESSAGE, code: "private" }, 403),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse([importedSeason("2025"), importedSeason("2024")]),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const h = renderImportSections({
+      platform: "espn",
+      importSource: "espn",
+      leagueId: "123456789",
+    });
+    const user = userEvent.setup();
+
+    // Nothing asks for a cookie until the route does.
+    expect(screen.queryByText("ESPN Cookie")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    await waitFor(() => expect(h.getState().importStatus).toBe("error"));
+    // The anonymous request carries no cookie key at all.
+    expect(requestBody(fetchMock.mock.calls[0]!)).toEqual({
+      leagueId: "123456789",
+    });
+    expect(h.getState().espnAuthCode).toBe("private");
+    expect(screen.getByText(PRIVATE_MESSAGE)).toBeInTheDocument();
+    expect(screen.getByText("ESPN Cookie")).toBeInTheDocument();
+    expect(screen.getByText(/never stores it\./)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Making the league public on ESPN opens only/),
+    ).toBeInTheDocument();
+    const fetchWithCookie = screen.getByRole("button", {
+      name: "Fetch with cookie",
+    });
+    expect(fetchWithCookie).toBeDisabled();
+
+    await user.type(screen.getByLabelText("espn_s2 cookie"), "AEBcookie");
+    // Typing clears the error line but the prompt stays open.
+    expect(h.getState().importStatus).toBe("");
+    expect(screen.getByText("ESPN Cookie")).toBeInTheDocument();
+    expect(fetchWithCookie).toBeEnabled();
+
+    await user.click(fetchWithCookie);
+    await waitFor(() => expect(h.getState().importStatus).toBe("ready"));
+    expect(requestBody(fetchMock.mock.calls[1]!)).toEqual({
+      leagueId: "123456789",
+      espnS2: "AEBcookie",
+    });
+    expect(h.getState().espnAuthCode).toBeNull();
+    // Retained for the visit so a same-session re-import needs no re-paste.
+    expect(h.getState().espnS2).toBe("AEBcookie");
+  });
+
+  it("keeps the section and the cookie on a cookies-rejected 401, without the public-toggle hint", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          { error: REJECTED_MESSAGE, code: "cookies-rejected" },
+          401,
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const h = renderImportSections({
+      platform: "espn",
+      importSource: "espn",
+      leagueId: "123456789",
+      espnS2: "AEBwrong",
+    });
+    const user = userEvent.setup();
+
+    // A retained cookie keeps the section visible (and editable) with the
+    // short note in place of the paste instructions.
+    expect(screen.getByText("ESPN Cookie")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Clear the field to import without it\./),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Fetch with cookie" }));
+    await waitFor(() => expect(h.getState().importStatus).toBe("error"));
+    expect(requestBody(fetchMock.mock.calls[0]!)).toEqual({
+      leagueId: "123456789",
+      espnS2: "AEBwrong",
+    });
+    expect(h.getState().espnAuthCode).toBe("cookies-rejected");
+    expect(h.getState().espnS2).toBe("AEBwrong");
+    expect(screen.getByText(REJECTED_MESSAGE)).toBeInTheDocument();
+    expect(screen.getByText(/never stores it\./)).toBeInTheDocument();
+    expect(screen.queryByText(/without a cookie\./)).toBeNull();
+  });
+
+  it("sends the retained cookie on a one-click re-import", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse([importedSeason("2026")]));
+    vi.stubGlobal("fetch", fetchMock);
+    const h = renderImportSections({
+      platform: "espn",
+      importSource: "espn",
+      sourceLeagueId: "555",
+      leagueId: "555",
+      priorFormat: { teamCount: 10, weekCount: 13 },
+      pendingSourceReimport: true,
+      espnS2: "AEBcookie",
+    });
+
+    await waitFor(() => expect(h.getState().importStatus).toBe("ready"));
+    expect(requestBody(fetchMock.mock.calls[0]!)).toEqual({
+      leagueId: "555",
+      espnS2: "AEBcookie",
+    });
+  });
+
+  it("closes the prompt when a later response carries no auth code", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          jsonResponse(
+            {
+              error: 'ESPN league "123456789" not found. Check the league ID.',
+            },
+            404,
+          ),
+        ),
+    );
+    const h = renderImportSections({
+      platform: "espn",
+      importSource: "espn",
+      leagueId: "123456789",
+      espnAuthCode: "private",
+    });
+    const user = userEvent.setup();
+    expect(screen.getByText("ESPN Cookie")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    await waitFor(() => expect(h.getState().importStatus).toBe("error"));
+    expect(h.getState().espnAuthCode).toBeNull();
+    expect(screen.queryByText("ESPN Cookie")).toBeNull();
+  });
+
+  it("ignores an auth code on a response the stale guard discards", async () => {
+    let resolveFetch!: (r: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockReturnValue(
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+      ),
+    );
+    const h = renderImportSections({
+      platform: "espn",
+      importSource: "espn",
+      leagueId: "123456789",
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    h.platformRef.current = "sleeper";
+    h.importSourceRef.current = "sleeper";
+    resolveFetch(
+      jsonResponse({ error: PRIVATE_MESSAGE, code: "private" }, 403),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(h.getState().espnAuthCode).toBeNull();
+    expect(screen.queryByText("ESPN Cookie")).toBeNull();
+  });
+
+  it("drops the cookie and the prompt when the dropdown leaves ESPN", async () => {
+    const h = renderImportSections({
+      platform: "espn",
+      importSource: "espn",
+      leagueId: "123456789",
+      espnS2: "AEBcookie",
+      espnAuthCode: "private",
+      espnS2Visible: true,
+    });
+    const user = userEvent.setup();
+    expect(screen.getByText("ESPN Cookie")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByDisplayValue("ESPN"), "sleeper");
+    expect(h.getState().espnS2).toBe("");
+    expect(h.getState().espnAuthCode).toBeNull();
+    expect(h.getState().espnS2Visible).toBe(false);
+    expect(screen.queryByText("ESPN Cookie")).toBeNull();
+  });
+
+  it("masks the cookie as a plain text field and reveals it on Show", async () => {
+    renderImportSections({
+      platform: "espn",
+      importSource: "espn",
+      leagueId: "123456789",
+      espnS2: "AEBcookie",
+    });
+    const user = userEvent.setup();
+    const input = screen.getByLabelText("espn_s2 cookie");
+
+    // Not type="password": browsers would offer to save the cookie.
+    expect(input).toHaveAttribute("type", "text");
+    expect(input).toHaveAttribute("autocomplete", "off");
+    expect(input).toHaveClass(MASK_CLASS);
+
+    await user.click(screen.getByRole("button", { name: "Show" }));
+    expect(input).not.toHaveClass(MASK_CLASS);
+    await user.click(screen.getByRole("button", { name: "Hide" }));
+    expect(input).toHaveClass(MASK_CLASS);
+  });
+});

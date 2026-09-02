@@ -6,6 +6,7 @@ import type {
 } from "@/lib/algorithm";
 import { CURRENT_YEAR_STR } from "./constants";
 import type {
+  EspnAuthCode,
   ImportPlatform,
   ImportPreview,
   ImportSource,
@@ -74,8 +75,17 @@ export type State = {
   linkPreview: LinkPreview | null;
   importStatus: ImportStatus;
   importMsg: string;
-  importHelpUrl: string | null;
   importPreview: ImportPreview | null;
+  // The user's espn_s2 cookie - a full ESPN sign-in - and the route error
+  // code that asked for it. Ephemeral by design: never persisted (not in
+  // the saveToStorage payload, not hydrated), never shared, cleared on a
+  // dropdown switch. Kept for the visit so a typo'd ID or a same-session
+  // re-import doesn't demand a re-paste.
+  espnS2: string;
+  espnAuthCode: EspnAuthCode | null;
+  // Show/Hide toggle for the cookie field (CSS-masked text input rather
+  // than type="password", so browsers don't offer to save it). Ephemeral.
+  espnS2Visible: boolean;
   yahooLeagues: YahooLeagueOption[] | null;
   selectedYahooLeague: string;
   sleeperLeagues: SleeperLeagueOption[] | null;
@@ -145,8 +155,10 @@ export const initialState: State = {
   linkPreview: null,
   importStatus: "",
   importMsg: "",
-  importHelpUrl: null,
   importPreview: null,
+  espnS2: "",
+  espnAuthCode: null,
+  espnS2Visible: false,
   yahooLeagues: null,
   selectedYahooLeague: "",
   sleeperLeagues: null,

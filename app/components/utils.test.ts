@@ -14,6 +14,8 @@ import {
   deriveLookback,
   describeWithholdingGap,
   detectFormatFromImport,
+  espnAuthCodeHint,
+  espnImportBody,
   extractSlug,
   formatDetectionErrorMessage,
   generateWithRetry,
@@ -237,6 +239,37 @@ describe("deriveLookback", () => {
     const result = deriveLookback(10, formatLookback);
     expect(result.hard).toBeLessThanOrEqual(formatLookback.hard);
     expect(result.soft).toBe(10 - result.hard);
+  });
+});
+
+describe("espnImportBody", () => {
+  it("sends exactly the anonymous body when the cookie field is empty", () => {
+    expect(espnImportBody("123", "")).toEqual({ leagueId: "123" });
+    expect(espnImportBody("123", "   ")).toEqual({ leagueId: "123" });
+    // No `espnS2` key at all - the route validates any present value.
+    expect("espnS2" in espnImportBody("123", "")).toBe(false);
+  });
+
+  it("adds the trimmed cookie when one was pasted", () => {
+    expect(espnImportBody("123", "  AEBabc123  ")).toEqual({
+      leagueId: "123",
+      espnS2: "AEBabc123",
+    });
+  });
+});
+
+describe("espnAuthCodeHint", () => {
+  it("explains the per-season public toggle for the anonymous codes", () => {
+    expect(espnAuthCodeHint("private")).toMatch(
+      /^Making the league public on ESPN opens only the current season/,
+    );
+    expect(espnAuthCodeHint("current-season-only")).toMatch(
+      /^Keep the league public on ESPN/,
+    );
+  });
+
+  it("adds nothing for a cookie-path rejection - the route message carries the remedy", () => {
+    expect(espnAuthCodeHint("cookies-rejected")).toBeNull();
   });
 });
 

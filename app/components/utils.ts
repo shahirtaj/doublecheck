@@ -9,6 +9,7 @@ import type {
 } from "@/lib/algorithm";
 import { CURRENT_YEAR, MAX_IMPORT_SEASONS } from "./constants";
 import type {
+  EspnAuthCode,
   FailedImportSeason,
   ImportPlatform,
   ImportedSeasonRecord,
@@ -383,6 +384,35 @@ export function importSeasonsParam(format: SelectedFormat | null): number {
   if (!format) return MAX_IMPORT_SEASONS;
   const { lookback } = describeFormat(format.teamCount, format.weekCount);
   return Math.min(lookback.hard + lookback.soft + 1, MAX_IMPORT_SEASONS);
+}
+
+// Body for a POST to the ESPN import route. The espn_s2 cookie rides along
+// only when the user pasted one - an empty field must produce exactly the
+// anonymous `{ leagueId }` body, so a public-league import never carries
+// an `espnS2` key the route would have to validate.
+export function espnImportBody(
+  leagueId: string,
+  espnS2: string,
+): { leagueId: string; espnS2?: string } {
+  const cookie = espnS2.trim();
+  return cookie ? { leagueId, espnS2: cookie } : { leagueId };
+}
+
+// Sentence appended to the cookie section's instructions for the ESPN auth
+// code that opened it. The two anonymous codes address the "make it public"
+// remedy the user is likely to try: ESPN's public toggle is per-season, so
+// it can't open the prior seasons this import needs, but it does mean next
+// year's import can go without a cookie. A cookie-path rejection already
+// carries its remedy in the route's error message.
+export function espnAuthCodeHint(code: EspnAuthCode): string | null {
+  switch (code) {
+    case "private":
+      return "Making the league public on ESPN opens only the current season, so it won't fix this import - but future seasons should then import without a cookie.";
+    case "current-season-only":
+      return "Keep the league public on ESPN and future seasons should import without a cookie.";
+    case "cookies-rejected":
+      return null;
+  }
 }
 
 // Decide which imported seasons survive a partial import. buildAvoidMap ages

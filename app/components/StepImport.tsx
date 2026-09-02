@@ -9,18 +9,21 @@ import {
   type SeasonHistory,
 } from "@/lib/algorithm";
 import { cls, statusToneClass } from "./styles";
-import type {
-  FailedImportSeason,
-  ImportPlatform,
-  ImportSource,
-  ImportedSeasonRecord,
-  SelectedFormat,
-  SleeperLeagueOption,
-  YahooLeagueOption,
+import {
+  isEspnAuthCode,
+  type FailedImportSeason,
+  type ImportPlatform,
+  type ImportSource,
+  type ImportedSeasonRecord,
+  type SelectedFormat,
+  type SleeperLeagueOption,
+  type YahooLeagueOption,
 } from "./types";
 import {
   buildImportedHistoryRows,
   describeWithholdingGap,
+  espnAuthCodeHint,
+  espnImportBody,
   importSeasonsParam,
   detectFormatFromImport,
   extractSlug,
@@ -125,8 +128,10 @@ export function ImportSections(props: ImportSectionsProps) {
     shareLinkInput,
     importStatus,
     importMsg,
-    importHelpUrl,
     importPreview,
+    espnS2,
+    espnS2Visible,
+    espnAuthCode,
     linkPreview,
     yahooLeagues,
     selectedYahooLeague,
@@ -259,14 +264,15 @@ export function ImportSections(props: ImportSectionsProps) {
   // One POST round trip to an import route. Returns the parsed body, or
   // STALE when the response should be discarded (the caller returns
   // immediately). Non-OK responses throw the route's error message for the
-  // caller's catch; captureHelpUrl forwards an error body's helpUrl into
-  // state first (the ESPN private-league instructions link).
+  // caller's catch. ESPN responses also mirror the error body's `code` into
+  // espnAuthCode - which opens the cookie section - and clear it on any
+  // other outcome so a stale prompt never outlives the response that raised
+  // it.
   async function postSeasonsRequest(
     plat: ImportPlatform,
     seasons: number,
     body: Record<string, unknown>,
     stale: () => boolean,
-    captureHelpUrl: boolean,
   ): Promise<unknown> {
     const res = await fetch(`/api/import/${plat}?seasons=${seasons}`, {
       method: "POST",
@@ -276,10 +282,12 @@ export function ImportSections(props: ImportSectionsProps) {
     if (stale()) return STALE;
     const data = await res.json();
     if (stale()) return STALE;
+    if (plat === "espn") {
+      patch({
+        espnAuthCode: !res.ok && isEspnAuthCode(data?.code) ? data.code : null,
+      });
+    }
     if (!res.ok) {
-      if (captureHelpUrl && typeof data?.helpUrl === "string") {
-        patch({ importHelpUrl: data.helpUrl });
-      }
       throw new Error(data?.error || `Request failed (HTTP ${res.status}).`);
     }
     return data;
@@ -295,16 +303,9 @@ export function ImportSections(props: ImportSectionsProps) {
     plat: ImportPlatform,
     body: Record<string, unknown>,
     stale: () => boolean,
-    captureHelpUrl = false,
     sourceId: string | null = null,
   ): Promise<void> {
-    const data = await postSeasonsRequest(
-      plat,
-      requestSeasons,
-      body,
-      stale,
-      captureHelpUrl,
-    );
+    const data = await postSeasonsRequest(plat, requestSeasons, body, stale);
     if (data === STALE) return;
     const refetchSize = previewFetchedSeasons(
       plat,
@@ -315,13 +316,7 @@ export function ImportSections(props: ImportSectionsProps) {
     if (refetchSize === null) return;
     let second: unknown = null;
     try {
-      second = await postSeasonsRequest(
-        plat,
-        refetchSize,
-        body,
-        stale,
-        captureHelpUrl,
-      );
+      second = await postSeasonsRequest(plat, refetchSize, body, stale);
     } catch {
       // This catch follows awaits, so the mandatory stale check applies
       // before anything below touches shared state - a rejected refetch
@@ -351,6 +346,7 @@ export function ImportSections(props: ImportSectionsProps) {
       shareLinkInput: "",
       importStatus: "",
       importMsg: "",
+      espnAuthCode: null,
       sleeperLeagues: null,
       selectedSleeperLeague: "",
     });
@@ -437,9 +433,10 @@ export function ImportSections(props: ImportSectionsProps) {
     try {
       await fetchSeasonsIntoPreview(
         platform,
-        { leagueId: input },
+        platform === "espn"
+          ? espnImportBody(input, espnS2)
+          : { leagueId: input },
         stale,
-        true,
         input,
       );
     } catch (e) {
@@ -469,7 +466,6 @@ export function ImportSections(props: ImportSectionsProps) {
         "sleeper",
         { leagueId: specificLeagueId },
         stale,
-        false,
         specificLeagueId,
       );
     } catch (e) {
@@ -503,9 +499,8 @@ export function ImportSections(props: ImportSectionsProps) {
     try {
       await fetchSeasonsIntoPreview(
         "espn",
-        { leagueId: storedId },
+        espnImportBody(storedId, espnS2),
         stale,
-        true,
         storedId,
       );
     } catch (e) {
@@ -561,7 +556,6 @@ export function ImportSections(props: ImportSectionsProps) {
         "sleeper",
         { leagueId: resolved },
         stale,
-        false,
         resolved,
       );
     } catch (e) {
@@ -610,13 +604,7 @@ export function ImportSections(props: ImportSectionsProps) {
       importPreview: null,
     });
     try {
-      await fetchSeasonsIntoPreview(
-        "yahoo",
-        { leagueKey },
-        stale,
-        false,
-        leagueKey,
-      );
+      await fetchSeasonsIntoPreview("yahoo", { leagueKey }, stale, leagueKey);
     } catch (e) {
       if (stale()) return;
       patch({
@@ -698,12 +686,6 @@ export function ImportSections(props: ImportSectionsProps) {
     void fetchYahooLeagues();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingYahooConnect]);
-
-  // Clear the ESPN private-league help link as soon as the status moves out of
-  // error so a fresh attempt doesn't render stale guidance.
-  useEffect(() => {
-    if (importStatus !== "error") patch({ importHelpUrl: null });
-  }, [importStatus, patch]);
 
   function handleApplyImport() {
     if (!importPreview || importPreview.seasons.length === 0) return;
@@ -1112,7 +1094,9 @@ export function ImportSections(props: ImportSectionsProps) {
                   fantasy.espn.com/football/league?leagueId=
                   <strong>YOUR_ID</strong>
                 </code>{" "}
-                (public leagues only - for private leagues, use Manual import).
+                (private leagues need your{" "}
+                <code className="font-mono">espn_s2</code> cookie - DoubleCheck
+                asks for it only when the import needs it).
               </>
             ) : platform === "manual" ? (
               <>
@@ -1145,6 +1129,11 @@ export function ImportSections(props: ImportSectionsProps) {
                   importPreview: null,
                   importStatus: "",
                   importMsg: "",
+                  // The cookie is a full ESPN sign-in: it lives only as long
+                  // as the ESPN selection does.
+                  espnS2: "",
+                  espnAuthCode: null,
+                  espnS2Visible: false,
                   yahooLeagues: null,
                   selectedYahooLeague: "",
                   sleeperLeagues: null,
@@ -1359,31 +1348,94 @@ export function ImportSections(props: ImportSectionsProps) {
             )}
           </div>
 
-          {importStatus === "error" && importHelpUrl ? (
-            <p className={`text-[11px] mt-2 ${statusToneClass(importStatus)}`}>
-              This ESPN league is private. Temporarily make your league public (
-              <a
-                href={importHelpUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-slate-300 underline hover:text-slate-200"
-              >
-                see instructions
-              </a>
-              ), then try again. Or, use Manual import without changing any ESPN
-              settings.
+          {importMsg && !importPreview && !linkPreview && (
+            <p
+              className={`text-[11px] mt-2 text-center ${statusToneClass(importStatus)}`}
+            >
+              {importMsg}
             </p>
-          ) : (
-            importMsg &&
-            !importPreview &&
-            !linkPreview && (
-              <p
-                className={`text-[11px] mt-2 text-center ${statusToneClass(importStatus)}`}
-              >
-                {importMsg}
-              </p>
-            )
           )}
+
+          {/* espn_s2 cookie section. Opens when the ESPN route answers with
+              an auth code (see ESPN_AUTH_CODES) and stays open while a
+              cookie is in the field, so a retained cookie is always visible
+              and editable - clearing the field is how the user imports
+              without it. The input is a CSS-masked text field rather than
+              type="password" so browsers don't offer to save the cookie. */}
+          {platform === "espn" &&
+            importSource === "espn" &&
+            (espnAuthCode !== null || espnS2.trim() !== "") && (
+              <div className="mt-3 pt-3 border-t border-slate-700">
+                <div className={cls.sectionTitle}>ESPN Cookie</div>
+                <p className={cls.hint}>
+                  {espnAuthCode !== null ? (
+                    <>
+                      On a desktop browser signed in to ESPN, open{" "}
+                      <code className="font-mono">fantasy.espn.com</code>, then
+                      your browser&apos;s developer tools (F12). Under the
+                      Application tab (Chrome, Edge) or Storage tab (Firefox,
+                      Safari), open Cookies, then{" "}
+                      <code className="font-mono">fantasy.espn.com</code>, and
+                      copy the <code className="font-mono">espn_s2</code> value.
+                      The cookie is your ESPN sign-in - DoubleCheck sends it to
+                      ESPN with the fetch and never stores it.
+                    </>
+                  ) : (
+                    <>
+                      Your <code className="font-mono">espn_s2</code> cookie is
+                      sent with each fetch and never stored. Clear the field to
+                      import without it.
+                    </>
+                  )}
+                  {espnAuthCode !== null && espnAuthCodeHint(espnAuthCode) && (
+                    <> {espnAuthCodeHint(espnAuthCode)}</>
+                  )}
+                </p>
+                <div className="flex flex-wrap gap-2 items-stretch justify-center">
+                  <input
+                    type="text"
+                    className={`${cls.leagueInput} font-mono ${
+                      espnS2Visible ? "" : "[-webkit-text-security:disc]"
+                    }`}
+                    value={espnS2}
+                    onChange={(e) => {
+                      patch({
+                        espnS2: e.target.value,
+                        ...(importStatus
+                          ? { importStatus: "", importMsg: "" }
+                          : {}),
+                      });
+                    }}
+                    placeholder="Paste your espn_s2 value"
+                    aria-label="espn_s2 cookie"
+                    autoComplete="off"
+                    spellCheck={false}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    data-1p-ignore
+                    data-lpignore="true"
+                    data-bwignore
+                    data-form-type="other"
+                  />
+                  <button
+                    type="button"
+                    className={cls.secondaryBtn}
+                    onClick={() => patch({ espnS2Visible: !espnS2Visible })}
+                  >
+                    {espnS2Visible ? "Hide" : "Show"}
+                  </button>
+                  <button
+                    className={cls.primaryBtn}
+                    onClick={handleFetch}
+                    disabled={!espnS2.trim() || !leagueId.trim() || importBusy}
+                  >
+                    {importStatus === "loading"
+                      ? "Fetching…"
+                      : "Fetch with cookie"}
+                  </button>
+                </div>
+              </div>
+            )}
         </div>
       )}
 
