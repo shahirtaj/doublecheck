@@ -25,6 +25,15 @@ updates:
       # upgrade - revisit then.
       - dependency-name: "eslint"
         update-types: ["version-update:semver-major"]
+      # TypeScript 7 ships the native compiler without the JS compiler API
+      # (expected back in 7.1), and eslint-config-next's bundled
+      # typescript-eslint throws on load without it - lint crashes
+      # outright. tsc --noEmit, vitest, and next build (from Next 16.3)
+      # all pass, so lint is the only blocker. Waits for a TS 7-capable
+      # typescript-eslint to reach eslint-config-next - revisit when its
+      # typescript-eslint dependency admits typescript 7.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
