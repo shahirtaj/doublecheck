@@ -1064,6 +1064,11 @@ export function ImportSections(props: ImportSectionsProps) {
                 <button
                   className={cls.primaryBtn}
                   onClick={() => {
+                    // Deliberate full-document navigation - the start route
+                    // sets the OAuth state cookie and 307s to Yahoo, and only
+                    // a top-level navigation lands the user there (see
+                    // app/api/auth/yahoo/start/route.ts).
+                    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
                     window.location.href = "/api/auth/yahoo/start";
                   }}
                   disabled={importBusy}
