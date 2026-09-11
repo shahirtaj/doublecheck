@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Next 16.3+'s dev server appends a managed "nextjs-agent-rules" block to
+  // CLAUDE.md whenever it detects an AI coding agent (Claude Code shells
+  // export CLAUDECODE and AI_AGENT) - CLAUDE.md is hand-maintained, so opt out.
+  agentRules: false,
   async headers() {
     return [
       {
